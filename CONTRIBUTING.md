@@ -122,6 +122,7 @@ Describe clear steps on how to verify that the integration is working as expecte
 
 List any official documentation, blog posts, or resources that were used as references for building this integration. Provide links where possible.
 
+```
 
 ## Submitting Your Pull Request
 
