@@ -128,14 +128,14 @@ List any official documentation, blog posts, or resources that were used as refe
 
 Once your integration is ready and adheres to the above guidelines:
 
-Commit Your Changes: Commit your changes with a clear and concise commit message.
+- Commit Your Changes: Commit your changes with a clear and concise commit message.
 
-Push to Your Fork: Push your branch to your forked repository on GitHub.
+- Push to Your Fork: Push your branch to your forked repository on GitHub.
 
-Open a Pull Request: Go to the original Wazuh Integrations repository on GitHub and open a new Pull Request from your branch.
+- Open a Pull Request: Go to the original Wazuh Integrations repository on GitHub and open a new Pull Request from your branch.
 
-Provide a Clear Description: In your Pull Request description, briefly explain what your integration does and ensure it meets the outlined requirements.
+- Provide a Clear Description: In your Pull Request description, briefly explain what your integration does and ensure it meets the outlined requirements.
 
-Address Feedback: Be prepared to address any feedback or review comments from the maintainers.
+- Address Feedback: Be prepared to address any feedback or review comments from the maintainers.
 
 We appreciate your contributions!
