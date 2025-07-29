@@ -1,0 +1,248 @@
+<!-- Modify it at your will. -->
+
+<group name="meraki,">
+
+<rule id="100900" level="0">
+  <decoded_as>meraki</decoded_as>
+  <description>meraki messages grouped</description>
+</rule>
+
+<rule id="100901" level="3">
+  <if_sid>100900</if_sid>
+  <field name="classification" >events</field>
+  <description>meraki alerts with $(classification) classification</description>
+  <group>events,</group>
+</rule>
+
+<rule id="100902" level="3">
+  <if_sid>100900</if_sid>
+  <field name="classification">urls</field>
+  <description>meraki alert, $(request) from $(src_port) to $(dst_port)</description>
+  <group>urls,</group>
+</rule>
+
+<rule id="100903" level="3">
+  <if_sid>100900</if_sid>
+  <field name="classification" >flows</field>
+  <description>meraki alert, a new IP session initiated</description>
+  <group>flows,</group>
+</rule>
+
+<rule id="100904" level="3">
+  <if_sid>100900</if_sid>
+  <field name="classification" >ids-alerts</field>
+  <description>meraki alerts with $(classification) classification</description>
+  <group>ids-alerts,</group>
+</rule>
+
+<!-- Cambios group - if_sid todas -->
+<rule id="100905" level="5">
+  <if_sid>100901</if_sid>
+  <field name="dhcp_status" >dhcp no offers|dhcp lease</field>
+  <description>meraki alert, $(dhcp_status) for $(mac) and host $(host)$(server_ip)</description>
+  <group>events,</group>
+</rule>
+
+<rule id="100906" level="5">
+  <if_sid>100901</if_sid>
+  <field name="uplink_status" >Cellular connection|failover to</field>
+  <description>meraki alert, $(uplink_status)</description>
+  <group>events,</group>
+</rule>
+
+<rule id="100907" level="5">
+  <if_sid>100901</if_sid>
+  <field name="type" >vpn</field>
+  <description>meraki alert, $(type) contact $(peer_contact)</description>
+  <group>events,</group>
+</rule>
+
+<rule id="100908" level="5">
+  <if_sid>100901</if_sid>
+  <field name="type" >vpn_connectivity_change</field>
+  <description>meraki alert, $(type) contact $(peer_contact)</description>
+  <group>events,</group>
+</rule>
+
+<rule id="100911" level="3">
+  <if_group>events|urls|flows|ids-alerts</if_group>
+  <field name="priority" >4</field>
+  <description>meraki $(classification) alerts with $(priority) priority</description>
+  <group>very low priority,</group>
+</rule>
+
+<rule id="100912" level="3">
+  <if_group>events|urls|flows|ids-alerts</if_group>
+  <field name="priority" >3</field>
+  <description>meraki $(classification) alerts with $(priority) priority</description>
+  <group>low priority,</group>
+</rule>
+
+<rule id="100913" level="5">
+  <if_group>events|urls|flows|ids-alerts</if_group>
+  <field name="priority" >2</field>
+  <description>meraki $(classification) alerts with $(priority) priority</description>
+  <group>medium priority,</group>
+</rule>
+
+<rule id="100914" level="10">
+  <if_group>events|urls|flows|ids-alerts</if_group>
+  <field name="priority" >1</field>
+  <description>meraki $(classification) alerts with $(priority) priority</description>
+  <group>high priority,</group>
+</rule>
+
+<!-- ########### Meraki Firewall Rules Type 2 ########### -->
+
+
+<rule id="100952" level="7">
+  <if_sid>100901</if_sid>
+  <field name="vpn_isakmp" >purging ISAKMP-SA|purged ISAKMP-SA</field>
+  <description>meraki alerts site to site VPN $(vpn_isakmp)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<rule id="100953" level="7">
+  <if_sid>100901</if_sid>
+  <field name="vpn_isakmp_deleted" >ISAKMP-SA deleted</field>
+  <description>meraki alerts site to site VPN $(vpn_isakmp_deleted)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<rule id="100954" level="5">
+  <if_sid>100901</if_sid>
+  <field name="vpn_request_queue" >IPsec-SA request</field>
+  <description>meraki alerts site to site VPN $(vpn_request_queue)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<rule id="100955" level="5">
+  <if_sid>100901</if_sid>
+  <field name="f_sainfo" >get sainfo|pre-process</field>
+  <description>meraki alerts site to site VPN $(f_sainfo)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<rule id="100956" level="5">
+  <if_sid>100901</if_sid>
+  <field name="f_phase2" >phase2 negotiation</field>
+  <description>meraki alerts site to site VPN $(f_phase2)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<rule id="100957" level="5">
+  <if_sid>100901</if_sid>
+  <field name="neg_initiate" >initiate new phase</field>
+  <description>meraki alerts site to site VPN $(neg_initiate)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<rule id="100958" level="3">
+  <if_sid>100901</if_sid>
+  <field name="vpn_isakmp_estab">ISAKMP-SA established</field>
+  <description>meraki alerts site to site VPN $(vpn_isakmp_estab)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<rule id="100959" level="3">
+  <if_sid>100901</if_sid>
+  <field name="ipsec_sa">IPsec-SA established</field>
+  <description>meraki alerts site to site VPN $(ipsec_sa)</description>
+  <group>site_to_site_vpn,</group>
+</rule>
+
+<!-- ########### Meraki Access Point Rules ########### -->
+
+<!-- quitar los duplicados --> 
+<!-- Probar en agente con log -->
+
+<rule id="101004" level="3">
+  <if_group>events|urls|flows</if_group>
+  <field name="type" >wpa_auth|8021x_eap_success|splash_auth</field>
+  <description>meraki access point $(type) succcess</description>
+  <group>authentication_success,</group>
+</rule>
+
+<rule id="101005" level="7">
+  <if_group>events|urls|flows</if_group>
+  <field name="type" >wpa_deauth|8021x_deauth</field>
+  <description>meraki access point $(type) deauthenticated</description>
+  <group>deauthentication,</group>
+</rule>
+
+<rule id="101006" level="7">
+  <if_group>events|urls|flows</if_group>
+  <field name="type" >disassociation|8021x_eap_failure</field>
+  <description>meraki access point $(type), failed authentication</description>
+  <group>failed_authentication,</group>
+</rule>
+
+<rule id="101011" level="10" frequency="8" timeframe="120">
+  <if_matched_sid>101005</if_matched_sid>
+  <description>meraki ap deauthentication attack attempt</description>
+  <group>deauthentication,</group>
+</rule>
+
+<rule id="101012" level="10" frequency="8" timeframe="120">
+  <if_matched_sid>101005</if_matched_sid>
+  <description>meraki ap disassociation attack attempt</description>
+  <group>failed_authentication,</group>
+</rule>
+
+<rule id="101013" level="12">
+  <if_sid>100900</if_sid>
+  <field name="state" >start</field>
+  <description>meraki access point wireless packet flood detected</description>
+  <group>packet_flood,</group>
+</rule>
+
+<rule id="101014" level="3">
+  <if_sid>100900</if_sid>
+  <field name="state">end</field>
+  <description>meraki access point wireless packet flood ended</description>
+  <group>packet_flood,</group>
+</rule>
+
+<rule id="101015" level="3">
+  <if_sid>100902</if_sid>
+  <description>meraki alerts, $(request) from $(src_port) to $(dst_port) </description>
+  <group>urls_request,</group>
+</rule>
+
+<rule id="101016" level="3">
+  <if_sid>100903</if_sid>
+  <field name="flow_status">allow</field>
+  <description>meraki access point $(classification) has been $(flow_status) from $(src) to $(dst) </description>
+  <group>flow_status,</group>
+</rule>
+
+<rule id="101017" level="5">
+  <if_sid>100903</if_sid>
+  <field name="flow_status">deny</field>
+  <description>meraki access point $(classification) has been $(flow_status) from $(src) to $(dst) </description>
+  <group>flow_status,</group>
+</rule>
+
+<!-- ########### Meraki Air Marshall AP Rules ########### -->
+
+<rule id="101050" level="0">
+  <decoded_as>meraki_ap_type2</decoded_as>
+  <description>meraki access point messages grouped</description>
+</rule>
+
+<rule id="101051" level="7">
+  <if_sid>101050</if_sid>
+  <field name="type" >rogue_ssid_detected</field>
+  <description>meraki ap air marshall events alert on $(type) from $(src) to $(dst)</description>
+  <group>rogue_ssid_detected,</group>
+</rule>
+
+<rule id="101052" level="7">
+  <if_sid>101050</if_sid>
+  <field name="type" >ssid_spoofing_detected</field>
+  <description>meraki ap air marshall events alert on $(type) from $(src) to $(dst)</description>
+  <group>ssid_spoofing_detected,</group>
+</rule>
+
+
+</group>
