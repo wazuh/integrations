@@ -15,9 +15,9 @@ To contribute a new integration, follow these steps:
     * **Integration directory names must be lowercase and underscore_separated** (e.g., `misp_integration`, `fortigate_firewall`).
     * This directory will house all files related to your integration.
 4.  **Populate Your Integration Directory**:
-    * Include all necessary Wazuh components (rules, decoders, active responses, SCA policies, threat intelligence configurations, dashboards). Refer to the main `README.md` for the expected sub-folder structure (`ruleset/`, `active-response/`, `sca/`, `threat-intel/`, `dashboards/`).
-    * If your integration requires **images** (e.g., screenshots for configuration steps), create an `images/` subdirectory within your integration's main folder (e.g., `integrations/<your-integration-name>/images/`). Reference these images in your `README.md` relative to the `images/` folder.
-    * Include any other necessary files, such as Python scripts or configuration files, directly in the integration's main directory or a logical subdirectory if needed.
+    * Include all necessary Wazuh components (rules, decoders, active responses, SCA policies, threat intelligence configurations, dashboards). Refer to the main `README.md` for the expected sub-folder structure (`ruleset/`, `active_response/`, `sca/`, `threat_intel/`, `dashboards/`).
+    * If your integration requires **images** (e.g., screenshots for configuration steps), create an `images/` subdirectory within your integration's main folder (e.g., `integrations/<your_integration_name>/images/`). Reference these images in your `README.md` relative to the `images/` folder.
+    * Include any other necessary files, such as Python scripts or configuration files, directly in the integration's main directory or a logical subdirectory if needed. Wazuh script integrations should be named `custom-integration`. For instance, `custom-splunk.py`
 5.  **Create the Integration's `README.md`**: Each integration **must** include its own `README.md` file within its directory. This `README.md` should clearly explain the integration and its setup.
 
 ## Integration `README.md` Structure
