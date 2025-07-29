@@ -1,0 +1,616 @@
+<!-- Modify it at your will. -->
+
+<!-- 1380653443.857790533 MR18 events type=association radio='0' vap='1' channel='6' rssi='23' aid='1813578850' -->
+
+<decoder name="meraki">
+  <prematch>^\s*\d+.\d+\s\w+\s\w+|^\w+\s\d+\s\d+:\d+:\d+\s\d+.\d+.\d+.\d+\s\d\s\d+.\d+\s\w+\s\w+</prematch>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex>^(\s*\d+.\d+)\s(\w+)\s(\w+)</regex>
+  <order>unix_time,hostname,classification</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex>^(\s*\w+\s\d+\s\d+:\d+:\d+)\s(\d+.\d+.\d+.\d+)\s\d+\s(\d+.\d+)\s(\w+)\s(\w+)</regex>
+  <order>system_time,system_ip,unix_time,hostname,classification</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">type=(\w+)</regex>
+  <order>type</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">radio='(\d+)'</regex>
+  <order>radio</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">vap='(\d+)'</regex>
+  <order>vap</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">channel='(\d+)'</regex>
+  <order>channel</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">rssi='(\d+)'</regex>
+  <order>rssi</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">aid='(\d+)'</regex>
+  <order>aid</order>
+</decoder>
+
+<!-- 1380653443.857790533 MR18 events type=disassociation radio='0' vap='1' channel='6' reason='8' instigator='2' duration='11979.728000' auth_neg_dur='1380653443.85779053324000' last_auth_ago='5.074000' is_wpa='1' full_conn='1.597000' ip_resp='1.597000' ip_src='192.168.111.251' arp_resp='1.265000' arp_src='192.168.111.251' dns_server='192.168.111.1' dns_req_rtt='1380653443.85779053335000' dns_resp='1.316000' aid='1813578850' -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">reason='(\w+)'</regex>
+  <order>reason</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">instigator='(\d+)'</regex>
+  <order>instigator</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex type='pcre2'>duration='(\d+(.\d+)*)'</regex>
+  <order>duration</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">auth_neg_dur='(\d+.\d+)'</regex>
+  <order>auth_neg_dur</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">last_auth_ago='(\d+.\d+)'</regex>
+  <order>last_auth_ago</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">is_wpa='(\d+)'</regex>
+  <order>is_wpa</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">full_conn='(\d+.\d+)'</regex>
+  <order>full_conn</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">ip_resp='(\d+.\d+)'</regex>
+  <order>ip_resp</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">ip_src='(\d+.\d+.\d+.\d+)'</regex>
+  <order>ip_src</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">arp_resp='(\d+.\d+)'</regex>
+  <order>arp_resp</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">arp_src='(\d+.\d+.\d+.\d+)'</regex>
+  <order>arp_src</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dns_server='(\d+.\d+.\d+.\d+)'</regex>
+  <order>dns_server</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dns_req_rtt='(\d+.\d+)'</regex>
+  <order>dns_req_rtt</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dns_resp='(\d+.\d+)'</regex>
+  <order>dns_resp</order>
+</decoder>
+
+<!-- 1380653443.857790533 MR18 events type=disassociation radio='0' vap='3' channel='6' reason='2' instigator='3' duration='6.003000' auth_neg_failed='1' is_wpa='1' aid='113930199' -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">auth_neg_failed='(\d+)'</regex>
+  <order>auth_neg_failed</order>
+</decoder>
+
+<!-- 1380653443.857790533 MR18 events type=8021x_eap_failure radio='0' vap='3' identity='woody8@gmail.com' aid='1701992265' -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex type="pcre2">identity='((\S+)@([\w\d]+[\.\w\d]*))'</regex>
+  <order>identity</order>
+</decoder>
+
+<!-- 1380653443.857790533 MR18 events type=splash_auth ip='10.87.195.250 [More Information] ' duration='3600' vap='2' download='5242880bps' upload='5242880bps' -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">ip='(\d+.\d+.\d+.\d+)</regex>
+  <order>ip</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">download='(\d+\w*)'</regex>
+  <order>download</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">upload='(\d+\w*)'</regex>
+  <order>upload</order>
+</decoder>
+
+<!-- 1380653443.857790533 MR18 events type=device_packet_flood packet='deauth' device='00:18:0A:27:43:80' radio='0' state='start' alarm_id='4' dos_count='25' inter_arrival='10000'-->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">packet='(\w+)'</regex>
+  <order>packet</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">device='(\w+:\w+:\w+:\w+:\w+:\w+)'</regex>
+  <order>device</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">state='(\w+)'</regex>
+  <order>state</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">alarm_id='(\d+)'</regex>
+  <order>alarm_id</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dos_count='(\d+)'</regex>
+  <order>dos_count</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">inter_arrival='(\d+)'</regex>
+  <order>inter_arrival</order>
+</decoder>
+
+<!-- 	1380653443.857790533 MR18 flows allow src=192.168.111.253 dst=192.168.111.5 mac=F8:1E:DF:E2:EF:F1 protocol=tcp sport=54252 dport=80 -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">mac=(\w+:\w+:\w+:\w+:\w+:\w+)</regex>
+  <order>mac</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">\ssrc=(\d+.\d+.\d+.\d+)\s</regex>
+  <order>src</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">\sdst=(\d+.\d+.\d+.\d+)\s</regex>
+  <order>dst</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">protocol=(\w+)</regex>
+  <order>protocol</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">sport=(\d+)</regex>
+  <order>sport</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dport=(\d+)</regex>
+  <order>dport</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">(allow)|(deny)</regex>
+  <order>flow_status</order>
+</decoder>
+
+
+<!-- 1380653443.857790533 MR18 urls src=192.168.111.253:50215 dst=204.154.94.81:443 mac=F8:1E:DF:E2:EF:F1 request: UNKNOWN https://www.evernote.com/ -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex type="pcre2">request:\s(\w+\s(http|ftp|https):\/\/([\w+?.\w+])+([\S]*)?)|((http|ftp|https):\/\/([\S]*)?)</regex>
+  <order>request</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">src=(\d+.\d+.\d+.\d+:\d+)</regex>
+  <order>src_port</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dst=(\d+.\d+.\d+.\d+:\d+)</regex>
+  <order>dst_port</order>
+</decoder>
+
+<!-- =============================================== Type 2 Meraki Air Marshal=============================================== -->
+<!-- airmarshal_events type=rogue_ssid_detected ssid='' bssid='02:18:5A:AE:56:00' src='02:18:5A:AE:56:00' dst='02:18:6A:13:09:D0' wired_mac='00:18:0A:AE:56:00' vlan_id='0' channel='157' rssi='21' fc_type='0' fc_subtype='5' -->
+
+<decoder name="meraki_ap_type2">
+  <prematch>airmarshal_events</prematch>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">type=(\w+)</regex>
+  <order>type</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">ssid='(\w+)'</regex>
+  <order>ssid</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">bssid='(\w+:\w+:\w+:\w+:\w+:\w+)'</regex>
+  <order>bssid</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">src='(\w+:\w+:\w+:\w+:\w+:\w+)'</regex>
+  <order>src</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">dst='(\w+:\w+:\w+:\w+:\w+:\w+)'</regex>
+  <order>dst</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">wired_mac='(\w+:\w+:\w+:\w+:\w+:\w+)'</regex>
+  <order>wired_mac</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">vlan_id='(\d+)'</regex>
+  <order>vlan_id</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">channel='(\d+)'</regex>
+  <order>channel</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">rssi='(\d+)'</regex>
+  <order>rssi</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">fc_type='(\d+)'</regex>
+  <order>fc_type</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">fc_subtype='(\d+)'</regex>
+  <order>fc_subtype</order>
+</decoder>
+
+<decoder name="meraki_ap_type2_child">
+  <parent>meraki_ap_type2</parent>
+  <regex offset="after_parent">vap='(\d+)'</regex>
+  <order>vap</order>
+</decoder>
+
+<!-- ======================================================================================================================================================================== -->
+
+<!-- 1380664922.583851938 MX84 events type=vpn_connectivity_change vpn_type='site-to-site' peer_contact='98.68.191.209:51856' peer_ident='2814ee002c075181bb1b7478ee073860' connectivity='false' -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">vpn_type='(\w+)'</regex>
+  <order>vpn_type</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">peer_contact='(\d+.\d+.\d+.\d+:\d+)'</regex>
+  <order>peer_contact</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">connectivity='(true)|(false)|(null)'</regex>
+  <order>connectivity</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">peer_ident='(\w+)'</regex>
+  <order>peer_ident</order>
+</decoder>
+
+<!-- Dec 6 08:46:12 192.168.1.1 1 1386337584.254756845 MX84 events Cellular connection down -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex type='pcre2'>events\s((\w+\s*)*)$</regex>
+  <order>uplink_status</order>
+</decoder>
+
+<!-- DHCP NO OFFERS | DHCP LEASE -->
+<!-- Sep 11 16:12:41 192.168.10.1 1 1599865961.535491111 MX84 events dhcp no offers for mac A4:83:E7:XX:XX:XX host = 192.168.10.1 -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">(dhcp\sno\soffers)|(dhcp\slease)</regex>
+  <order>dhcp_status</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">mac\s(\w+:\w+:\w+:\w+:\w+:\w+)</regex>
+  <order>mac</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">host\s=\s(\d+.\d+.\d+.\d+)</regex>
+  <order>host</order>
+</decoder>
+
+<!-- Sep 11 16:05:15 192.168.10.1 1 1599865515.687171503 MX84 events dhcp lease of ip 192.168.10.68 from server mac E0:CB:BC:0F:XX:XX for client mac 8C:16:45:XX:XX:XX from router 192.168.10.1 on subnet 255.255.255.0 with dns 8.8.8.8, 8.8.4.4 -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">ip\s(\d+.\d+.\d+.\d+)</regex>
+  <order>server_ip</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">server\smac\s(\w+:\w+:\w+:\w+:\w+:\w+)</regex>
+  <order>server_mac</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">client\smac\s(\w+:\w+:\w+:\w+:\w+:\w+)</regex>
+  <order>client_mac</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">router\s(\d+.\d+.\d+.\d+)</regex>
+  <order>router_ip</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">subnet\s(\d+.\d+.\d+.\d+)</regex>
+  <order>subnet_mask</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex type='pcre2'>dns\s((\d+.\d+.\d+.\d+)(,\s\d+.\d+.\d+.\d+)*)</regex>
+  <order>dns</order>
+</decoder>
+
+<!-- 1374543213.342705328 MX84 urls src=192.168.1.186:63735 dst=69.58.188.40:80 mac=58:1F:AA:CE:61:F2 request: GET https://google.com -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">src=(\d+.\d+.\d+.\d+)\s</regex>
+  <order>src</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dst=(\d+.\d+.\d+.\d+)\s</regex>
+  <order>dst</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex type="pcre2">request:\s(\w+\s(http|ftp|https):\/\/([\w+?.\w+])+([\S]*)?)|((http|ftp|https):\/\/([\S]*)?)</regex>
+  <order>request</order>
+</decoder>
+
+<!-- 1374543986.038687615 MX84 flows src=192.168.1.186 dst=8.8.8.8 mac=58:1F:AA:CE:61:F2 protocol=udp sport=55719 dport=53 pattern: allow all -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">protocol=(\w+)</regex>
+  <order>protocol</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">sport=(\d+)</regex>
+  <order>sport</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">dport=(\d+)</regex>
+  <order>dport</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">pattern:(\D+)</regex>
+  <order>pattern</order>
+</decoder>
+
+<!-- 1377449842.514782056 MX84 ids-alerts signature=129:4:1 priority=3 timestamp=1377449842.512569 direction=ingress protocol=tcp src=74.125.140.132:80 -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">signature=(\d+:\d+:\d+)</regex>
+  <order>signature</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">priority=(\d+)</regex>
+  <order>priority</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">timestamp=(\d+.\d+)</regex>
+  <order>timestamp</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">direction=(\w+)</regex>
+  <order>direction</order>
+</decoder>
+
+<!-- 1377448470.246576346 MX84 ids-alerts signature=119:15:1 priority=2 timestamp=1377448470.238064 direction=egress protocol=tcp/ip src=192.168.111.254:56240 -->
+
+<!-- 1578424543.894083034 labs_appliance events Site-to-site VPN: purging ISAKMP-SA spi=9d1bb66d7ddc5cf0:d98cd0ed59e82f13 -->
+<!-- 1578424543.907937833 labs_appliance events Site-to-site VPN: purged ISAKMP-SA spi=9d1bb66d7ddc5cf0:d98cd0ed59e82f13 -->
+
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex>\s(\S+\sVPN):</regex>
+  <order>type_vpn</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN:\s(purging ISAKMP-SA)|(purged ISAKMP-SA)</regex>
+  <order>vpn_isakmp</order>
+</decoder>
+
+<!-- 	1578424543.918665436 labs_appliance events Site-to-site VPN: ISAKMP-SA deleted 172.24.23.6[4500]-172.24.23.10[4500] spi:9d1bb66d7ddc5cf0:d98cd0ed59e82f13 -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN:\s(ISAKMP-SA deleted\s\S+)</regex>
+  <order>vpn_isakmp_deleted</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">spi\p(\w+:\w+)</regex>
+  <order>spi</order>
+</decoder>
+
+
+<!-- 1578424549.917669303 labs_appliance events Site-to-site VPN: IPsec-SA request for 172.24.23.10 queued due to no phase1 found -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN\p\s(\D+\d+.\d+.\d+.\d+\s\.+)</regex>
+  <order>vpn_request_queue</order>
+</decoder>
+
+<!-- 1578426208.829677788 labs_Z1 events Site-to-site VPN: failed to get sainfo -->
+<!-- 1578426208.915091184 labs_Z1 events Site-to-site VPN: failed to pre-process ph2 packet (side: 1, status: 1) -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN\p\s(failed\.+)</regex>
+  <order>f_sainfo</order>
+</decoder>
+
+<!-- 1578424408.321445408 labs_appliance events Site-to-site VPN: phase2 negotiation failed due to time up waiting for phase1. ESP 172.24.23.10[0]->172.24.23.6[0] -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN\p\s(phase2\.+)</regex>
+  <order>f_phase2</order>
+</decoder>
+
+<!-- 	1578424549.931720602 labs_appliance events Site-to-site VPN: initiate new phase 1 negotiation: 172.24.23.6[500]<=>172.24.23.10[500] -->
+<!-- 1578424550.975495647 labs_appliance events Site-to-site VPN: initiate new phase 2 negotiation: 172.24.23.6[4500]<=>172.24.23.10[4500] -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN\p\s(initiate\.+)</regex>
+  <order>neg_initiate</order>
+</decoder>
+
+<!-- 1578424550.965202127 labs_appliance events Site-to-site VPN: ISAKMP-SA established 172.24.23.6[4500]-172.24.23.10[4500] spi:fb903f191f1c7566:4dc90bd31c7884c1 -->
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN:\s(ISAKMP-SA established\s\S+)</regex>
+  <order>vpn_isakmp_estab</order>
+</decoder>
+
+<!-- 1578424551.120459981 labs_appliance events Site-to-site VPN: IPsec-SA established: ESP/Tunnel 172.24.23.6[4500]->172.24.23.10[4500] spi=241280704(0xe61a6c0) --> 
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">VPN:\s(IPsec-SA\D+\S+)</regex>
+  <order>ipsec_sa</order>
+</decoder>
+
+<decoder name="meraki-child">
+  <parent>meraki</parent>
+  <regex offset="after_parent">spi\p(\w+\p\w+\p)</regex>
+  <order>spi_hex</order>
+</decoder>
+
