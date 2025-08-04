@@ -1,0 +1,50 @@
+<!-- Mispa Custom Rules -->
+
+<group name="cortex_xdrc_agent">
+  <rule id="155300" level="0">
+    <decoded_as>cortex_xdr_agent</decoded_as>
+    <description>Cortex XDR event</description>
+  </rule>
+
+<!-- 155301 If message is Updated Successfully and agent_ip 192.168.10.50 -->
+
+  <rule id="155301" level="7">
+    <if_sid>155300</if_sid>
+    <field name="event_message">XDR Agent Policy Updated Successfully</field>
+    <field name="agent_ip">192.168.10.50</field>
+    <description>$(event_message) for $(agent_ip)</description>
+  </rule>
+
+<!-- 155302 If severity is 10 and hostname is some critical server  -->
+  
+  <rule id="155302" level="9">
+    <if_sid>155300</if_sid>
+    <field name="agent_hostname">PROD01SRVI001|PROD01SRVI002|PROD01SRVI003</field>
+    <field name="severity_1">10</field>
+    <description>Cortex XDR: Event on critical server $(agent_hostname)</description>
+  </rule>
+  
+<!-- 155303 If rule 155302 triggered 3 times in a 120" timeframe   -->
+  
+  <rule id="155303" level="11" frequency="3" timeframe="120">
+    <if_matched_sid>155302</if_matched_sid>
+    <description>Cortex XDR: High frecuency for event on critical server $(agent_hostname)</description>
+  </rule>  
+
+<!-- 155304 If the log is from Monitoring and the agent Stopped   -->
+  
+  <rule id="155304" level="5">
+    <if_sid>155300</if_sid>
+    <field name="field3">Monitoring</field>
+    <field name="event_message">XDR Agent Service Stopped</field>    
+    <description>Cortex XDR $(field3) $(agent_hostname): $(event_message)</description>
+  </rule>  
+
+<!-- 155305 If the alert_name is WildFire Malware   -->
+  
+<rule id="155305" maxsize="300" level="10">
+    <field name="alert_name">WildFire Malware</field>
+    <description>Mispa Alert from alert_name $(alert_name)</description>
+</rule>  
+   
+</group>
