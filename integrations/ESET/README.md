@@ -1,4 +1,4 @@
-### ESET-Wazuh Integration
+### ESET-Wazuh Integration (Agent-based Deployment)
 
 -----
 
@@ -6,120 +6,116 @@
 
   * [Introduction](https://www.google.com/search?q=%23introduction)
   * [Prerequisites](https://www.google.com/search?q=%23prerequisites)
-  * [Installation and Configuration](https://www.google.com/search?q=%23installation-and-configuration)
-      * [Initial ESET Configuration](https://www.google.com/search?q=%23initial-eset-configuration)
-      * [Installing and Configuring the Integration](https://www.google.com/search?q=%23installing-and-configuring-the-integration)
-  * [Integration Steps](https://www.google.com/search?q=%23integration-steps)
+  * [Initial ESET Configuration](https://www.google.com/search?q=%23initial-eset-configuration)
+  * [Installing and Configuring the Integration](https://www.google.com/search?q=%23installing-and-configuring-the-integration)
+  * [Integration Steps Summary](https://www.google.com/search?q=%23integration-steps-summary)
   * [Integration Testing](https://www.google.com/search?q=%23integration-testing)
-  * [Sources](https://www.google.com/search?q=%23sources)
 
 -----
 
-#### **Introduction**
+### Introduction
 
-This document provides a comprehensive guide for integrating the ESET PROTECT Platform with Wazuh. By combining these two powerful solutions, security teams can centralize detection data from ESET PROTECT, ESET Inspect, and ESET Cloud Office Security into their Wazuh instance. This centralized approach to security event monitoring enhances overall threat detection and response capabilities.
+This guide explains how to integrate the ESET PROTECT Platform with Wazuh by deploying the ESET integration application where the Wazuh Agent is installed. Instead of writing ESET detection logs directly to the Wazuh Manager, the integration stores them locally on the endpoint, where the agent collects and forwards them to the Manager. It uses the agent’s built-in queuing, buffering, security, and resilience to network interruptions to prevent event loss. The collected ESET events are indexed and analyzed in the Wazuh Dashboard alongside other security data.
 
-The integration operates using an API-based method. A dedicated application pulls detection data from the ESET Public API at user-defined intervals, saving this information to a local log file on the Wazuh manager machine. This process provides Wazuh with a continuous stream of ESET security events for analysis and alerting.
+### Prerequisites
 
-#### **Prerequisites**
+Before starting, ensure the following:
 
-Before starting the integration, ensure the following requirements are met:
+  * An active ESET Connect API user account created in the ESET Protect Hub with permissions for integrations.
+  * A Wazuh Agent installed on the endpoint where the ESET integration application will run, configured to communicate with your Wazuh Manager.
+  * Docker and Docker Compose installed on the endpoint with the agent.
+  * Access to the ESET integration application repository.
 
-  * An **ESET Connect API user account** must be created in the **ESET Protect Hub** with the necessary permissions for the integration.
-  * A functional **Wazuh** installation with the **manager**, **indexer**, and **dashboard** components.
-  * **Docker** and **Docker Compose** installed on the Wazuh manager machine.
+### Initial ESET Configuration
 
-#### **Installation and Configuration**
+In the ESET Protect Hub, create an API user with permissions to access ESET detection data. Enable the `Integrations` permission for this user so the application can retrieve detection events via the ESET Public API. Confirm the correct region for your ESET instance, for example: `us`, `eu`, `ca`, `de`, `jpn`.
 
-**1. Initial ESET Configuration**
+### Installing and Configuring the Integration
 
-To allow the integration application to authenticate and pull data, you must create an API user with the correct permissions. This user should be managed through the **ESET Protect Hub**, not the ESET PROTECT platform console directly.
+#### Download the Integration Application
 
-When creating the new API user, it is essential to grant it the proper permissions for integrations. Ensure the `Integrations` permission is enabled.
-
-**2. Installing and Configuring the Integration**
-
-The integration is handled by a dedicated application available on GitHub. Follow these steps to set it up.
-
-**a) Download the Integration Application**
-From the server console where Wazuh is running, clone the ESET integration app repository. This requires `sudo` privileges to run commands as the root user.
+Clone the integration repository on the endpoint where the Wazuh Agent is installed:
 
 ```bash
-git clone --branch 1.2.1 https://github.com/eset/ESET-Integration-Wazuh.git /var/ossec/integrations/ESET-Integration-Wazuh
+git clone --branch 1.2.1 https://github.com/eset/ESET-Integration-Wazuh.git /opt/eset-integration
 ```
 
-**b) Copy Custom Wazuh Rules**
-The `eset_local_rules.xml` file contains custom rules that help Wazuh identify and interpret ESET detections. These rules map most of the detections to the MITRE ATT\&CK framework. Copy this file to the Wazuh rules directory:
+#### Copy the Custom Wazuh Rules
+
+The repository includes `eset_local_rules.xml` with mappings to MITRE ATT\&CK. Copy it to the agent host rules directory so it is synchronized with the Manager:
 
 ```bash
-cp /var/ossec/integrations/ESET-Integration-Wazuh/eset_local_rules.xml /var/ossec/etc/rules
+cp /opt/eset-integration/eset_local_rules.xml /var/ossec/etc/rules
 ```
 
-**c) Create the Log File**
-Create an empty log file where the ESET detections will be stored:
+#### Create the Local Log File
+
+Create the file where the integration will write ESET detections:
 
 ```bash
 touch /var/log/eset_integration.log
 ```
 
-**d) Configure Wazuh to Ingest the Logs**
-Edit the `/var/ossec/etc/ossec.conf` file to add a new `localfile` block. This tells the Wazuh manager to read the newly created log file.
+#### Configure the Wazuh Agent to Monitor the Log File
+
+Edit the agent `ossec.conf` and add the following `localfile` block:
 
 ```xml
-<ossec_config>
-  <localfile>
-    <log_format>json</log_format>
-    <location>/var/log/eset_integration.log</location>
-  </localfile>
-</ossec_config>
+<localfile>
+  <log_format>json</log_format>
+  <location>/var/log/eset_integration.log</location>
+</localfile>
 ```
 
-**e) Configure the Integration with the .env file**
-The `.env` file stores the connection parameters for the ESET API. Create the file and edit it to include your ESET instance details and API user credentials.
+#### Configure the .env File
+
+Create `/opt/eset-integration/.env` with your ESET API parameters:
+
+```ini
+EP_INSTANCE=yes|no
+EI_INSTANCE=yes|no
+ECOS_INSTANCE=yes|no
+INTERVAL=<polling interval in minutes, min: 3>
+INSTANCE_REGION=<region code: us|eu|ca|de|jpn>
+USERNAME_INTEGRATION=<ESET API user email>
+PASSWORD_INTEGRATION=<ESET API user password>
+```
+
+#### Run the Integration Application
+
+Start the integration using Docker Compose:
 
 ```bash
-touch /var/ossec/integrations/ESET-Integration-Wazuh/.env
+docker compose --file /opt/eset-integration/docker-compose.yml up -d
 ```
 
-The variables to configure are listed below. Configure each one according to your environment.
+### Integration Steps Summary
 
-  * `EP_INSTANCE`: Set to `yes` to enable the integration with ESET PROTECT.
-  * `EI_INSTANCE`: Set to `yes` to enable the integration with ESET Inspect.
-  * `ECOS_INSTANCE`: Set to `yes` to enable the integration with ESET Cloud Office Security.
-  * `INTERVAL`: The time interval (in minutes) at which the application will poll ESET for new detections. The minimum allowed value is 3.
-  * `INSTANCE_REGION`: The region of your ESET instance. This value depends on where your ESET Protect Hub is located (e.g., `us`, `eu`, `ca`, `de`, `jpn`).
-  * `USERNAME_INTEGRATION`: The email address of the ESET Connect API user you created.
-  * `PASSWORD_INTEGRATION`: The password for the ESET Connect API user.
+  * Create the API user in ESET Protect Hub.
+  * Clone the integration on the agent endpoint.
+  * Copy the custom rules to `/var/ossec/etc/rules`.
+  * Create `/var/log/eset_integration.log`.
+  * Add the `localfile` block to the agent configuration.
+  * Populate `.env` with ESET API credentials and settings.
+  * Start the container with Docker Compose.
+  * The agent forwards detections to the Wazuh Manager.
 
-#### **Integration Steps**
+### Integration Testing
 
-1.  **Download the application** with `git clone`.
-2.  **Copy the custom rules file** to `/var/ossec/etc/rules`.
-3.  **Create the log file** with `touch`.
-4.  **Add the `localfile` configuration** to `ossec.conf`.
-5.  **Restart the Wazuh manager** to apply the changes.
-6.  **Create and configure the `.env` file** with your credentials and settings.
-7.  **Run the integration app** using Docker Compose.
+#### Check Docker Container Logs
 
-    ```bash
-    docker compose --file /var/ossec/integrations/ESET-Integration-Wazuh/docker-compose.yml up -d
-    ```
+```bash
+docker logs -f <container_name>
+```
 
-#### **Integration Testing**
+#### Check the Local Log File
 
-To verify the integration is working, you can check the logs of the running container or the Wazuh dashboard.
+```bash
+tail -n 50 /var/log/eset_integration.log
+```
 
-1. Check Docker logs:
-   * Find the container name with `docker ps`.
-   * View the logs with `docker logs -f <docker container name>`.
-2. Check the log file:
-    * Use the `tail` command to see the latest detections.
+#### Verify in Wazuh Dashboard
 
-      ```bash
-      tail -n 100 /var/log/eset_integration.log
-      ```
-
-3. Filter the Wazuh dashboard:
-   * In the Wazuh dashboard, click **Add filter**.
-   * Set **Field** to `rule.groups`, **Operator** to `is`, and **Value** to `eset`.
-   * Click **Save**. This will display all the ESET logs that are being received and processed.
+1.  Open the Wazuh Dashboard.
+2.  Add a filter: `Field` `rule.groups`, `Operator` `is`, `Value` `eset`.
+3.  Save the filter to view ingested ESET events.
