@@ -1,0 +1,133 @@
+<group name="admin_by_request_epm">
+
+  <!-- Regla base unificada -->
+  <rule id="100010" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="event.dataset">admin_by_request_epm.auditlog</field>
+    <description>Admin By Request EPM - Evento auditlog detectado</description>
+  </rule>
+
+  <!-- Ejecución elevada completada -->
+  <rule id="100011" level="5">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.type">^Run As Admin$</field>
+    <field name="admin_by_request_epm.auditlog.status">^Finished$</field>
+    <description>Admin By Request EPM: 'Run As Admin' ejecutado por $(admin_by_request_epm.auditlog.user.full_name) ($(admin_by_request_epm.auditlog.user.account)) en $(admin_by_request_epm.auditlog.computer.name). Aprobado por $(admin_by_request_epm.auditlog.approved_by). Motivo: $(admin_by_request_epm.auditlog.reason).</description>
+    <group>epm_privilege_elevation,admin_activity,successful_action</group>
+  </rule>
+
+  <!-- Elevación por usuario no administrador -->
+  <rule id="100012" level="7">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.type">Run As Admin</field>
+    <field name="admin_by_request_epm.auditlog.user.is_admin">false</field>
+    <description>Admin By Request - Usuario NO administrador elevó privilegios</description>
+    <group>epm_privilege_elevation,non_admin_activity</group>
+  </rule>
+
+  <!-- Aplicación no preaprobada -->
+  <rule id="100013" level="6">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.application.preapproved">false</field>
+    <description>Admin By Request - Aplicación no preaprobada ejecutada</description>
+    <group>epm_application_control,unapproved_software</group>
+  </rule>
+
+  <!-- Antivirus no limpio -->
+  <rule id="100014" level="8">
+    <if_sid>100010</if_sid>
+    <regex field="admin_by_request_epm.auditlog.application.scan_result">(?i)(?!Clean)</regex>
+    <description>Admin By Request - Escaneo de antivirus NO limpio</description>
+    <group>epm_application_control,malware_detection</group>
+  </rule>
+
+  <!-- Tiempo de respuesta > 10 seg -->
+  <rule id="100015" level="4">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.response_time_in_seconds">>[10]</field>
+    <description>Admin By Request - Tiempo de respuesta mayor a 10 segundos</description>
+  </rule>
+
+  <!-- Instalación detectada -->
+  <rule id="100016" level="5">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.installs[0].application">.+</field>
+    <description>Admin By Request - Instalación detectada</description>
+    <group>epm_application_activity,install_event</group>
+  </rule>
+
+  <!-- Desinstalación detectada -->
+  <rule id="100017" level="5">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.uninstalls[0].application">.+</field>
+    <description>Admin By Request - Desinstalación detectada</description>
+    <group>epm_application_activity,uninstall_event</group>
+  </rule>
+
+  <!-- Código de estado anómalo -->
+  <rule id="100018" level="6">
+    <if_sid>100010</if_sid>
+    <regex field="admin_by_request_epm.auditlog.status_code">^(?!2$).*</regex>
+    <description>Admin By Request - Código de estado anómalo en ejecución</description>
+    <group>epm_anomaly,status_check</group>
+  </rule>
+
+  <!-- Elevación sin SSO -->
+  <rule id="100019" level="4">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.sso_validated">false</field>
+    <description>Admin By Request - Elevación sin validación SSO</description>
+    <group>epm_privilege_elevation,auth_issues</group>
+  </rule>
+
+  <!-- Política personalizada (no Global) -->
+  <rule id="100020" level="3">
+    <if_sid>100010</if_sid>
+    <regex field="admin_by_request_epm.auditlog.settings_name">^(?!Global$).+</regex>
+    <description>Admin By Request - Política personalizada usada para elevación</description>
+    <group>epm_policy_management</group>
+  </rule>
+
+  <!-- Elevación desde equipo no Dell -->
+  <rule id="100021" level="4">
+    <if_sid>100010</if_sid>
+    <regex field="admin_by_request_epm.auditlog.computer.make">^(?!Dell Inc\.).*</regex>
+    <description>Admin By Request - Elevación desde equipo no Dell</description>
+    <group>epm_inventory_check</group>
+  </rule>
+
+  <!-- Elevación denegada -->
+  <rule id="100022" level="7">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.status">^Denied$</field>
+    <description>Admin By Request EPM: Elevación DENEGADA para $(admin_by_request_epm.auditlog.user.full_name) ($(admin_by_request_epm.auditlog.user.account)) en $(admin_by_request_epm.auditlog.computer.name). Motivo: $(admin_by_request_epm.auditlog.reason).</description>
+    <group>epm_privilege_elevation,denied_action,access_denied</group>
+  </rule>
+
+  <!-- Elevación fallida -->
+  <rule id="100023" level="8">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.status">^Failed$</field>
+    <description>Admin By Request EPM: Elevación FALLIDA para $(admin_by_request_epm.auditlog.user.full_name) ($(admin_by_request_epm.auditlog.user.account)) en $(admin_by_request_epm.auditlog.computer.name). Motivo: $(admin_by_request_epm.auditlog.reason).</description>
+    <group>epm_privilege_elevation,failed_action</group>
+  </rule>
+
+  <!-- Elevación sin aprobación explícita -->
+  <rule id="100024" level="6">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.type">^Run As Admin$</field>
+    <field name="admin_by_request_epm.auditlog.status">^Finished$</field>
+    <regex type="pcre2" negate="yes">admin_by_request_epm\.auditlog\.approved_by</regex>
+    <description>Admin By Request EPM: Elevación SIN aprobación explícita por $(admin_by_request_epm.auditlog.user.full_name) en $(admin_by_request_epm.auditlog.computer.name). Motivo: $(admin_by_request_epm.auditlog.reason).</description>
+    <group>epm_privilege_elevation,unapproved_action</group>
+  </rule>
+
+  <!-- Otro tipo de elevación -->
+  <rule id="100025" level="3">
+    <if_sid>100010</if_sid>
+    <field name="admin_by_request_epm.auditlog.type" type="pcre2" negate="yes">^Run As Admin$</field>
+    <description>Admin By Request EPM: Otro tipo de elevación "$(admin_by_request_epm.auditlog.type)" por $(admin_by_request_epm.auditlog.user.full_name) ($(admin_by_request_epm.auditlog.user.account)) en $(admin_by_request_epm.auditlog.computer.name). Estado: $(admin_by_request_epm.auditlog.status).</description>
+    <group>epm_privilege_elevation,other_elevation</group>
+  </rule>
+
+</group>

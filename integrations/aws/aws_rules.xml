@@ -1,0 +1,328 @@
+<group name="aws,">
+
+  <rule id="100000" level="3">
+    <if_sid>0</if_sid>
+    <match>aws</match>
+    <description>An AWS log has been detected.</description>
+  </rule>
+  
+  <!-- Rule to identify all AWS API Gateway logs -->
+  <rule id="100001" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.apigateway_logs</field>
+    <description>AWS API Gateway access log detected.</description>
+  </rule>
+
+  <!-- Rule for successful AWS API Gateway requests (HTTP 200) -->
+  <rule id="100002" level="3">
+    <if_sid>100001</if_sid>
+    <field name="aws.apigateway.status">200</field>
+    <description>AWS API Gateway successful request (HTTP 200).</description>
+  </rule>
+  <rule id="100015" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.apigateway_metrics</field>
+    <description>AWS API Gateway metrics detected.</description>
+  </rule>
+
+  <!-- Rule for AWS API Gateway client errors (HTTP 4xx) -->
+  <rule id="100003" level="6">
+    <if_sid>100015</if_sid>
+    <match>4xx|5xx</match>
+    <description>AWS API Gateway client error detected (HTTP 4xx) or (HTTP 5xx).</description>
+  </rule>
+
+  <!-- Rule to identify all AWS Health logs -->
+  <rule id="100005" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.awshealth</field>
+    <description>AWS Health log detected.</description>
+  </rule>
+
+  <!-- Rule to identify specific AWS Health Security Notifications -->
+  <rule id="100006" level="12">
+    <if_sid>100005</if_sid>
+    <field name="aws.awshealth.event_type_code">AWS_ECS_SECURITY_NOTIFICATION</field>
+    <description>AWS Health: A security notification for ECS has been received.</description>
+  </rule>
+
+  <!-- Rule to identify all AWS billing logs -->
+  <rule id="100007" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.billing</field>
+    <description>AWS billing log detected.</description>
+  </rule>
+
+  <rule id="100016" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.waf_logs|aws.waf</field>
+    <description>AWS WAF log detected.</description>
+  </rule>
+  
+  <!-- Rule to identify AWS WAF blocked requests -->
+  <rule id="100008" level="10">
+    <if_sid>100007</if_sid>
+    <match>BLOCK</match>
+    <description>AWS WAF request blocked.</description>
+  </rule>
+
+  <!-- Rule to identify specific SQL Injection attacks via AWS WAF logs -->
+  <rule id="100009" level="12">
+    <if_sid>100008</if_sid>
+    <field name="terminatingRuleMatchDetails.conditionType">SQL_INJECTION</field>
+    <description>AWS WAF detected and blocked a SQL Injection attack.</description>
+  </rule>
+
+  <!-- Rule to identify all AWS CloudFront logs -->
+  <rule id="100010" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.cloudfront_logs</field>
+    <description>AWS CloudFront access log detected.</description>
+  </rule>
+
+  <!-- Rule to detect CloudFront 403 Forbidden errors -->
+  <rule id="100011" level="6">
+    <if_sid>100010</if_sid>
+    <field name="http.response.status_code">403</field>
+    <description>AWS CloudFront 403 Forbidden error detected.</description>
+  </rule>
+
+  <!-- Rule to identify all AWS S3 logs -->
+  <rule id="100012" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.s3_access_logs</field>
+    <description>AWS S3 access log detected.</description>
+  </rule>
+  
+  <!-- Rule to identify all AWS VPC Flow logs -->
+  <rule id="100013" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.vpcflow_logs</field>
+    <description>AWS VPC Flow log detected.</description>
+  </rule>
+
+  <!-- Rule to identify all AWS CloudTrail logs -->
+  <rule id="100014" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.cloudtrail</field>
+    <description>AWS CloudTrail log detected.</description>
+  </rule>
+  
+  <!-- Rule to identify all AWS CloudWatch logs -->
+  <rule id="100017" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.cloudwatch_logs</field>
+    <description>AWS CloudWatch log detected.</description>
+  </rule>
+  
+ <rule id="100018" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.cloudwatch_metrics</field>
+    <description>AWS CloudWatch metrics detected.</description>
+  </rule>
+
+ <rule id="100019" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.config</field>
+    <description>AWS Config log detected.</description>
+  </rule>
+  
+  <rule id="100020" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.dynamodb</field>
+    <description>AWS Dynamo DB metrics detected.</description>
+  </rule>
+  
+  <rule id="100021" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.ebs</field>
+    <description>AWS EBS metrics detected.</description>
+  </rule>
+  
+  <rule id="100022" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.ec2_logs</field>
+    <description>AWS EC2 log detected.</description>
+  </rule>
+  
+  <rule id="100023" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.ec2_metrics</field>
+    <description>AWS EC2 metrics detected.</description>
+  </rule>
+  
+  <rule id="100024" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.elb_logs</field>
+    <description>AWS ELB logs detected.</description>
+  </rule>
+  
+  <rule id="100025" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.elb_metrics</field>
+    <description>AWS ELB metrics detected.</description>
+  </rule>
+  
+  <rule id="100026" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.emr_logs</field>
+    <description>AWS EMR logs detected.</description>
+  </rule>
+
+  <rule id="100027" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.emr_metrics</field>
+    <description>AWS EMR metrics detected.</description>
+  </rule>
+  
+  <rule id="100028" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.firewall_logs</field>
+    <description>AWS Firewall logs detected.</description>
+  </rule>
+  
+  <rule id="100029" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.firewall_metrics</field>
+    <description>AWS Firewall metrics detected.</description>
+  </rule>
+  
+  <rule id="100030" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.guardduty</field>
+    <description>AWS Guard Duty log detected.</description>
+  </rule>
+  
+  <rule id="100031" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.inspector</field>
+    <description>AWS Inspector log detected.</description>
+  </rule>
+  
+  <rule id="100032" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.kafka_metrics</field>
+    <description>AWS Kafka metrics detected.</description>
+  </rule>
+  
+  <rule id="100033" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.kinesis</field>
+    <description>AWS Kinesis metrics detected.</description>
+  </rule>
+  
+  <rule id="100034" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.lambda</field>
+    <description>AWS Lambda metrics detected.</description>
+  </rule>
+  
+  <rule id="100035" level="3">
+    <if_sid>100034</if_sid>
+    <field name="data_stream.dataset">aws.lambda_logs</field>
+    <description>AWS Lambda logs detected.</description>
+  </rule>
+  
+  <rule id="100036" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.natgateway</field>
+    <description>AWS NatGateway metrics detected.</description>
+  </rule>
+  
+  <rule id="100037" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.rds</field>
+    <description>AWS RDS metrics detected.</description>
+  </rule>
+  
+  <rule id="100038" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.redshift</field>
+    <description>AWS Redshift metrics detected.</description>
+  </rule>
+  
+  <rule id="100039" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.route53_public_logs</field>
+    <description>AWS Route53 public logs detected.</description>
+  </rule>
+  
+  <rule id="100040" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.route53_resolver_logs</field>
+    <description>AWS Route53 resolver logs detected.</description>
+  </rule>
+  
+  <rule id="100041" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.s3_daily_storage</field>
+    <description>AWS S3 daily storage metrics detected.</description>
+  </rule>
+  
+  <rule id="100042" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.s3_request</field>
+    <description>AWS S3 request metrics detected.</description>
+  </rule>
+  
+  <rule id="100043" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.s3_storage_lens</field>
+    <description>AWS S3 storage lens metrics detected.</description>
+  </rule>
+  
+  <rule id="100044" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.s3access</field>
+    <description>AWS S3 Access logs detected.</description>
+  </rule>
+  
+  <rule id="100045" level="3">
+    <if_sid>100000</if_sid>
+    <field name="aws.data_stream.dataset">aws.securityhub_findings</field>
+    <description>AWS Security Hub Findings logs detected.</description>
+  </rule>
+  
+  <rule id="100046" level="3">
+    <if_sid>100045</if_sid>
+    <field name="aws.data_stream.dataset">aws.securityhub_findings_full_posture</field>
+    <description>AWS Security Hub Findings Full Posture logs detected.</description>
+  </rule>
+  
+  <rule id="100047" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.sns</field>
+    <description>AWS SNS metrics detected.</description>
+  </rule>
+  
+  <rule id="100048" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.sqs</field>
+    <description>AWS SQS metrics detected.</description>
+  </rule>
+  
+  <rule id="100049" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.transitgateway</field>
+    <description>AWS Transit Gateway metrics detected.</description>
+  </rule>
+  
+  <rule id="100050" level="3">
+    <if_sid>100000</if_sid>
+    <field name="data_stream.dataset">aws.usage</field>
+    <description>AWS Usage metrics detected.</description>
+  </rule>
+  
+  <rule id="100051" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.vpn</field>
+    <description>AWS VPN logs detected.</description>
+  </rule>
+  
+  <rule id="100052" level="3">
+    <if_sid>100000</if_sid>
+    <field name="event.dataset">aws.ecs_metrics</field>
+    <description>AWS ECS metrics detected.</description>
+  </rule>
+  
+</group>

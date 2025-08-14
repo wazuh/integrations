@@ -1,0 +1,45 @@
+<group name="azure,ai_foundry,">
+
+  <!-- General parent rule for all Azure AI Foundry logs -->
+  <rule id="100000" level="2">
+    <if_sid>0</if_sid>
+    <field name="azure.ai_foundry.properties.api_id">azure-ai-foundry-apim-api</field>
+    <description>Azure AI Foundry log event</description>
+  </rule>
+
+  <!-- Parent rule for Azure AI Foundry Gateway Logs -->
+  <rule id="100001" level="3">
+    <if_sid>100000</if_sid>
+    <field name="azure.ai_foundry.category">GatewayLogs</field>
+    <description>Azure AI Foundry Gateway Logs event</description>
+  </rule>
+
+  <!-- Child rule for successful API calls -->
+  <rule id="100002" level="3">
+    <if_sid>100001</if_sid>
+    <field name="azure.ai_foundry.is_request_success">true</field>
+    <description>Azure AI Foundry API call successful</description>
+  </rule>
+
+  <!-- Child rule for failed API calls -->
+  <rule id="100003" level="9">
+    <if_sid>100001</if_sid>
+    <field name="azure.ai_foundry.is_request_success">false</field>
+    <description>Azure AI Foundry API call failed</description>
+  </rule>
+
+  <!-- Rule to monitor calls to the GPT-chat-pilot model specifically -->
+  <rule id="100005" level="4">
+    <if_sid>100002</if_sid>
+    <field name="azure.ai_foundry.properties.backend_request_body.model">gpt-chat-pilot</field>
+    <description>Azure AI Foundry: Successful call to gpt-chat-pilot model</description>
+  </rule>
+
+  <!-- Parent rule for Azure Agent logs -->
+  <rule id="100006" level="3">
+    <field name="cloud.provider">azure</field>
+    <field name="elastic_agent.version" type="pcre2">\d+\.\d+\.\d+</field>
+    <description>Azure AI Foundry Elastic Agent log</description>
+  </rule>
+
+</group>

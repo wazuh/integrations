@@ -1,0 +1,108 @@
+<group name="bitbucket,audit">
+
+  <rule id="110000" level="0">
+    <field name="data_stream.dataset">atlassian_bitbucket.audit</field>
+    <description>Bitbucket audit log received.</description>
+  </rule>
+
+  <rule id="110001" level="7">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Projects</field>
+    <field name="bitbucket.audit.type.action">Project created</field>
+    <description>Bitbucket: Project '$(bitbucket.audit.affected_objects[0].name)' created by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_project_creation,configuration_change,audit_success,</group>
+  </rule>
+
+  <rule id="110002" level="9">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Projects</field>
+    <field name="bitbucket.audit.type.action" type="pcre2">Project deleted</field>
+    <description>Bitbucket: HIGH SEVERITY - Project '$(bitbucket.audit.affected_objects[0].name)' DELETED by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_project_deletion,configuration_change,audit_alert,high_impact,</group>
+  </rule>
+
+  <rule id="110003" level="5">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Projects</field>
+    <field name="bitbucket.audit.type.action" type="pcre2">Project updated|Project renamed|Project archived|Project unarchived|Project permission modified</field>
+    <description>Bitbucket: Project '$(bitbucket.audit.affected_objects[0].name)' modified by user '$(user.name)' from $(source.ip). Action: $(bitbucket.audit.type.action)</description>
+    <group>bitbucket_project_modification,configuration_change,audit_info,</group>
+  </rule>
+
+  <rule id="110004" level="6">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Repositories</field>
+    <field name="bitbucket.audit.type.action">Repository created</field>
+    <description>Bitbucket: Repository '$(bitbucket.audit.affected_objects[0].name)' created in project '$(bitbucket.audit.affected_objects[1].name)' by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_repo_creation,configuration_change,audit_success,</group>
+  </rule>
+
+  <rule id="110005" level="10">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Repositories</field>
+    <field name="bitbucket.audit.type.action" type="pcre2">Repository deleted</field>
+    <description>Bitbucket: CRITICAL - Repository '$(bitbucket.audit.affected_objects[0].name)' DELETED by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_repo_deletion,configuration_change,audit_alert,critical_impact,</group>
+  </rule>
+
+  <rule id="110006" level="4">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.action">Repository cloned</field>
+    <description>Bitbucket: Repository '$(bitbucket.audit.affected_objects[0].name)' cloned by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_repo_access,audit_info,</group>
+  </rule>
+
+  <rule id="110007" level="8">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Users</field>
+    <field name="bitbucket.audit.type.action">User created</field>
+    <description>Bitbucket: New user '$(bitbucket.audit.affected_objects[0].name)' created by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_user_creation,account_management,audit_alert,</group>
+  </rule>
+
+  <rule id="110008" level="7">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Users</field>
+    <field name="bitbucket.audit.type.action" type="pcre2">User password changed</field>
+    <description>Bitbucket: User '$(bitbucket.audit.affected_objects[0].name)' password changed by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_password_change,account_management,audit_success,</group>
+  </rule>
+
+  <rule id="110009" level="9">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Users</field>
+    <field name="bitbucket.audit.type.action" type="pcre2">User deleted|User deactivated</field>
+    <description>Bitbucket: User '$(bitbucket.audit.affected_objects[0].name)' DELETED/DEACTIVATED by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_user_deletion,account_management,audit_alert,high_impact,</group>
+  </rule>
+
+  <rule id="110010" level="10">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.action" type="pcre2">Permission changed|Global permission changed</field>
+    <description>Bitbucket: CRITICAL - Permissions changed for $(bitbucket.audit.affected_objects[0].type) '$(bitbucket.audit.affected_objects[0].name)' by user '$(user.name)' from $(source.ip). Action: $(bitbucket.audit.type.action)</description>
+    <group>bitbucket_permission_change,authorization_change,audit_alert,critical_impact,</group>
+  </rule>
+
+  <rule id="110011" level="3">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Login</field>
+    <field name="bitbucket.audit.type.action">Login success</field>
+    <description>Bitbucket: Successful login by user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_login,authentication_success,</group>
+  </rule>
+
+  <rule id="110012" level="5">
+    <if_sid>110000</if_sid>
+    <field name="bitbucket.audit.type.category">Login</field>
+    <field name="bitbucket.audit.type.action">Login failed</field>
+    <description>Bitbucket: Failed login attempt for user '$(user.name)' from $(source.ip).</description>
+    <group>bitbucket_failed_login,authentication_failure,brute_force,</group>
+  </rule>
+
+  <rule id="110013" level="8">
+    <if_sid>110011</if_sid>
+    <field name="user.name">admin</field> <description>Bitbucket: Admin user '$(user.name)' logged in from $(source.ip).</description>
+    <group>bitbucket_admin_login,authentication_success,privileged_access,</group>
+  </rule>
+
+</group>

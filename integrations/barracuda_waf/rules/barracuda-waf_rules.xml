@@ -1,0 +1,8 @@
+<!-- Barracuda waf messages grouped rule -->
+
+<group name="barracuda-waf,">
+  <rule id="110000" level="3">
+    <decoded_as>barracuda-waf</decoded_as>
+    <description>Barracuda waf messages grouped.</description>
+  </rule>
+</group>

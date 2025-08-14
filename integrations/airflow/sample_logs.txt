@@ -1,0 +1,21 @@
+# ─── Scheduler Logs ─────────────────────────────────────────────
+[2025-07-27 08:05:00,001] {dag_processing.py:200} INFO - DAG 'example_dag' is up-to-date
+[2025-07-27 08:05:02,456] {scheduler_job.py:400} INFO - Starting scheduler loop
+[2025-07-27 08:05:03,789] {scheduler_job.py:420} INFO - 1 tasks ready to be queued
+[2025-07-27 08:05:04,101] {scheduler_job.py:430} DEBUG - Queuing task example_task
+[2025-07-27 08:05:04,501] {scheduler_job.py:440} INFO - DAG parsing took 0.12 seconds
+
+# ─── Triggerer Logs (Deferrable Tasks) ──────────────────────────
+[2025-07-27 08:06:00,000] {triggerer.py:150} INFO - Triggerer started with PID 23456
+[2025-07-27 08:06:10,100] {triggerer.py:200} DEBUG - Trigger 'file_sensor_1' fired
+[2025-07-27 08:06:20,200] {triggerer.py:205} INFO - Trigger completed for task file_sensor_1
+
+# ─── Task Execution Logs ────────────────────────────────────────
+[2025-07-27 08:07:00,000] {taskinstance.py:1103} INFO - Dependencies all met for task: example_task
+[2025-07-27 08:07:00,100] {taskinstance.py:1327} INFO - Starting attempt 1 of 3
+[2025-07-27 08:07:00,200] {python_operator.py:90} INFO - Executing <Task(PythonOperator): example_task> on 2025-07-27T08:00:00+00:00
+[2025-07-27 08:07:00,250] {logging_mixin.py:112} INFO - Running command: ['bash', '-c', 'echo "Hello World"']
+[2025-07-27 08:07:00,251] {logging_mixin.py:112} INFO - Hello World
+[2025-07-27 08:07:00,500] {python_operator.py:114} INFO - Done. Returned value was: True
+[2025-07-27 08:07:00,600] {taskinstance.py:1450} INFO - Task exited with return code 0
+[2025-07-27 08:07:00,700] {local_task_job.py:141} INFO - Task instance succeeded

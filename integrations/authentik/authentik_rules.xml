@@ -1,0 +1,39 @@
+<group name="authentik,access_control,">
+
+  <!-- Parent rule for all Authentik events -->
+  <rule id="100001" level="0">
+    <if_sid>0</if_sid>
+    <field name="data_stream.dataset">authentik</field>
+    <description>Group for all Authentik log messages.</description>
+  </rule>
+
+  <!-- Rules for Authentik 'event' logs -->
+  <rule id="100002" level="3">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">authentik.event</field>
+    <description>Authentik event message logged.</description>
+  </rule>
+
+  <!-- Rule for a user successfully modifying their settings -->
+  <rule id="100003" level="6">
+    <if_sid>100002</if_sid>
+    <field name="authentik.event.action">user_write</field>
+    <description>Authentik user settings modified by user $(user.name).</description>
+    <group>authentication_success,</group>
+  </rule>
+
+  <!-- Rules for Authentik 'group' logs -->
+  <rule id="100004" level="3">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">authentik.group</field>
+    <description>Authentik group information log for group $(authentik.group.name).</description>
+  </rule>
+
+  <!-- Rules for Authentik 'user' logs -->
+  <rule id="100005" level="3">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">authentik.user</field>
+    <description>Authentik user information log for user $(authentik.user.username).</description>
+  </rule>
+
+</group>
