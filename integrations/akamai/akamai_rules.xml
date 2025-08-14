@@ -1,0 +1,41 @@
+<group name="akamai,">
+
+  <rule id="100020" level="0">
+    <if_sid>0</if_sid>
+    <field name="observer.vendor">^akamai$</field>
+    <description>Akamai event occurred.</description>
+  </rule>
+
+  <rule id="100021" level="6">
+    <if_sid>100020</if_sid>
+    <field name="data_stream.dataset">akamai.siem</field>
+    <field name="akamai.siem.rule_actions">alert</field>
+    <description>Akamai SIEM event: A security alert was triggered.</description>
+    <group>akamai_siem,</group>
+  </rule>
+
+  <rule id="100022" level="12">
+    <if_sid>100021</if_sid>
+    <field name="akamai.siem.rule_tags">web_attack/xss</field>
+    <description>CRITICAL Akamai Alert: A Cross-site Scripting (XSS) attack was detected from IP $(client.ip).</description>
+  </rule>
+
+  <rule id="100023" level="10">
+    <if_sid>100021</if_sid>
+    <field name="akamai.siem.rule_tags">automation/misc</field>
+    <field name="akamai.siem.bot.score">100</field>
+    <description>HIGH Akamai Alert: A high-risk bot attack was detected with a score of 100 from IP $(client.ip).</description>
+  </rule>
+
+  <rule id="100024" level="8">
+    <if_sid>100021</if_sid>
+    <field name="akamai.siem.rule_actions">deny</field>
+    <description>Akamai Alert: A request from IP $(client.ip) was denied due to security policy enforcement.</description>
+  </rule>
+
+  <rule id="100025" level="7">
+    <if_sid>100020</if_sid>
+    <field name="akamai.siem.user_risk.score">^75$</field>
+    <description>Akamai User Risk: High-risk score of 75 detected for a user from IP $(client.ip).</description>
+  </rule>
+</group>

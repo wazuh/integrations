@@ -1,0 +1,135 @@
+<group name="airflow,apache">
+  <!-- Base Airflow rule -->
+  <rule id="110000" level="0">
+    <decoded_as>airflow</decoded_as>
+    <description>Apache Airflow log</description>
+  </rule>
+
+  <!-- ───── Scheduler Rules ───── -->
+  <rule id="110100" level="2">
+    <if_sid>110000</if_sid>
+    <match>DAG</match>
+    <description>Airflow Scheduler: DAG default log</description>
+    <group>airflow,scheduler</group>
+  </rule>
+          <rule id="110105" level="2">
+            <if_sid>110100</if_sid>
+            <match>up-to-date</match>
+            <description>Airflow Scheduler: DAG is up-to-date</description>
+            <group>airflow,scheduler</group>
+          </rule>
+          <rule id="110106" level="2">
+            <if_sid>110100</if_sid>
+            <match>parsing took</match>
+            <description>Airflow Scheduler: DAG parsed</description>
+            <group>airflow,scheduler</group>
+          </rule>
+
+  <rule id="110101" level="2">
+    <if_sid>110000</if_sid>
+    <match>Starting scheduler loop</match>
+    <description>Airflow Scheduler: loop started</description>
+    <group>airflow,scheduler</group>
+  </rule>
+
+  <rule id="110102" level="3">
+    <if_sid>110000</if_sid>
+    <match>tasks ready to be queued</match>
+    <description>Airflow Scheduler: tasks ready</description>
+    <group>airflow,scheduler</group>
+  </rule>
+
+  <rule id="110103" level="3">
+    <if_sid>110000</if_sid>
+    <match>Queuing task</match>
+    <description>Airflow Scheduler: task queued</description>
+    <group>airflow,scheduler</group>
+  </rule>
+
+  <!-- ───── Triggerer Rules ───── -->
+  <rule id="110200" level="3">
+    <if_sid>110000</if_sid>
+    <match>Trigger</match>
+    <description>Airflow Triggerer: trigger log</description>
+    <group>airflow,triggerer</group>
+  </rule>
+  
+  <rule id="110201" level="2">
+    <if_sid>110200</if_sid>
+    <match>started</match>
+    <description>Airflow Triggerer: started</description>
+    <group>airflow,triggerer</group>
+  </rule>
+
+  <rule id="110202" level="3">
+    <if_sid>110200</if_sid>
+    <match>fired</match>
+    <description>Airflow Triggerer: trigger fired</description>
+    <group>airflow,triggerer</group>
+  </rule>
+
+  <rule id="110203" level="2">
+    <if_sid>110200</if_sid>
+    <match>completed for task</match>
+    <description>Airflow Triggerer: trigger completed</description>
+    <group>airflow,triggerer</group>
+  </rule>
+
+  <!-- ───── Task Execution Rules ──── -->
+    <rule id="110300" level="3">
+      <if_sid>110000</if_sid>
+      <match>Dependencies all met for task</match>
+      <description>Airflow Task: dependencies met</description>
+      <group>airflow,task</group>
+    </rule>
+    
+    <rule id="110301" level="3">
+      <if_sid>110000</if_sid>
+      <match>Starting attempt</match>
+      <description>Airflow Task: attempt starting</description>
+      <group>airflow,task</group>
+    </rule>
+    
+    <rule id="110302" level="2">
+      <if_sid>110000</if_sid>
+      <match>Executing</match>
+      <description>Airflow Task: execution started</description>
+      <group>airflow,task</group>
+    </rule>
+    
+    <rule id="110303" level="2">
+      <if_sid>110000</if_sid>
+      <match>Running command</match>
+      <description>Airflow Task: command running</description>
+      <group>airflow,task</group>
+    </rule>
+    
+    <rule id="110304" level="1">
+      <if_sid>110000</if_sid>
+      <match>Hello World</match>
+      <description>Airflow Task: output - Hello World</description>
+      <group>airflow,task</group>
+    </rule>
+    
+    <rule id="110305" level="2">
+      <if_sid>110000</if_sid>
+      <match>Returned value was: True</match>
+      <description>Airflow Task: returned True</description>
+      <group>airflow,task</group>
+    </rule>
+    
+    <rule id="110306" level="2">
+      <if_sid>110000</if_sid>
+      <match>Task exited with return code 0</match>
+      <description>Airflow Task: exited successfully</description>
+      <group>airflow,task</group>
+    </rule>
+    
+    <rule id="110307" level="2">
+      <if_sid>110000</if_sid>
+      <match>Task instance succeeded</match>
+      <description>Airflow Task: success</description>
+      <group>airflow,task</group>
+    </rule>
+
+</group> 

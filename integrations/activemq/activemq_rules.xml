@@ -1,0 +1,115 @@
+<group name="activemq,">
+
+  <!-- General ActiveMQ Log -->
+  <rule id="100600" level="3">
+    <decoded_as>activemq</decoded_as>
+    <description>ActiveMQ generic log</description>
+  </rule>
+
+  <!-- Broker -->
+  <rule id="100601" level="3">
+    <if_sid>100600</if_sid>
+    <match>Apache ActiveMQ</match>
+    <description>ActiveMQ broker generic log</description>
+  </rule>
+  
+        <!-- Broker Starting -->
+      <rule id="100614" level="3">
+        <if_sid>100601</if_sid>
+        <match>starting</match>
+        <description>ActiveMQ broker has started</description>
+      </rule>
+      
+        <!-- Broker Shutting Down -->
+      <rule id="100615" level="3">
+        <if_sid>100601</if_sid>
+        <match>shutting down</match>
+        <description>ActiveMQ broker has shut down</description>
+      </rule>
+
+  <!-- Broker Failed to Start -->
+  <rule id="100602" level="8">
+    <if_sid>100600</if_sid>
+    <match>Failed to start Apache ActiveMQ</match>
+    <description>ActiveMQ broker failed to start</description>
+  </rule>
+
+
+  <!-- Connector -->
+  <rule id="100604" level="3">
+    <if_sid>100600</if_sid>
+    <match>Connector</match>
+    <description>ActiveMQ connector general log</description>
+  </rule>
+  
+  <!-- Connector Stopped -->
+      <rule id="100616" level="3">
+        <if_sid>100604</if_sid>
+        <match>stopped</match>
+        <description>ActiveMQ connector stopped</description>
+      </rule>
+
+  <!-- KahaDB Version Info -->
+  <rule id="100605" level="2">
+    <if_sid>100600</if_sid>
+    <match>KahaDB is version</match>
+    <description>ActiveMQ KahaDB version info</description>
+  </rule>
+
+  <!-- PListStore -->
+  <rule id="100606" level="3">
+    <if_sid>100600</if_sid>
+    <match>PListStore:</match>
+    <description>ActiveMQ PListStore log detected</description>
+  </rule>
+  
+      <!-- PListStore Started -->
+      <rule id="100612" level="3">
+        <if_sid>100606</if_sid>
+        <match>started</match>
+        <description>ActiveMQ PListStore started</description>
+      </rule>
+      
+      <!-- PListStore Stopped -->
+      <rule id="100613" level="3">
+        <if_sid>100606</if_sid>
+        <match>stopped</match>
+        <description>ActiveMQ PListStore stopped</description>
+      </rule>
+
+  <!-- Async Queue Tasks Stopping -->
+  <rule id="100608" level="3">
+    <if_sid>100600</if_sid>
+    <match>Stopping async queue tasks</match>
+    <description>ActiveMQ async queue tasks stopping</description>
+  </rule>
+
+  <!-- Async Topic Tasks Stopping -->
+  <rule id="100609" level="3">
+    <if_sid>100600</if_sid>
+    <match>Stopping async topic tasks</match>
+    <description>ActiveMQ async topic tasks stopping</description>
+  </rule>
+
+  <!-- Spring WebApplicationInitializer Not Detected -->
+  <rule id="100610" level="2">
+    <if_sid>100600</if_sid>
+    <match>No Spring WebApplicationInitializer types detected on classpath</match>
+    <description>Spring WebApplicationInitializer not detected</description>
+  </rule>
+
+  <!-- Spring Dispatcher Initialization -->
+  <rule id="100611" level="2">
+    <if_sid>100600</if_sid>
+    <match>Initializing Spring FrameworkServlet 'dispatcher'</match>
+    <description>Spring FrameworkServlet dispatcher initialized</description>
+  </rule>
+  
+  <!-- PageFile Recovery -->
+  <rule id="100617" level="2">
+    <if_sid>100600</if_sid>
+    <match>Recovered pageFile</match>
+    <description>PageFile has been recovered</description>
+  </rule>
+
+</group>

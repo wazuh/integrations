@@ -1,0 +1,66 @@
+<group name="azure,">
+
+  <!-- Parent rule for all Azure logs. This rule is a foundation for more specific rules below. -->
+  <rule id="100010" level="3">
+    <if_sid>0</if_sid>
+    <match>azure</match>
+    <description>Azure log received.</description>
+  </rule>
+
+  <!-- Rules for Azure Compute VM metrics -->
+  <rule id="100011" level="5">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.dataset">azure.compute_vm</field>
+    <description>Azure VM metric log received from host: $(host.name)</description>
+  </rule>
+
+  <!-- Rules for Azure VM Scale Set metrics -->
+  <rule id="100012" level="5">
+    <if_sid>100011</if_sid>
+    <field name="data_stream.dataset">azure.compute_vm_scaleset</field>
+    <description>Azure VM Scale Set metric log received.</description>
+  </rule>
+
+  <!-- Rules for Azure Container Instance metrics -->
+  <rule id="100013" level="5">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.dataset">azure.container_instance</field>
+    <description>Azure Container Instance metric log received for resource: $(azure.resource.name)</description>
+  </rule>
+
+  <!-- Rules for Azure Container Registry metrics -->
+  <rule id="100014" level="5">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.dataset">azure.container_registry</field>
+    <description>Azure Container Registry metric log received.</description>
+  </rule>
+
+  <!-- Rules for Azure Container Service metrics (Managed Clusters like AKS) -->
+  <rule id="100015" level="5">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.dataset">azure.container_service</field>
+    <description>Azure Container Service metric log received for cluster: $(azure.resource.name)</description>
+  </rule>
+
+  <!-- Rules for Azure Database Account metrics (e.g., Cosmos DB) -->
+  <rule id="100016" level="5">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.dataset">azure.database_account</field>
+    <description>Azure Database Account metric log received for database: $(azure.resource.name)</description>
+  </rule>
+  
+  <!-- Rules for Azure Storage Account metrics -->
+  <rule id="100017" level="5">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.dataset">azure.storage_account</field>
+    <description>Azure Storage Account metric log received for account: $(azure.resource.name)</description>
+  </rule>
+  
+  <!-- This rule captures logs with the general "azure.monitor" dataset, which often contains metrics for specific services not covered by the other datasets, like the CosmosDB example provided. -->
+  <rule id="100018" level="5">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.dataset">azure.monitor</field>
+    <description>Azure Monitor metric log received for resource: $(azure.resource.name)</description>
+  </rule>
+
+</group>

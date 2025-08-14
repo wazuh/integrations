@@ -1,0 +1,93 @@
+<group name="abnormal_security,">
+
+  <rule id="100001" level="0">
+    <if_sid>0</if_sid>
+    <match>Abnormal</match>
+    <description>Abnormal Security event occurred.</description>
+  </rule>
+
+  <rule id="100002" level="5">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">abnormal_security.ai_security_mailbox"</field>
+    <description>Abnormal Security: A message was identified with a specific attack type.</description>
+    <group>abnormal_security_mailbox,</group>
+  </rule>
+
+  <rule id="100003" level="6">
+    <if_sid>100002</if_sid>
+    <field name="abnormal_security.ai_security_mailbox.attack.type">Graymail</field>
+    <description>Abnormal Security: A Graymail attack was detected from $(abnormal_security.ai_security_mailbox.from.address) to $(abnormal_security.ai_security_mailbox.recipient.address).</description>
+  </rule>
+
+  <rule id="100004" level="4">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">abnormal_security.ai_security_mailbox_not_analyzed</field>
+    <description>Abnormal Security: An email was not analyzed. Reason: $(abnormal_security.ai_security_mailbox_not_analyzed.reason).</description>
+    <group>abnormal_security_not_analyzed,</group>
+  </rule>
+
+  <rule id="100005" level="5">
+    <if_sid>100004</if_sid>
+    <field name="abnormal_security.ai_security_mailbox_not_analyzed.reason">PHISHING_SIMULATION</field>
+    <description>Abnormal Security: Phishing simulation email from $(abnormal_security.ai_security_mailbox_not_analyzed.reporter.address).</description>
+  </rule>
+
+  <rule id="100006" level="5">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">abnormal_security.audit</field>
+    <description>Abnormal Security: An audit action occurred. Action: $(abnormal_security.audit.action).</description>
+    <group>abnormal_security_audit,</group>
+  </rule>
+
+  <rule id="100007" level="7">
+    <if_sid>100006</if_sid>
+    <field name="abnormal_security.audit.action">update_remediation_status</field>
+    <field name="abnormal_security.audit.action_details.request_url">purge_messages</field>
+    <description>Abnormal Security: A user $(abnormal_security.audit.user.email) updated the remediation status to purge messages from IP $(source.ip).</description>
+  </rule>
+
+  <rule id="100008" level="5">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">abnormal_security.case</field>
+    <description>Abnormal Security: A new case was created with severity $(abnormal_security.case.severity).</description>
+    <group>abnormal_security_case,</group>
+  </rule>
+
+  <rule id="100009" level="8">
+    <if_sid>100008</if_sid>
+    <field name="abnormal_security.case.severity">Account Takeover</field>
+    <description>Abnormal Security: **High-priority event.** An Account Takeover case was detected for $(abnormal_security.case.affected_employee).</description>
+  </rule>
+
+  <rule id="100010" level="5">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">abnormal_security.threat</field>
+    <description>Abnormal Security: A threat was detected. Type: $(abnormal_security.threat.attack.type).</description>
+    <group>abnormal_security_threat,</group>
+  </rule>
+
+  <rule id="100011" level="7">
+    <if_sid>100010</if_sid>
+    <field name="abnormal_security.threat.attack.type">Spam</field>
+    <description>Abnormal Security: Spam detected from $(abnormal_security.threat.from_address) to $(abnormal_security.threat.recipient_address).</description>
+  </rule>
+
+  <rule id="100012" level="10">
+    <if_sid>100010</if_sid>
+    <field name="abnormal_security.threat.summary_insights">Suspicious Link</field>
+    <description>Abnormal Security: **Critical threat.** A message with a suspicious link was auto-remediated from $(abnormal_security.threat.from_address).</description>
+  </rule>
+
+  <rule id="100013" level="5">
+    <if_sid>100001</if_sid>
+    <field name="data_stream.dataset">abnormal_security.vendor_case</field>
+    <description>Abnormal Security: A vendor case was reported for domain $(abnormal_security.vendor_case.domain).</description>
+    <group>abnormal_security_vendor_case,</group>
+  </rule>
+
+  <rule id="100014" level="8">
+    <if_sid>100013</if_sid>
+    <field name="abnormal_security.vendor_case.insights[0].highlight">Fraud Language</field>
+    <description>Abnormal Security: A vendor case was reported with insights indicating Fraud Language.</description>
+  </rule>
+</group>

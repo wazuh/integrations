@@ -1,0 +1,29 @@
+<decoder name="barracuda-waf">
+    <type>syslog</type>
+    <prematch type="pcre2">barracuda</prematch>
+</decoder>
+
+<decoder name="barracuda-waf-fields">
+  <parent>barracuda-waf</parent>
+  <regex>\s+ (\w+) (\w+) (\w+) (\w+) </regex>
+  <order>barracuda.waf.unit_name,barracuda.waf.log_type,barracuda.waf.severity_level,barracuda.waf.attack_description</order>
+</decoder>
+
+<decoder name="barracuda-waf-fields">
+  <parent>barracuda-waf</parent>
+  <regex>\.+ (\d+.\d+.\d+.\d+) (\d+) (\d+.\d+.\d+.\d+) (\d+) (\.+) (\w+) (\w+) (\w+) </regex>
+  <order>barracuda.waf.proxy.ip,barracuda.waf.proxy.port,barracuda.waf.server_ip,barracuda.waf.server_port,barracuda.waf.ruleName,barracuda.waf.rule_type,barracuda.waf.action_taken,barracuda.waf.followup_action</order>
+</decoder>
+
+<decoder name="barracuda-waf-fields">
+  <parent>barracuda-waf</parent>
+  <regex> ([\.+]) (\w+) / (\.+) \.+ (\.+) (\d+.\d+.\d+.\d+) (\d+)</regex>
+  <order>barracuda.waf.attack_details,barracuda.waf.request_method,barracuda.waf.protocol,barracuda.waf.custom_header.user_agent,barracuda.waf.client_ip,barracuda.waf.client_port</order>
+</decoder>
+
+<decoder name="barracuda-waf-fields">
+  <parent>barracuda-waf</parent>
+  <regex> [\.+] \.+ \d+.\d+.\d+.\d+ \d+ \.+ \.+ (\.+)"</regex>
+  <order>barracuda.waf.sessionid</order>
+</decoder>
+

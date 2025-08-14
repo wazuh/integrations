@@ -1,0 +1,106 @@
+<group name="arista_ngfw,">
+
+  <rule id="100101" level="0">
+    <decoded_as>arista_ngfw</decoded_as>
+    <description>Arista NGFW log received.</description>
+    <group>arista_ngfw_logs,</group>
+  </rule>
+
+  <!-- Admin Login Events -->
+  <rule id="100102" level="3" overwrite="yes">
+    <if_sid>100101</if_sid>
+    <decoded_as>arista_ngfw</decoded_as>
+    <match>class com.untangle.uvm.event.AdminLoginEvent</match>
+    <description>Arista NGFW: Admin login event.</description>
+    <group>authentication_success,gdpr_access,</group>
+  </rule>
+
+  <rule id="100103" level="9">
+    <if_sid>100102</if_sid>
+    <match>"succeeded":false</match>
+    <description>Arista NGFW: Failed admin login</description>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.6.1,gdpr_access_failed,nist_800_53_AU.14,nist_800_53_AC.7,</group>
+  </rule>
+
+  <rule id="100104" level="3">
+    <if_sid>100102</if_sid>
+    <match>"succeeded":true</match>
+    <description>Arista NGFW: Successful admin login</description>
+    <group>authentication_success,pci_dss_10.2.4,pci_dss_10.6.1,gdpr_access,nist_800_53_AU.14,nist_800_53_AC.7,</group>
+  </rule>
+
+  <!-- Firewall Events -->
+  <rule id="100105" level="3" overwrite="yes">
+    <if_sid>100101</if_sid>
+    <decoded_as>arista_ngfw</decoded_as>
+    <match>class com.untangle.app.firewall.FirewallEvent</match>
+    <description>Arista NGFW: Firewall event.</description>
+    <group>firewall_events,</group>
+  </rule>
+
+  <rule id="100106" level="10">
+    <if_sid>100105</if_sid>
+    <match>"blocked":true</match>
+    <description>Arista NGFW: Firewall blocked connection</description>
+    <group>firewall_blocked,pci_dss_10.4.1,pci_dss_10.6.1,gdpr_network_security,nist_800_53_SC.7,</group>
+  </rule>
+
+  <rule id="100107" level="7">
+    <if_sid>100105</if_sid>
+    <match>"flagged":true</match>
+    <description>Arista NGFW: Firewall flagged connection</description>
+    <group>firewall_flagged,pci_dss_10.4.1,pci_dss_10.6.1,gdpr_network_security,nist_800_53_SC.7,</group>
+  </rule>
+
+  <!-- HTTP Request Events -->
+  <rule id="100108" level="3" overwrite="yes">
+    <if_sid>100101</if_sid>
+    <decoded_as>arista_ngfw</decoded_as>
+    <match>com.untangle.app.http.HttpRequestEvent|httpRequestEvent</match>
+    <description>Arista NGFW: HTTP Request event</description>
+    <group>web_access,</group>
+  </rule>
+
+  <rule id="100109" level="4">
+    <if_sid>100108</if_sid>
+    <match>"method":"GET"</match>
+    <description>Arista NGFW: HTTP GET request</description>
+  </rule>
+
+  <rule id="100110" level="4">
+    <if_sid>100108</if_sid>
+    <match>"method":"POST"</match>
+    <description>Arista NGFW: HTTP POST request</description>
+  </rule>
+
+  <!-- Web Filter Events -->
+  <rule id="100111" level="3" overwrite="yes">
+    <if_sid>100101</if_sid>
+    <decoded_as>arista_ngfw</decoded_as>
+    <match>com.untangle.app.web_filter.WebFilterEvent</match>
+    <description>Arista NGFW: Web Filter event.</description>
+    <group>web_filter,</group>
+  </rule>
+
+  <rule id="100112" level="12">
+    <if_sid>100111</if_sid>
+    <match>"blocked":true</match>
+    <description>Arista NGFW: Web Filter blocked URL</description>
+    <group>web_attack,blocked_access,pci_dss_10.4.1,pci_dss_10.6.1,gdpr_network_security,nist_800_53_SC.7,</group>
+  </rule>
+
+  <rule id="100113" level="7">
+    <if_sid>100111</if_sid>
+    <match>"flagged":true</match>
+    <description>Arista NGFW: Web Filter flagged URL</description>
+    <group>web_attack,flagged_access,pci_dss_10.4.1,pci_dss_10.6.1,gdpr_network_security,nist_800_53_SC.7,</group>
+  </rule>
+  
+  <!-- AdBlock Event -->
+  <rule id="100114" level="7">
+    <if_sid>100101</if_sid>
+    <match>com.untangle.app.ad_blocker.AdBlockerEvent</match>
+    <description>Arista NGFW: AdBlock event.</description>
+  </rule>
+
+</group>

@@ -1,0 +1,154 @@
+<group name="azure,">
+
+  <rule id="100000" level="0">
+    <if_sid>0</if_sid>
+    <field name="cloud.provider">azure</field>
+    <description>Azure: A general Azure log has been received.</description>
+  </rule>
+
+  <!-- Rule 1: Successful Deployment Write -->
+  <rule id="100001" level="6">
+    <if_sid>100000</if_sid>
+    <field name="azure.activitylogs.operation_name">MICROSOFT.RESOURCES/DEPLOYMENTS/WRITE</field>
+    <field name="azure.activitylogs.result_type">Success</field>
+    <description>Azure: A user successfully deployed a resource.</description>
+    <group>pci_dss_10.2.5,pci_dss_10.6.1,gdpr_II_5.1.2,gdpr_II_5.2.2,nist_800_53_AU.10,nist_800_53_CA.7,nist_800_53_AC.7,</group>
+  </rule>
+
+  <!-- Rule 2: Failed Deployment Write -->
+  <rule id="100002" level="9">
+    <if_sid>100000</if_sid>
+    <field name="azure.activitylogs.operation_name">MICROSOFT.RESOURCES/DEPLOYMENTS/WRITE</field>
+    <field name="azure.activitylogs.result_type">Failure</field>
+    <description>Azure: A user failed to deploy a resource.</description>
+    <group>pci_dss_10.2.5,pci_dss_10.6.1,gdpr_II_5.1.2,gdpr_II_5.2.2,nist_800_53_AU.10,nist_800_53_CA.7,nist_800_53_AC.7,</group>
+  </rule>
+
+  <!-- Rule 3: Successful Sign-in -->
+  <rule id="100003" level="3">
+    <if_sid>100000</if_sid>
+    <field name="azure.signinlogs.properties.status.error_code">0</field>
+    <field name="event.outcome">success</field>
+    <description>Azure: A user successfully signed in to an application.</description>
+    <group>authentication_success,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,nist_800_53_AC.7,</group>
+  </rule>
+
+  <!-- Rule 4: Sign-in Failure (Error Code 50140) -->
+  <rule id="100004" level="7">
+    <if_sid>100000</if_sid>
+    <field name="azure.signinlogs.properties.status.error_code">50140</field>
+    <field name="event.outcome">failure</field>
+    <description>Azure: A sign-in attempt failed due to a 'Keep me signed in' interrupt.</description>
+    <group>authentication_failed,azure_ad_sign_in_failure,pci_dss_10.2.4,pci_dss_10.6.1,gdpr_II_5.1.2,gdpr_II_5.2.2,nist_800_53_AC.7,nist_800_53_AU.10,</group>
+  </rule>
+
+  <!-- Rule 5: Successful Namespace Retrieval -->
+  <rule id="100005" level="5">
+    <if_sid>100000</if_sid>
+    <field name="azure.platformlogs.category">OperationalLogs</field>
+    <field name="event.action">Retreive Namespace</field>
+    <field name="event.outcome">success</field>
+    <description>Azure: A successful retrieval of an Event Hub namespace was detected.</description>
+    <group>eventhub,configuration_access,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,nist_800_53_AC.7,</group>
+  </rule>
+
+  <!-- Rule 6: Deletion of a Resource -->
+  <rule id="100006" level="12">
+    <if_sid>100000</if_sid>
+    <field name="message" type="pcre2">MICROSOFT\.EVENTHUB\/NAMESPACES\/DELETE</field>
+    <description>Azure: An Event Hub namespace was deleted.</description>
+    <group>service_bus,configuration_change,pci_dss_10.2.5,pci_dss_10.6.1,gdpr_II_5.1.2,gdpr_II_5.2.2,nist_800_53_AU.10,nist_800_53_CA.7,nist_800_53_AC.7,</group>
+  </rule>
+  
+  <!-- Rule 7: Informational Spring Cloud Log (Eureka) -->
+  <rule id="100007" level="2">
+    <if_sid>100000</if_sid>
+    <field name="azure.springcloudlogs.operation_name">Microsoft.AppPlatform/Spring/logs</field>
+    <field name="message" type="pcre2">Resolving eureka endpoints via configuration</field>
+    <description>Azure: An informational log from the Spring Cloud application console was detected.</description>
+    <group>app_platform,informational,spring_cloud,</group>
+  </rule>
+
+  <!-- Rule 8: Error from Spring Cloud Logs -->
+  <rule id="100008" level="8">
+    <if_sid>100000</if_sid>
+    <field name="azure.springcloudlogs.operation_name">Microsoft.AppPlatform/Spring/logs</field>
+    <field name="message" type="pcre2">ERROR</field>
+    <description>Azure: An error was logged in the Spring Cloud application console.</description>
+    <group>app_platform,error,spring_cloud,</group>
+  </rule>
+
+  <!-- Rule 9: Provisioning Skipped (Missing Attribute) -->
+  <rule id="100009" level="6">
+    <if_sid>100000</if_sid>
+    <field name="azure.provisioning.result_type">Skipped</field>
+    <field name="azure.provisioning.properties.provisioning_status_info.status">skipped</field>
+    <description>Azure: A provisioning activity was skipped due to a missing or invalid attribute.</description>
+    <group>provisioning_activity,skipped,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,</group>
+  </rule>
+  
+  <!-- Rule 10: Provisioning Successful -->
+  <rule id="100010" level="4">
+    <if_sid>100000</if_sid>
+    <field name="azure.provisioning.properties.provisioning_action">create</field>
+    <field name="azure.provisioning.properties.provisioning_status_info.status">success</field>
+    <description>Azure: A user was successfully provisioned to a target system.</description>
+    <group>provisioning_activity,success,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,</group>
+  </rule>
+  
+  <!-- Rule 11: Creation of a New Resource Group -->
+  <rule id="100011" level="7">
+    <if_sid>100000</if_sid>
+    <field name="azure.resource.provider">Microsoft.Resources/resourceGroups</field>
+    <field name="event.action" type="pcre2">createOrUpdate</field>
+    <description>Azure: A new resource group was created or updated.</description>
+    <group>configuration_change,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,</group>
+  </rule>
+  
+   <!-- Rule for Application Gateway 404 Access -->
+  <rule id="100020" level="4">
+    <if_sid>100000</if_sid>
+    <field name="azure.application_gateway.operation_name">ApplicationGatewayAccess</field>
+    <field name="http.response.status_code">404</field>
+    <description>Azure: Application Gateway access resulted in a 404 Not Found error.</description>
+    <group>pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,nist_800_53_AC.7,</group>
+  </rule>
+
+  <!-- Rule for Azure Audit Log Update Device -->
+  <rule id="100021" level="6">
+    <if_sid>100000</if_sid>
+    <field name="azure.auditlogs.operation_name">Update device</field>
+    <field name="azure.auditlogs.properties.category">Device</field>
+    <description>Azure: A device was updated via an audit log entry.</description>
+    <group>device_management,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,</group>
+  </rule>
+
+  <!-- Rule for Azure Firewall Denied Request -->
+  <rule id="100023" level="5">
+    <if_sid>100000</if_sid>
+    <field name="azure.firewall.category">AzureFirewallNetworkRule</field>
+    <field name="azure.firewall.action">Deny</field>
+    <description>Azure: Azure Firewall denied a network request.</description>
+    <group>firewall,denied_traffic,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,</group>
+  </rule>
+
+  <!-- Rule for Microsoft Graph API Access Success -->
+  <rule id="100024" level="3">
+    <if_sid>100000</if_sid>
+    <field name="azure.graphactivitylogs.category">MicrosoftGraphActivityLogs</field>
+    <field name="http.response.status_code">200</field>
+    <description>Azure: A successful Microsoft Graph API call was detected.</description>
+    <group>microsoft_graph,api_access,pci_dss_10.2.5,gdpr_II_5.1.2,nist_800_53_AU.10,nist_800_53_AC.7,</group>
+  </rule>
+
+  <!-- Rule for High-risk User Detection from Identity Protection -->
+  <rule id="100025" level="10">
+    <if_sid>100000</if_sid>
+    <field name="azure.identityprotection.category">UserRiskEvents</field>
+    <field name="azure.identityprotection.properties.risk_level">high</field>
+    <description>Azure: A high-risk user detection event was logged by Identity Protection.</description>
+    <group>authentication_risk,high_risk,pci_dss_10.2.5,pci_dss_10.6.1,gdpr_II_5.1.2,gdpr_II_5.2.2,nist_800_53_AU.10,nist_800_53_AC.7,</group>
+  </rule>
+
+
+</group>

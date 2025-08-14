@@ -1,0 +1,119 @@
+<group name="armis">
+
+  <rule id="101001" level="0">
+    <field name="data_stream.dataset">armis.alert</field>
+    <description>Armis Alert event received.</description>
+  </rule>
+
+  <rule id="101002" level="12" overwrite="yes">
+    <if_sid>101001</if_sid>
+    <field name="armis.alert.severity">Critical</field>
+    <description>Armis CRITICAL Alert: $(armis.alert.title) - $(armis.alert.description)</description>
+    <group>armis_alert,critical,</group>
+  </rule>
+
+  <rule id="101003" level="10" overwrite="yes">
+    <if_sid>101001</if_sid>
+    <field name="armis.alert.severity">High</field>
+    <description>Armis HIGH Alert: $(armis.alert.title) - $(armis.alert.description)</description>
+    <group>armis_alert,high,</group>
+  </rule>
+
+  <rule id="101004" level="8" overwrite="yes">
+    <if_sid>101001</if_sid>
+    <field name="armis.alert.severity">Medium</field>
+    <description>Armis MEDIUM Alert: $(armis.alert.title) - $(armis.alert.description)</description>
+    <group>armis_alert,medium,</group>
+  </rule>
+
+  <rule id="101005" level="5" overwrite="yes">
+    <if_sid>101001</if_sid>
+    <field name="armis.alert.severity">Low</field>
+    <description>Armis LOW Alert: $(armis.alert.title) - $(armis.alert.description)</description>
+    <group>armis_alert,low,</group>
+  </rule>
+
+  <rule id="101006" level="10" overwrite="yes">
+    <if_sid>101001</if_sid>
+    <field name="armis.alert.type">System Policy Violation</field>
+    <field name="armis.alert.title" type="pcre2">.*Ransomware.*</field> <description>Armis Policy Violation Detected: $(armis.alert.title).</description>
+    <group>armis_policy_violation,ransomware_risk,</group>
+  </rule>
+
+  <rule id="101007" level="10" overwrite="yes">
+    <if_sid>101001</if_sid>
+    <field name="armis.alert.title" type="pcre2">.*Malicious Activity.*</field>
+    <description>Armis Malicious Activity Detected: $(armis.alert.title)</description>
+    <group>armis_malicious,attack_detection,</group>
+  </rule>
+  
+  <rule id="101010" level="0">
+    <field name="data_stream.dataset">armis.device</field>
+    <description>Armis Device event received.</description>
+  </rule>
+
+  <rule id="101011" level="12" overwrite="yes">
+    <if_sid>101010</if_sid>
+    <field name="armis.device.risk_level">10</field> <description>Armis Device with CRITICAL Risk Level (10): $(armis.device.name) ($(armis.device.ip_address[0])) - Category: $(armis.device.category)</description>
+    <group>armis_device,risk_assessment,critical_risk,</group>
+  </rule>
+
+  <rule id="101012" level="9" overwrite="yes">
+    <if_sid>101010</if_sid>
+    <field name="armis.device.risk_level">^[7-9]$</field> <description>Armis Device with HIGH Risk Level: $(armis.device.name) ($(armis.device.ip_address[0])) - Category: $(armis.device.category)</description>
+    <group>armis_device,risk_assessment,high_risk,</group>
+  </rule>
+
+  <rule id="101013" level="7">
+    <if_sid>101010</if_sid>
+    <field name="armis.device.first_seen" type="pcre2">.*T00:00:00\.000[Z\+\-].*</field>
+    <description>Armis New Device Detected (potentially default timestamp): $(armis.device.name) ($(armis.device.ip_address[0])) - Type: $(armis.device.type)</description>
+    <group>armis_device,new_device,inventory,</group>
+  </rule>
+
+  <rule id="101014" level="8">
+    <if_sid>101010</if_sid>
+    <field name="armis.device.category">Network Equipment</field> <field name="armis.device.operating_system" type="pcre2">Windows</field> <description>Armis Network Equipment Device: $(armis.device.name) ($(armis.device.ip_address[0])) - OS: $(armis.device.operating_system)</description>
+    <group>armis_device,network_equipment,inventory,</group>
+  </rule>
+  
+  <rule id="101020" level="0">
+    <field name="data_stream.dataset">armis.vulnerability</field>
+    <description>Armis Vulnerability event received.</description>
+  </rule>
+
+  <rule id="101021" level="14" overwrite="yes">
+    <if_sid>101020</if_sid>
+    <field name="armis.vulnerability.severity">Critical</field>
+    <description>Armis CRITICAL Vulnerability: $(armis.vulnerability.id) (CVE: $(armis.vulnerability.cve_uid)) - Status: $(armis.vulnerability.status)</description>
+    <group>armis_vulnerability,critical_vulnerability,</group>
+  </rule>
+
+  <rule id="101022" level="12" overwrite="yes">
+    <if_sid>101020</if_sid>
+    <field name="armis.vulnerability.severity">High</field>
+    <description>Armis HIGH Vulnerability: $(armis.vulnerability.id) (CVE: $(armis.vulnerability.cve_uid)) - Status: $(armis.vulnerability.status)</description>
+    <group>armis_vulnerability,high_vulnerability,</group>
+  </rule>
+
+  <rule id="101023" level="7" overwrite="yes">
+    <if_sid>101020</if_sid>
+    <field name="armis.vulnerability.severity">Medium</field>
+    <description>Armis MEDIUM Vulnerability: $(armis.vulnerability.id) (CVE: $(armis.vulnerability.cve_uid))</description>
+    <group>armis_vulnerability,medium_vulnerability,</group>
+  </rule>
+
+  <rule id="101024" level="15" overwrite="yes">
+    <if_sid>101020</if_sid>
+    <field name="armis.vulnerability.cve_uid">CVE-2024-44148</field> <description>Armis detected CVE-2024-44148 vulnerability: $(armis.vulnerability.description)</description>
+    <group>armis_vulnerability,specific_cve,critical_exploit,</group>
+  </rule>
+
+  <rule id="101025" level="10">
+    <if_sid>101020</if_sid>
+    <field name="armis.vulnerability.status">Open</field>
+    <description>Armis Open Vulnerability: $(armis.vulnerability.id) (CVE: $(armis.vulnerability.cve_uid))</description>
+    <group>armis_vulnerability,open_issue,</group>
+  </rule>
+
+</group>
