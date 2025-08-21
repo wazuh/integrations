@@ -1,0 +1,35 @@
+<group name="azure, function,">
+
+  <!-- Rule 100010: General rule for all Azure Function logs and metrics. -->
+  <rule id="100010" level="3">
+    <if_sid>0</if_sid>
+    <match>azure</match>
+    <description>Azure Function activity detected.</description>
+  </rule>
+
+  <!-- Rule 100011: Rule for Azure Function App events. -->
+  <!-- This rule is a child of the general Azure Function rule and is
+       triggered when a log from the 'FunctionAppLogs' category is received. -->
+  <rule id="100011" level="5">
+    <if_sid>100010</if_sid>
+    <field name="azure.category">FunctionAppLogs</field>
+    <description>Azure Function App log event received.</description>
+  </rule>
+
+  <!-- Rule 100012: Rule for when a function execution starts. -->
+  <!-- This rule is more specific and helps identify the beginning of a function's lifecycle. -->
+  <rule id="100012" level="7">
+    <if_sid>100011</if_sid>
+    <field name="azure.function.event_name">FunctionStarted</field>
+    <description>Azure Function '$(azure.function.name)' has started execution.</description>
+  </rule>
+
+  <!-- Rule 100013: Rule for Azure Function App metrics. -->
+  <!-- This rule identifies the periodic metric reports from the function app. -->
+  <rule id="100013" level="4">
+    <if_sid>100010</if_sid>
+    <field name="data_stream.type">metrics</field>
+    <description>Azure Function App metrics reported.</description>
+  </rule>
+
+</group>

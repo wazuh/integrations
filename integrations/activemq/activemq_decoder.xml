@@ -1,0 +1,4 @@
+<!-- Just a simple decoder-->
+<decoder name="activemq">
+    <prematch>activemq|/admin</prematch>
+</decoder>

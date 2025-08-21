@@ -1,0 +1,110 @@
+<!-- Custom Mispa Decoders -->
+
+<decoder name="cortex_xdr">
+    <prematch>cortexxdr-></prematch>
+</decoder>
+
+<decoder name="cortex_xdr-child">
+    <parent>cortex_xdr</parent>
+    <regex>cortexxdr - (\w+),(\w+),(\w+),(\d+),(\w+),(\w+),(\.+),(\.+),\.+,(\w+),(\d+),(\d+),(\.+),(\.+),(\d+),\.+,\.+,(\d+),(\d+),\.+,\.+,\.+,\.+,\.+,\.+,\.+,\.+,\.+,\.+,\.+,\.+,\.+,\.+,(\.+),(\.+),(\.+),\.+,\.+,\.+,\.+,\.+,\.+,\.+,(\.+),</regex>
+    <order>recordType, messageData_class, messageData_subClass, messageData_subClassId, eventType, messageData_eventCategory, generatedTime, serverTime, facility, customerId, trapsId, serverHost, serverComponentVersion, regionId, severity, trapsSeverity, agentIp, deviceName, deviceDomain, messageName </order>
+</decoder>
+
+
+<!-- Mispa - Cortex XDR Agent -->
+<!-- Decoder father -->
+<decoder name="cortex_xdr_agent">
+    <prematch>- system,agent_log</prematch>
+</decoder>
+
+<!-- Sibling 1: First 6 fields -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>- (\w+),(\w+),(\w+),(\d+),(\w+),(\w+)</regex>
+    <order>field1,field2,field3,event_id,message_type,flow_type</order>
+</decoder>
+
+<!-- Sibling 2: 1º timestamp -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>(\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d\d\d\dZ)</regex>
+    <order>generated_time</order>
+</decoder>
+
+<!-- Sibling 3: 2º timestamp -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d\d\d\dZ,(\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d\d\d\dZ)</regex>
+    <order>received_time</order>
+</decoder>
+
+<!-- Sibling 4: agent_type -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d\d\d\dZ,\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d\d\d\dZ,\w+,(\w+),</regex>
+    <order>agent_type</order>
+</decoder>
+
+<!-- Sibling 5: 1º ID -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,\w+,(\d\d\d\d\d\d\d\d\d\d+),</regex>
+    <order>id_field1</order>
+</decoder>
+
+<!-- Sibling 6: 2º ID -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,\d\d\d\d\d\d\d\d\d\d+,(\d\d\d\d\d\d\d\d\d\d+),</regex>
+    <order>id_field2</order>
+</decoder>
+
+<!-- Sibling 7: server_hostname -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,\d\d\d\d\d\d\d\d\d\d+,\d\d\d\d\d\d\d\d\d\d+,(\.+),</regex>
+    <order>server_hostname</order>
+</decoder>
+
+<!-- Sibling 8: master_version -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,mt\d+\.\.+\.\.+\.com,(\.+),</regex>
+    <order>master_version</order>
+</decoder>
+
+<!-- Sibling 9: region_id field_1 -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,master:\.+,(\d+),(\d+),</regex>
+    <order>region_id,field_1</order>
+</decoder>
+
+<!-- Sibling 10: severity_1 y severity_2 -->
+<decoder name="cortex_xdr_agent_fields">
+  <parent>cortex_xdr_agent</parent>
+  <regex>,\d+,\d+,\w+,(\d+),(\d+),\d+,</regex>
+  <order>severity_1,severity_2</order>
+</decoder>
+
+
+<!-- Sibling 11: event_code -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,\d+,\d+,(\d\d\d\d),</regex>
+    <order>event_code</order>
+</decoder>
+
+<!-- Sibling 12: event_message event_description -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,\d\d\d\d,(\.+),\.+,(\.+),\.+,\.+,\.+,\.+,</regex>
+    <order>event_message,event_description</order>
+</decoder>
+
+<!-- Sibling 13: agent_ip, agent_hostname and mFQDN -->
+<decoder name="cortex_xdr_agent_fields">
+    <parent>cortex_xdr_agent</parent>
+    <regex>,(\d+.\d+.\d+.\d+),(\S+),(\S+),\d+.\d+.\d+.\d+,\d+-\d+,None,</regex>
+    <order>agent_ip,agent_hostname,mFQDN</order>
+</decoder>

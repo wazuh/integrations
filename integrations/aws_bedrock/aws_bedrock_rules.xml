@@ -1,0 +1,35 @@
+<group name="aws_bedrock,">
+
+  <rule id="100000" level="3">
+    <if_sid>0</if_sid>
+    <field name="aws.cloudwatch.namespace">AWS/Bedrock</field>
+    <description>AWS Bedrock log detected.</description>
+  </rule>
+  
+
+  <rule id="100001" level="10">
+    <if_sid>100000</if_sid>
+    <field name="aws.cloudwatch.namespace">AWS/Bedrock/Guardrails</field>
+    <field name="aws_bedrock.guardrails.invocations_intervened" type="pcre2">^[1-9][0-9]*$</field>
+    <description>An AWS Bedrock guardrail has intervened in a request.</description>
+  </rule>
+
+  <rule id="100002" level="7">
+    <if_sid>0</if_sid>
+    <field name="aws.s3.object.key">BedrockModelInvocationLogs</field>
+    <description>AWS Bedrock invocation log.</description>
+  </rule>
+
+  <rule id="100003" level="9">
+    <if_sid>100000</if_sid>
+    <field name="aws_bedrock.runtime.invocations">\d</field>
+    <description>AWS Bedrock runtime invocations detected.</description>
+  </rule>
+
+  <rule id="100004" level="8">
+    <if_sid>100003</if_sid>
+    <field name="aws_bedrock.runtime.invocation_latency">\d</field>
+    <description>AWS Bedrock runtime invocation detected.</description>
+  </rule>
+
+</group>

@@ -1,0 +1,42 @@
+<group name="azure, frontdoor,">
+
+  <!-- Rule 100000: General rule for all Azure Front Door logs. -->
+  <rule id="100000" level="3">
+    <if_sid>0</if_sid>
+    <match>Frontdoor</match>
+    <description>Azure Front Door log detected.</description>
+  </rule>
+
+  <!-- Rule 100001: Rule for Azure Front Door Access logs. -->
+  <!-- This rule extends the general Front Door log rule and is triggered by the category "FrontdoorAccessLog". -->
+  <rule id="100001" level="5">
+    <if_sid>100000</if_sid>
+    <field name="azure.frontdoor.category">FrontdoorAccessLog</field>
+    <description>Azure Front Door access log received.</description>
+  </rule>
+
+  <!-- Rule 100002: Rule for Azure Front Door WAF logs. -->
+  <!-- This rule extends the general Front Door log rule and is triggered by the category "FrontdoorWebApplicationFirewallLog". -->
+  <rule id="100002" level="7">
+    <if_sid>100000</if_sid>
+    <field name="azure.frontdoor.category">FrontdoorWebApplicationFirewallLog</field>
+    <description>Azure Front Door WAF log detected.</description>
+  </rule>
+
+  <!-- Rule 100003: Rule for WAF logs in detection mode. -->
+  <!-- This rule is more specific and extends the WAF log rule. -->
+  <rule id="100003" level="9">
+    <if_sid>100002</if_sid>
+    <field name="azure.frontdoor.waf.policy_mode">detection</field>
+    <description>Azure Front Door WAF detected a potential threat (policy mode: detection).</description>
+  </rule>
+
+  <!-- Rule 100004: Rule for WAF logs where an action was taken. -->
+  <!-- This rule can be used to identify when the WAF actively blocked or logged an event. -->
+  <rule id="100004" level="10">
+    <if_sid>100002</if_sid>
+    <field name="event.action">\w+</field>
+    <description>Azure Front Door WAF action detected: $(event.action).</description>
+  </rule>
+
+</group>

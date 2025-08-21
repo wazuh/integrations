@@ -1,0 +1,23 @@
+<group name="auth0,">
+  <rule id="100010" level="3">
+    <if_sid>0</if_sid>
+    <field name="auth0.logs.data.classification">Login - Failure</field>
+    <description>Auth0: Generic authentication failure.</description>
+    <group>authentication_failure,</group>
+  </rule>
+
+  <rule id="100011" level="6">
+    <if_sid>100010</if_sid>
+    <field name="auth0.logs.data.description">Callback URL mismatch. </field>
+    <description>Auth0: Failed login due to callback URL mismatch.</description>
+    <group>authentication_failure,access_denied,</group>
+  </rule>
+
+  <rule id="100012" level="10" frequency="8" timeframe="120">
+    <if_matched_sid>100011</if_matched_sid>
+    <field name="source.ip" type="pcre2">\S+</field>
+    <same_field>source.ip</same_field>
+    <description>Auth0: Multiple login failures from the same source IP due to callback URL mismatch. Possible brute-force or misconfigured client.</description>
+    <group>authentication_failure,access_denied,brute_force,gdpr_IV_35.7.d,pci_dss_10.2.4,pci_dss_10.2.5,pci_dss_11.4,</group>
+  </rule>
+</group>
