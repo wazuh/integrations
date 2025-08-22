@@ -1,7 +1,7 @@
 <group name="abnormal_security,">
 
   <rule id="100001" level="0">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <match>Abnormal</match>
     <description>Abnormal Security event occurred.</description>
   </rule>
