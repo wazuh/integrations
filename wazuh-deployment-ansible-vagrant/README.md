@@ -147,12 +147,16 @@ To verify the integration:
 ```bash
 vagrant ssh vm2
 ```
-   - Verify Wazuh manager logs for startup:
+   - Check the status of the manager, indexer, and dashboard services are running.
 ```bash
-sudo tail -f /var/ossec/logs/ossec.log
+systemctl status wazuh-indexer
+systemctl status wazuh-manager
+systemctl status wazuh-dashboard
 ```
-   - Look for entries indicating the manager, indexer, and dashboard services are running.
-
+  - You’ll need to reset the admin password using the given command, and then use the new password to log in at the next step.
+```
+/usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -u admin -p <enterpassword>
+```
 3. **Access Wazuh Dashboard**:
    - Open `https://<IP-address>` in a browser on the host machine.
 
