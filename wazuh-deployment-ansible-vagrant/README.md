@@ -30,7 +30,7 @@ This integration automates the deployment of a Wazuh single-node setup using Ans
 - Git for cloning the Wazuh Ansible repository
 - Internet access for downloading the Wazuh Ansible repository and Vagrant box (`bento/ubuntu-24.04`, version `202508.03.0`)
 - 10GB RAM and 6 CPUs available for VMs (8GB/4 CPUs for Wazuh server, 2GB/2 CPUs for Ansible control node)
-- Network access to `http://localhost:5601` for Wazuh dashboard
+- Network access to `https:<IP-address>` for Wazuh dashboard
 - Administrative access on the host system (Windows or macOS)
 
 ---
