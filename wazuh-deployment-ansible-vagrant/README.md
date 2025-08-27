@@ -154,7 +154,7 @@ sudo tail -f /var/ossec/logs/ossec.log
    - Look for entries indicating the manager, indexer, and dashboard services are running.
 
 3. **Access Wazuh Dashboard**:
-   - Open `http://<IP-address>` in a browser on the host machine.
+   - Open `https://<IP-address>` in a browser on the host machine.
 
 ## Sources
 
