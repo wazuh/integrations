@@ -1,7 +1,7 @@
 <group name="aws_bedrock,">
 
   <rule id="100000" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="aws.cloudwatch.namespace">AWS/Bedrock</field>
     <description>AWS Bedrock log detected.</description>
   </rule>
@@ -15,7 +15,7 @@
   </rule>
 
   <rule id="100002" level="7">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="aws.s3.object.key">BedrockModelInvocationLogs</field>
     <description>AWS Bedrock invocation log.</description>
   </rule>

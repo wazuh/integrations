@@ -2,7 +2,7 @@
 
   <!-- Parent rule for all Authentik events -->
   <rule id="100001" level="0">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="data_stream.dataset">authentik</field>
     <description>Group for all Authentik log messages.</description>
   </rule>
