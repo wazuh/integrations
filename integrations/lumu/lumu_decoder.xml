@@ -1,0 +1,5 @@
+<decoder name="decoder-lumu-incs">
+    <prematch>lumu-incs \d \w+ - </prematch>
+    <plugin_decoder offset="after_prematch">JSON_Decoder</plugin_decoder>
+</decoder>
+
