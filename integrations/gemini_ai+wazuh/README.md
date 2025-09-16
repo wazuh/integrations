@@ -36,7 +36,7 @@ Integrate **Gemini AI** with **Wazuh** to enrich alerts. The integration leverag
    ```bash
    vi /var/ossec/integrations/custom-gemini.py
    ```
-2. Copy and paste the contents from the attached custom-gemini.txt file.
+2. Copy and paste the script from the attached custom-gemini.py file.
 
 3. Set permissions and ownership:
    ```bash
