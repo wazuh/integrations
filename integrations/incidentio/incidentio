@@ -36,4 +36,3 @@ esac
 
 
 ${WAZUH_PATH}/${WPYTHON_BIN} ${PYTHON_SCRIPT} "$@"
-

@@ -2,7 +2,7 @@
 
   <!-- Rule 100000: General rule for all Azure logs. -->
   <rule id="100000" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="service.type">azure</field>
     <description>Azure log detected</description>
   </rule>

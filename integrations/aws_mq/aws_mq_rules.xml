@@ -4,35 +4,35 @@
 
   <!-- Rule 100100: General rule for ActiveMQ audit logs. -->
   <rule id="100100" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="data_stream.dataset">aws_mq.activemq_audit_logs</field>
     <description>AWS Amazon MQ ActiveMQ audit log detected.</description>
   </rule>
 
   <!-- Rule 100101: General rule for ActiveMQ general logs. -->
   <rule id="100101" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="data_stream.dataset">aws_mq.activemq_general_logs</field>
     <description>AWS Amazon MQ ActiveMQ general log detected.</description>
   </rule>
 
   <!-- Rule 100102: General rule for RabbitMQ general logs. -->
   <rule id="100102" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="data_stream.dataset">aws_mq.rabbitmq_general_logs</field>
     <description>AWS Amazon MQ RabbitMQ general log detected.</description>
   </rule>
 
   <!-- Rule 100103: General rule for ActiveMQ metrics logs. -->
   <rule id="100103" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="data_stream.dataset">aws_mq.activemq_metrics</field>
     <description>AWS Amazon MQ ActiveMQ metrics log detected.</description>
   </rule>
 
   <!-- Rule 100104: General rule for RabbitMQ metrics logs. -->
   <rule id="100104" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="data_stream.dataset">aws_mq.rabbitmq_metrics</field>
     <description>AWS Amazon MQ RabbitMQ metrics log detected.</description>
   </rule>

@@ -1,0 +1,49 @@
+<group name="Lumu,">
+
+  <rule id="903000" level="5">
+    <decoded_as>decoder-lumu-incs</decoded_as>
+    <description>Lumu-Inc -> Alert Detected.</description>
+  </rule>
+
+  <rule id="903001" level="12">
+    <if_sid>903000</if_sid>
+    <field name="NewIncidentCreated.incident.status">open</field>
+    <description>Lumu-Inc -> New Incident Created. | Adversaries: $(NewIncidentCreated.incident.adversaries), id: $(NewIncidentCreated.incident.adversaryId), types: $(NewIncidentCreated.incident.adversaryTypes), description: $(NewIncidentCreated.incident.description).</description>
+  </rule>
+
+  <rule id="903002" level="11">
+    <if_sid>903000</if_sid>
+    <field name="IncidentClosed.incident.status">closed</field>
+    <description>Lumu-Inc -> Incident Closed. | Adversaries: $(IncidentClosed.incident.adversaries), id: $(IncidentClosed.incident.adversaryId), types: $(IncidentClosed.incident.adversaryTypes), description: $(IncidentClosed.incident.description) | Comment: $(IncidentClosed.comment)</description>
+  </rule>
+
+  <rule id="903003" level="11">
+    <if_sid>903000</if_sid>
+    <field name="IncidentAssigned.incidentId" type="pcre2">.</field>
+    <description>Lumu-Inc -> Incident Assigned. | Open Incidents: $(IncidentAssigned.openIncidentsStats.openIncidents), In Progress Incidents: $(IncidentAssigned.openIncidentsStats.inProgressIncidents), Assignee: $(IncidentAssigned.assignee),Assigner: $(IncidentAssigned.assigner).</description>
+  </rule>
+
+  <rule id="903004" level="11">
+    <if_sid>903000</if_sid>
+    <field name="IncidentUpdated.incident.id" type="pcre2">.</field>
+    <description>Lumu-Inc -> Incident Updated. |  Adversaries: $(IncidentUpdated.incident.adversaries), id: $(IncidentUpdated.incident.adversaryId), types: $(IncidentUpdated.incident.adversaryTypes), description: $(IncidentUpdated.incident.description)</description>
+  </rule>
+
+</group>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

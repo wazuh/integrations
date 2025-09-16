@@ -1,6 +1,6 @@
 <group name="auth0,">
   <rule id="100010" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="auth0.logs.data.classification">Login - Failure</field>
     <description>Auth0: Generic authentication failure.</description>
     <group>authentication_failure,</group>
