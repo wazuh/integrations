@@ -1,0 +1,22 @@
+
+<group name="wazuh_sophos">
+
+  <rule id="121000" level="0">
+    <field name="wazuh_sophos.customer_id">2400dbf5-f151-43cc-a078-6dc4c4409593</field>
+    <description>Wazuh Sophos custom integration $(wazuh_sophos.customer_id)</description>
+  </rule>
+
+  <rule id="121001" level="3">
+    <if_sid>121000</if_sid>
+    <field name="wazuh_sophos.severity">^low$</field>
+    <description>Wazuh Sophos custom integration $(wazuh_sophos.customer_id) - Severity Low</description>
+  </rule>
+
+ <rule id="121002" level="5">
+    <if_sid>121000</if_sid>
+    <field name="wazuh_sophos.severity">^medium$</field>
+    <description>Wazuh Sophos custom integration $(wazuh_sophos.customer_id) - Severity Medium</description>
+  </rule>
+
+</group>
+

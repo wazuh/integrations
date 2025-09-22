@@ -1,0 +1,121 @@
+<!-- Custom Rules for Fortigate 200F -->
+
+<group name="fortigate200f,">
+
+    <!-- Parent rule for Type 1 logs-->
+    <rule id="100000" level="0">
+        <decoded_as>fortif200_ports</decoded_as>
+        <description>Fortigate 200F: Port status messages grouped.</description>
+    </rule>
+
+    <!-- Rules for Type 1 logs -->
+
+    <!-- Port offline -->
+    <rule id="100001" level="4">
+        <if_sid>100000</if_sid>
+        <field name="port_status">off-line</field>
+        <description>Fortigate 200F: Port went offline.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Port online -->
+    <rule id="100002" level="3">
+        <if_sid>100000</if_sid>
+        <field name="port_status">on-line</field>
+        <description>Fortigate 200F: Port came online.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Trunk port -->
+    <rule id="100003" level="6">
+        <if_sid>100000</if_sid>
+        <field name="trunk_name">\.+</field>
+        <field name="port_status">off-line</field>
+        <description>Fortigate 200F: Trunk port went offline - potential network disruption.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Parent rule for Type 2 logs -->
+    <rule id="100010" level="0">
+        <decoded_as>fortif200_trapmgr</decoded_as>
+        <description>Fortigate 200F: TRAPMGR messages grouped.</description>
+    </rule>
+
+    <!-- Rules for Type 2 logs -->
+
+    <!-- Link Down|Failed -->
+    <rule id="100011" level="5">
+        <if_sid>100010</if_sid>
+        <field name="link_status">Down|failed</field>
+        <description>Fortigate 200F: Network link is down.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- STP Port -->
+    <rule id="100012" level="4">
+        <if_sid>100010</if_sid>
+        <field name="stp_state">Blocking</field>
+        <description>Fortigate 200F: STP port in blocking state.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Link UP -->
+    <rule id="100013" level="3">
+        <if_sid>100010</if_sid>
+        <field name="link_status">Up|up</field>
+        <description>Fortigate 200F: Network link is up.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- STP Forwarding -->
+    <rule id="100014" level="3">
+        <if_sid>100010</if_sid>
+        <field name="stp_state">Forwarding</field>
+        <description>Fortigate 200F: STP port in forwarding state.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Aggregate UP -->
+    <rule id="100015" level="3">
+        <if_sid>100010</if_sid>
+        <field name="link_number">\.+</field>
+        <field name="link_status">up</field>
+        <description>Fortigate 200F: Aggregate link is up.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Interface Transition -->
+    <rule id="100016" level="5">
+        <if_sid>100010</if_sid>
+        <field name="old_state">\.+</field>
+        <field name="new_state">\.+</field>
+        <description>Fortigate 200F: Interface state transition detected.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Aggregate Down -->
+    <rule id="100017" level="6">
+        <if_sid>100010</if_sid>
+        <field name="link_number">\.+</field>
+        <field name="link_status">down|failed</field>
+        <description>Fortigate 200F: Aggregate link is down - redundancy compromised.</description>
+        <group>network</group>
+    </rule>
+
+    <!-- Parent rule for Type 3 logs -->
+    <rule id="100020" level="0">
+        <decoded_as>fortif200_dhcp_cli</decoded_as>
+        <description>Fortigate 200F: DHCP CLI messages grouped.</description>
+    </rule>
+
+    <!-- Rules for Type 3 logs -->
+
+    <!-- Rule for DHCP failures -->
+    <rule id="100021" level="7">
+        <if_sid>100020</if_sid>
+        <field name="dhcp_action">Failed to acquire an IP address</field>
+        <description>Fortigate 200F: DHCP failed to acquire IP address.</description>
+        <group>network</group>
+    </rule>
+
+</group>
