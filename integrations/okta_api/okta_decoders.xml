@@ -1,0 +1,452 @@
+<!-- Okta decoders -->
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">{"okta":{"actor":{"id":"(okta.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})</regex>
+  <order>okta.actor_uuid</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">type":"(\w+)"</regex>
+  <order>okta.actor_type</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">alternateId":"(\w+)"</regex>
+  <order>okta.actor_alternateId</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">displayName":"([^"]+)"</regex>
+  <order>okta.actor_displayName</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">detailEntry":"([^"]+)"}</regex>
+  <order>okta.actor_detailEntry</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"rawUserAgent":"([^"]+)"</regex>
+  <order>okta.client.userAgent.rawUserAgent</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"os":"([^"]+)"</regex>
+  <order>okta.client.userAgent.os</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"browser":"([^"]+)"</regex>
+  <order>okta.client.userAgent.browser</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"zone":(null|"[^"]*")</regex>
+  <order>okta.client.zone</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"device":"([^"]+)"</regex>
+  <order>okta.client.device</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"id":"(okta\.[0-9a-f\-]+)"</regex>
+  <order>okta.client.id</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"ipAddress":"([\d.]+)"</regex>
+  <order>okta.client.ipAddress</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"city":"([^"]+)"</regex>
+  <order>okta.client.geographicalContext.city</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"state":"([^"]+)"</regex>
+  <order>okta.client.geographicalContext.state</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"country":"([^"]+)"</regex>
+  <order>okta.client.geographicalContext.country</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"postalCode":"([^"]+)"</regex>
+  <order>okta.client.geographicalContext.postalCode</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"lat":([0-9.\-]+)</regex>
+  <order>okta.client.geographicalContext.geolocation.lat</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"lon":([0-9.\-]+)</regex>
+  <order>okta.client.geographicalContext.geolocation.lon</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"device":"([^"]+)"</regex>
+  <order>okta.client_device</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"authenticationProvider":(null|"[^"]*")</regex>
+  <order>okta.authenticationContext.authenticationProvider</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"credentialProvider":(null|"[^"]*")</regex>
+  <order>okta.authenticationContext.credentialProvider</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"credentialType":(null|"[^"]*")</regex>
+  <order>okta.authenticationContext.credentialType</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"issuer":(null|"[^"]*")</regex>
+  <order>okta.authenticationContext.issuer</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"interface":(null|"[^"]*")</regex>
+  <order>okta.authenticationContext.interface</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"authenticationStep":([0-9]+)</regex>
+  <order>okta.authenticationContext.authenticationStep</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"rootSessionId":"([^"]+)"</regex>
+  <order>okta.authenticationContext.rootSessionId</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"externalSessionId":"([^"]+)"</regex>
+  <order>okta.authenticationContext.externalSessionId</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"displayMessage":"([^"]+)"</regex>
+  <order>okta.displayMessage</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"eventType":"([^"]+)"</regex>
+  <order>okta.eventType</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"result":"([^"]+)"</regex>
+  <order>okta.outcome.result</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"reason":(null|"[^"]*")</regex>
+  <order>okta.outcome.reason</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"published":"([^"]+)"</regex>
+  <order>okta.published</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"severity":"([^"]+)"</regex>
+  <order>okta.severity</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"asNumber":([0-9]+)</regex>
+  <order>okta.securityContext.asNumber</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"asOrg":"([^"]+)"</regex>
+  <order>okta.securityContext.asOrg</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"isp":"([^"]+)"</regex>
+  <order>okta.securityContext.isp</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"domain":"([^"]+)"</regex>
+  <order>okta.securityContext.domain</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"isProxy":(true|false)</regex>
+  <order>okta.securityContext.isProxy</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"clientAuthType":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.clientAuthType</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"redirectUri":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.redirectUri</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"grantedScopes":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.grantedScopes</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"authCode":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.authCode</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"requestId":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.requestId</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"responseTime":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.responseTime</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"dtHash":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.dtHash</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"requestUri":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.requestUri</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"threatSuspected":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.threatSuspected</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"grantType":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.grantType</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"url":"([^"]+)"</regex>
+  <order>okta.debugContext.debugData.url</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"legacyEventType":"([^"]+)"</regex>
+  <order>okta.legacyEventType</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"type":"([^"]+)"</regex>
+  <order>okta.transaction.type</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"id":"([^"]+)"</regex>
+  <order>okta.transaction.id</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"uuid":"([^"]+)"</regex>
+  <order>okta.uuid</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"version":"([^"]+)"</regex>
+  <order>okta.version</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"ip":"([\d.]+)"</regex>
+  <order>okta.request.ipChain.ip</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"city":"([^"]+)"</regex>
+  <order>okta.request.ipChain.geographicalContext.city</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"state":"([^"]+)"</regex>
+  <order>okta.request.ipChain.geographicalContext.state</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"country":"([^"]+)"</regex>
+  <order>okta.request.ipChain.geographicalContext.country</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"postalCode":"([^"]+)"</regex>
+  <order>okta.request.ipChain.geographicalContext.postalCode</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"lat":([0-9.\-]+)</regex>
+  <order>okta.request.ipChain.geographicalContext.geolocation.lat</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"lon":([0-9.\-]+)</regex>
+  <order>okta.request.ipChain.geographicalContext.geolocation.lon</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"version":"([^"]+)"</regex>
+  <order>okta.request.ipChain.version</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"source":(null|"[^"]*")</regex>
+  <order>okta.request.ipChain.source</order>
+</decoder>
+
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"target":\s*\[{"id":"(\w+)"</regex>
+  <order>okta.target[0].id</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"target":.+"type":"(\w+)".+},</regex>
+  <order>okta.target[0].type</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"target":.+"alternateId":"([^"]+)".+},</regex>
+  <order>okta.target[0].alternateId</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"target":.+"displayName":"([^"]+)".+},</regex>
+  <order>okta.target[0].displayName</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"id":"(ID\.[^"]+)"</regex>
+  <order>okta.target[1].id</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"type":"id_token"</regex>
+  <order>okta.target[1].type</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"alternateId":(null|"[^"]*")</regex>
+  <order>okta.target[1].alternateId</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"displayName":"ID Token"</regex>
+  <order>okta.target[1].displayName</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"audience":"([^"]+)"</regex>
+  <order>okta.target[1].detailEntry.audience</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"expires":"([^"]+)"</regex>
+  <order>okta.target[1].detailEntry.expires</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"subject":"([^"]+)"</regex>
+  <order>okta.target[1].detailEntry.subject</order>
+</decoder>
+
+<decoder name="okta">
+  <parent>json</parent>
+  <regex type="pcre2">"hash":"([^"]+)"</regex>
+  <order>okta.target[1].detailEntry.hash</order>
+</decoder>

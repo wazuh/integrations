@@ -1,0 +1,26 @@
+Example logs:
+Following each example log and his output from Ruleset Test:
+
+1. DHCP CLI:
+
+"2025-06-27T19:30:17.007Z","10.30.3.17","Jun 27 16:36:01 10.30.3.17-1 DHCP_CLI[109967692]: dhcp_prot.c(775) 229015 %% Failed to acquire an IP address on Vl1; DHCP Server did not respond."
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_dhcp_cli'
+	device_timestamp: 'Jun 27 16:36:01'
+	dhcp_action: 'Failed to acquire an IP address on Vl1'
+	dhcp_reason: 'DHCP Server did not respond'
+	event_code: '229015'
+	process_id: '109967692'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-1'
+	stack_member: '1'
+
+**Phase 3: Completed filtering (rules).
+	id: '100021'
+	level: '7'
+	description: 'Fortinet FG-200F: DHCP failed to acquire IP address'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
