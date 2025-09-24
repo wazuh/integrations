@@ -1,0 +1,6 @@
+<group name="rapid7,">
+  <rule id="137500" level="3">
+    <location>^rapid7$</location>
+    <description>Rapid7 event.</description>
+  </rule>
+</group>

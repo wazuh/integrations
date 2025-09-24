@@ -1,0 +1,167 @@
+Example logs:
+Following each example log and his output from Ruleset Test:
+
+1. Link Up/Down:
+
+"2025-06-25T16:36:01.542Z","10.30.3.17","Jun 25 16:36:01 10.30.3.17-6 TRAPMGR[27592163]: traputil.c(696) 700027 %% Link 1/1/3 is Up"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_trapmgr'
+	device_timestamp: 'Jun 25 16:36:01'
+	event_code: '700027'
+	link_port: '1/1/3'
+	link_status: 'Up'
+	process_id: '27592163'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-6'
+	stack_member: '6'
+
+**Phase 3: Completed filtering (rules).
+	id: '100013'
+	level: '3'
+	description: 'Fortinet FG-200F: Network link is up'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
+
+"2025-06-27T17:00:41.449Z","10.30.3.17","Jun 27 17:00:41 10.30.3.17-3 TRAPMGR[22544987]: traputil.c(700) 700028 %% Link 2/1/20 is Down"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_trapmgr'
+	device_timestamp: 'Jun 27 17:00:41'
+	event_code: '700028'
+	link_port: '2/1/20'
+	link_status: 'Down'
+	process_id: '22544987'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-3'
+	stack_member: '3'
+
+**Phase 3: Completed filtering (rules).
+	id: '100011'
+	level: '5'
+	description: 'Fortinet FG-200F: Network link is down'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '2'
+	mail: 'false'
+**Alert to be generated.
+
+2. STP State:
+
+"2025-06-27T15:26:57.500Z","10.30.3.17","Jun 27 15:26:57 10.30.3.17-4 TRAPMGR[27788879]: traputil.c(736) 700086 %% %% Port 2/1/23 STP state is Forwarding"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_trapmgr'
+	device_timestamp: 'Jun 27 15:26:57'
+	event_code: '700086'
+	process_id: '27788879'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-4'
+	stack_member: '4'
+	stp_port: '2/1/23'
+	stp_state: 'Forwarding'
+
+**Phase 3: Completed filtering (rules).
+	id: '100014'
+	level: '3'
+	description: 'Fortinet FG-200F: STP port in forwarding state'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
+
+"2025-06-27T15:26:57.500Z","10.30.3.17","Jun 27 15:26:57 10.30.3.17-5 TRAPMGR[26608203]: traputil.c(736) 700086 %% %% Port 1/1/1 STP state is Blocking"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_trapmgr'
+	device_timestamp: 'Jun 27 15:26:57'
+	event_code: '700086'
+	process_id: '26608203'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-5'
+	stack_member: '5'
+	stp_port: '1/1/1'
+	stp_state: 'Blocking'
+
+**Phase 3: Completed filtering (rules).
+	id: '100012'
+	level: '4'
+	description: 'Fortinet FG-200F: STP port in blocking state'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
+
+3. Aggregate Link:
+
+"2025-06-27T16:28:57.456Z","10.30.3.17","Jun 27 16:28:57 10.30.3.17-2 TRAPMGR[21627291]: traputil.c(705) 700029 %% Aggregate link 1 is Down"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_trapmgr'
+	device_timestamp: 'Jun 27 16:28:57'
+	event_code: '700029'
+	link_number: '1'
+	link_status: 'Down'
+	process_id: '21627291'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-2'
+	stack_member: '2'
+
+**Phase 3: Completed filtering (rules).
+	id: '100017'
+	level: '6'
+	description: 'Fortinet FG-200F: Aggregate link is down - redundancy compromised'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '2'
+	mail: 'false'
+**Alert to be generated.
+
+4. Different Link format:
+
+"2025-06-20T16:12:37.398Z","10.30.3.17","Jun 20 00:57:27 10.30.3.17-1 TRAPMGR[125716124]: traputil.c(697) 226537 %% Link on Gi1/0/7 is failed"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_trapmgr'
+	device_timestamp: 'Jun 20 00:57:27'
+	event_code: '226537'
+	interface: 'Gi1/0/7'
+	link_status: 'failed'
+	process_id: '125716124'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-1'
+	stack_member: '1'
+
+**Phase 3: Completed filtering (rules).
+	id: '100011'
+	level: '5'
+	description: 'Fortinet FG-200F: Network link is down'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
+
+5. Transitioned:
+
+"2025-06-20T16:12:37.398Z","10.30.3.17","Jun 20 00:57:29 10.30.3.17-1 TRAPMGR[125716124]: traputil.c(697) 226540 %% Gi1/0/7 is transitioned from the Forwarding state to the Blocking state in instance 0"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_trapmgr'
+	device_timestamp: 'Jun 20 00:57:29'
+	event_code: '226540'
+	interface: 'Gi1/0/7'
+	new_state: 'Blocking'
+	old_state: 'Forwarding'
+	process_id: '125716124'
+	srcip: '10.30.3.17'
+	srcip_extended: '10.30.3.17-1'
+	stack_member: '1'
+
+**Phase 3: Completed filtering (rules).
+	id: '100016'
+	level: '5'
+	description: 'Fortinet FG-200F: Interface state transition detected'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
