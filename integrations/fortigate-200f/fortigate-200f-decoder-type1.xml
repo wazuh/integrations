@@ -1,0 +1,57 @@
+<!-- TYPE 1: Port Status Logs -->
+
+<!-- Decoder father -->
+<decoder name="fortif200_ports">
+    <prematch>ports:</prematch>
+</decoder>
+
+<!-- Sibling 1: IP and Event Code -->
+<decoder name="fortif200_ports_fields">
+    <parent>fortif200_ports</parent>
+    <regex>(\S+) (\d+) ports:</regex>
+    <order>srcip, event_code</order>
+</decoder>
+
+<!-- Sibling 2: Port and Status -->
+<decoder name="fortif200_ports_fields">
+    <parent>fortif200_ports</parent>
+    <regex offset="after_parent">\s+port (\d+) is now (\S+)</regex>
+    <order>port_number, port_status</order>
+</decoder>
+
+<!-- Sibling 3: Trunk and Status -->
+<decoder name="fortif200_ports_fields">
+    <parent>fortif200_ports</parent>
+    <regex offset="after_parent">\s+trunk (\S+) is now (\S+)</regex>
+    <order>trunk_name, trunk_status</order>
+</decoder>
+
+<!-- Sibling 4: Trunk Port and Status -->
+<decoder name="fortif200_ports_fields">
+    <parent>fortif200_ports</parent>
+    <regex offset="after_parent">\s+port (\d+) in (\S+) is now (\S+)</regex>
+    <order>port_number, trunk_name, port_status</order>
+</decoder>
+
+<!-- Sibling 5: Device Timestamp -->
+<decoder name="fortif200_ports_fields">
+    <parent>fortif200_ports</parent>
+    <regex>(\w+ \d+ \d+:\d+:\d+) \S+ \d+ ports:</regex>
+    <order>device_timestamp</order>
+</decoder>
+
+<!-- Sibling 6: Port with Hostname -->
+<decoder name="fortif200_ports_fields">
+    <parent>fortif200_ports</parent>
+    <regex offset="after_parent">\s+(\S+): port (\S+) is now (\S+)</regex>
+    <order>switch_name, port_number, port_status</order>
+</decoder>
+
+<!-- Sibling 7: Port with Hostname -->
+<decoder name="fortif200_ports_fields">
+    <parent>fortif200_ports</parent>
+    <regex offset="after_parent">\s+(\S+): port (\S+) is Blocked by (\S+)</regex>
+    <order>switch_name, port_number, blocking_protocol</order>
+</decoder>
+
+<!-- End of TYPE 1 -->

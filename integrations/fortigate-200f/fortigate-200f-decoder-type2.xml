@@ -1,0 +1,85 @@
+<!-- TYPE 2: Trap Manager Logs -->
+
+<!-- Decoder father -->
+<decoder name="fortif200_trapmgr">
+    <prematch>TRAPMGR[</prematch>
+</decoder>
+
+<!-- Sibling 1: IP extended -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>(\S+) TRAPMGR</regex>
+    <order>srcip_extended</order>
+</decoder>
+
+<!-- Sibling 2: Stack member -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>-(\d+) TRAPMGR</regex>
+    <order>stack_member</order>
+</decoder>
+
+<!-- Sibling 3: IP -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex type="pcre2">(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?=-\d+ TRAPMGR)</regex>
+    <order>srcip</order>
+</decoder>
+
+<!-- Sibling 4: Process ID -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex offset="after_parent">(\d+)</regex>
+    <order>process_id</order>
+</decoder>
+
+<!-- Sibling 5: Device Timestamp -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>(\w+ \d+ \d+:\d+:\d+) \S+ TRAPMGR</regex>
+    <order>device_timestamp</order>
+</decoder>
+
+<!-- Sibling 6: Event Code -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>\) (\d+) %%</regex>
+    <order>event_code</order>
+</decoder>
+
+<!-- Sibling 7: Aggregate link -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>Aggregate link (\d+) is (\w+)</regex>
+    <order>link_number, link_status</order>
+</decoder>
+
+<!-- Sibling 8: Link Up/Down -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>Link (\d+/\d+/\d+) is (\w+)</regex>
+    <order>link_port, link_status</order>
+</decoder>
+
+<!-- Sibling 9: STP State -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>Port (\d+/\d+/\d+) STP state is (\w+)</regex>
+    <order>stp_port, stp_state</order>
+</decoder>
+
+<!-- Sibling 10: Link failed -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>Link on (\S+) is (\w+)</regex>
+    <order>interface, link_status</order>
+</decoder>
+
+<!-- Sibling 11: Transition -->
+<decoder name="fortif200_trapmgr_fields">
+    <parent>fortif200_trapmgr</parent>
+    <regex>(\S+) is transitioned from the (\w+) state to the (\w+) state</regex>
+    <order>interface, old_state, new_state</order>
+</decoder>
+
+<!-- End of TYPE 2 -->

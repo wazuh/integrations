@@ -1,0 +1,141 @@
+Example logs:
+Following each example log and his output from Ruleset Test:
+
+1. Simple port on-line/off-line:
+
+"2025-06-25T11:39:41.253Z","10.30.3.14","Jun 25 08:45:26 10.30.3.14 00077 ports:  port 18 is now off-line"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_ports'
+	device_timestamp: 'Jun 25 08:45:26'
+	event_code: '00077'
+	port_number: '18'
+	port_status: 'off-line"'
+	srcip: '10.30.3.14'
+
+**Phase 3: Completed filtering (rules).
+	id: '100001'
+	level: '4'
+	description: 'Fortinet FG-200F: Port went offline'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
+
+"2025-06-28T16:29:33.812Z","10.30.3.14","Jun 28 13:35:20 10.30.3.14 00076 ports:  port 18 is now on-line"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_ports'
+	device_timestamp: 'Jun 28 13:35:20'
+	event_code: '00076'
+	port_number: '18'
+	port_status: 'on-line"'
+	srcip: '10.30.3.14'
+
+**Phase 3: Completed filtering (rules).
+	id: '100002'
+	level: '3'
+	description: 'Fortinet FG-200F: Port came online'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+
+"2025-06-30T12:01:34.701Z","10.30.4.2","Jun 30 09:07:23 10.30.4.2 00077 ports:  port 37 is now off-line"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_ports'
+	device_timestamp: 'Jun 30 09:07:23'
+	event_code: '00077'
+	port_number: '37'
+	port_status: 'off-line"'
+	srcip: '10.30.4.2'
+
+**Phase 3: Completed filtering (rules).
+	id: '100001'
+	level: '4'
+	description: 'Fortinet FG-200F: Port went offline'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '2'
+	mail: 'false'
+**Alert to be generated.
+
+"2025-06-28T16:29:36.147Z","10.30.3.15","Jun 28 13:35:23 10.30.3.15 00076 ports:  port 40 is now on-line"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_ports'
+	device_timestamp: 'Jun 28 13:35:23'
+	event_code: '00076'
+	port_number: '40'
+	port_status: 'on-line"'
+	srcip: '10.30.3.15'
+
+**Phase 3: Completed filtering (rules).
+	id: '100002'
+	level: '3'
+	description: 'Fortinet FG-200F: Port came online'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '2'
+	mail: 'false'
+**Alert to be generated.
+
+"2025-06-30T12:03:06.693Z","10.30.4.2","Jun 30 09:08:55 10.30.4.2 00077 ports:  port 7 is now off-line"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_ports'
+	device_timestamp: 'Jun 30 09:08:55'
+	event_code: '00077'
+	port_number: '7'
+	port_status: 'off-line"'
+	srcip: '10.30.4.2'
+
+**Phase 3: Completed filtering (rules).
+	id: '100001'
+	level: '4'
+	description: 'Fortinet FG-200F: Port went offline'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '3'
+	mail: 'false'
+**Alert to be generated.
+
+2. Trunk port on-line/off-line:
+
+"2025-06-21T10:55:43.565Z","10.30.3.15","Jun 21 08:00:23 10.30.3.15 00077 ports:  port 46 in Trk2 is now off-line"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_ports'
+	device_timestamp: 'Jun 21 08:00:23'
+	event_code: '00077'
+	port_number: '46'
+	port_status: 'off-line"'
+	srcip: '10.30.3.15'
+	trunk_name: 'Trk2'
+
+**Phase 3: Completed filtering (rules).
+	id: '100003'
+	level: '6'
+	description: 'Fortinet FG-200F: Trunk port went offline - potential network disruption'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '1'
+	mail: 'false'
+**Alert to be generated.
+
+3. Switch:
+
+"2025-06-21T11:07:21.186Z","10.30.3.13","Jun 21 08:12:00 10.30.3.13 00076 ports:  ST1-CMDR: port 1/17 is now on-line"
+
+**Phase 2: Completed decoding.
+	name: 'fortif200_ports'
+	device_timestamp: 'Jun 21 08:12:00'
+	event_code: '00076'
+	port_number: '1/17'
+	port_status: 'on-line"'
+	srcip: '10.30.3.13'
+	switch_name: 'ST1-CMDR'
+
+**Phase 3: Completed filtering (rules).
+	id: '100002'
+	level: '3'
+	description: 'Fortinet FG-200F: Port came online'
+	groups: '["fortigate200f","network"]'
+	firedtimes: '3'
+	mail: 'false'
