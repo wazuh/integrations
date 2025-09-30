@@ -38,6 +38,10 @@ Example – PDF report received via email using custom dashboard created for SSH
 - Apply the time filter (e.g., Last 24 hours if sending a daily report).
 - Click Share → Permalinks → Snapshot, enable Short URL, and copy the generated link.
 - Save this link – it will be used by the script to generate the PDF.
+  <img width="1706" height="886" alt="image" src="https://github.com/user-attachments/assets/b0afd7dd-5afd-4d1b-8a51-94767c35997b" />
+  <img width="1705" height="481" alt="image" src="https://github.com/user-attachments/assets/9645b140-f628-4678-bab7-3e27bf1d1a0b" />
+
+
 
 ### Step3: Configure SMTP Server
 - Follow the [Wazuh SMTP configuration guide](https://documentation.wazuh.com/current/user-manual/manager/alert-management.html#smtp-server-with-authentication).
