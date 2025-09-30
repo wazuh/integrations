@@ -1,6 +1,6 @@
 # Sending Wazuh Custom Dashboard PDF Reports via Email
 
-## Tabel of Contents
+## Table of Contents
 - [Overview](#overview)
 - [Configuration Steps](#configuration-steps)
   - [Create Custom Dashboard](#step1-create-custom-dashboard)
