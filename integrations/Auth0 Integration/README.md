@@ -1,23 +1,34 @@
-Wazuh - Auth0 Integration
+# Wazuh - Auth0 Integration
 
-1. Overview
+## Table of Contents
+
+- <a href="#overview">Overview</a>
+- <a href="#prerequisites">Prerequisites</a>
+- <a href="#confauth0">Configure Auth0</a>
+- <a href="#approach1">Approach One</a>
+
+
+## <h2 id="overview" >Overview</h2>
+
 Integrate Auth0 logs into Wazuh by polling the Auth0 Management API. Logs such as successful logins, failed logins, password resets, and suspicious activity will be collected from Auth0 and forwarded to Wazuh for monitoring, alerting, and correlation.
-2. Prerequisites
-A working Wazuh manager or Wazuh agent configured to collect local log files.
 
+## <h2 id="prerequisites" >Prerequisites</h2>
 
-jq is installed on the host (JSON processor).
+1. A working Wazuh manager or Wazuh agent configured to collect local log files.
+2. jq is installed on the host (JSON processor).
+3. Access to an Auth0 tenant with administrator permissions.
+4. Ability to run scheduled jobs (cron/systemd timers).
 
+## <h2 id="confauth0" >Configure Auth0</h2>
 
-Access to an Auth0 tenant with administrator permissions.
+**Poll the Auth0 Management API Create a Machine-to-Machine (M2M) App in Auth0**: In your Auth0 dashboard, register an application (Type: **Machine-to-Machine**) and authorize it for the Auth0 Management API with the `read:logs` scope. Save the `client_id` and `client_secret`.
 
+<img width="400" height="600" src="https://github.com/Harry4share/devopspractice/blob/wazuh/cerateapp.jpg" />
+<img width="400" height="600" src="https://github.com/Harry4share/devopspractice/blob/wazuh/m2mapp.jpg" />
 
-Ability to run scheduled jobs (cron/systemd timers).
-
-3. Configure Auth0 : Poll the Auth0 Management API Create a Machine-to-Machine (M2M) App in Auth0: In your Auth0 dashboard, register an application (Type: Machine-to-Machine) and authorize it for the Auth0 Management API with the read:logs scope. Save the client_id and client_secret.
-
-
-Get an Access Token: Use the OAuth client-credentials flow to obtain a JWT. For example:
+## <h3>Get an Access Token</h3> 
+Use the OAuth client-credentials flow to obtain a JWT. For example:
+```
 curl -X POST 'https://<YOUR_TENANT>.auth0.com/oauth/token' \
 -H 'Content-Type: application/json' \
 -d '{
@@ -26,76 +37,28 @@ curl -X POST 'https://<YOUR_TENANT>.auth0.com/oauth/token' \
 "audience":"https://<YOUR_TENANT>.auth0.com/api/v2/",
 "grant_type":"client_credentials"
 }'
-
+```
 
 Add instructions on how to generate the Auth
-The response JSON contains "access_token".
+
+<img width="1000" height="300" src="https://github.com/Harry4share/devopspractice/blob/wazuh/genauth.jpg" />
+
+The response JSON contains `"access_token"`.
+
 Auth0 returns up to 100 log entries per request. Use the Link: next URL header to paginate or repeatedly call with the new from log ID as shown in Auth0’s docs. Note that Auth0 only retains logs for a limited period (based on your subscription), so schedule fetches frequently enough to avoid gaps.
-Retrieve Log Logs Using the Management API 
-Approach One
 
-4. Prepare Polling Script
+[Retrieve Log Logs Using the Management API](https://auth0.com/docs/deploy-monitor/logs/retrieve-log-events-using-mgmt-api)
 
-On the Wazuh manager, create a script file /usr/local/bin/auth0-poll-logs.sh:
-#!/bin/bash
+## <h2 id="approach1" >Approach One</h2>
 
-# ===== Auth0 Configuration =====
-AUTH0_DOMAIN="your-tenant.auth0.com"    # Replace with your Auth0 domain
-CLIENT_ID="YOUR_CLIENT_ID"              # Replace with your client ID
-CLIENT_SECRET="YOUR_CLIENT_SECRET"      # Replace with your client secret
-AUDIENCE="https://${AUTH0_DOMAIN}/api/v2/"
-LOG_FILE="/var/log/auth0_logs.json"     # Wazuh will monitor this file
-STATE_FILE="/var/log/auth0_last_id.txt" # To remember the last log we fetched
+## <h3>Prepare Polling Script</h3>
 
-# ===== Get Access Token =====
-ACCESS_TOKEN=$(curl -s --request POST \
-  --url "https://${AUTH0_DOMAIN}/oauth/token" \
-  --header 'content-type: application/json' \
-  --data "{
-    \"client_id\":\"${CLIENT_ID}\",
-    \"client_secret\":\"${CLIENT_SECRET}\",
-    \"audience\":\"${AUDIENCE}\",
-    \"grant_type\":\"client_credentials\"
-  }" | jq -r .access_token)
+On the Wazuh manager, create a [bash script](auth0-poll-logs.sh) file at `/usr/local/bin/auth0-poll-logs.sh`:
 
-if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
-  echo " Failed to get Auth0 token"
-  exit 1
-fi
+## <h3>Make it executable:</h3>
+``chmod 700 /usr/local/bin/auth0-poll-logs.sh``
 
-# ===== Load last checkpoint =====
-if [ -f "$STATE_FILE" ]; then
-  LAST_ID=$(cat "$STATE_FILE")
-else
-  LAST_ID=""
-fi
-
-# ===== Fetch Logs from Auth0 =====
-RESPONSE=$(curl -s \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  "https://${AUTH0_DOMAIN}/api/v2/logs?from=${LAST_ID}&take=100")
-
-COUNT=$(echo "$RESPONSE" | jq 'length')
-
-if [ "$COUNT" -gt 0 ]; then
-  # Append each log entry as one JSON line
-  echo "$RESPONSE" | jq -c '.[]' >> "$LOG_FILE"
-
-  # Save last ID for next run
-  NEW_LAST_ID=$(echo "$RESPONSE" | jq -r '.[-1]._id')
-  echo "$NEW_LAST_ID" > "$STATE_FILE"
-
-  echo "Fetched $COUNT logs. Last ID: $NEW_LAST_ID"
-else
-  echo "No new logs found."
-fi
-
-
-Make it executable:
-chmod 700 /usr/local/bin/auth0-poll-logs.sh
-
-
-5. Schedule Script
+Schedule Script
 Set up a cron job to poll every 5 minutes (adjust as needed):
 */5 * * * * /usr/local/bin/auth0-poll-logs.sh
 
@@ -208,6 +171,24 @@ Create a rules: nano /var/ossec/etc/rules/auth0_rules.xml
 
 
 8. Screenshots on Wazuh Dashboard:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
