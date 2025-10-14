@@ -1,8 +1,0 @@
-<group name="salesforce">
-  <rule id="100989" level="5">
-    <decoded_as>json</decoded_as>
-    <field name="salesforce_action">\.*</field>
-    <description>Salesforce: $(salesforce_description)</description>
-    <options>no_full_log</options>
-  </rule>
-</group>
