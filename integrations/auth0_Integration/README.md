@@ -150,10 +150,15 @@ Command Validation:
   </rule>
 </group>
 ```
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/ruleValidation.jpg" />
 
 
+## <h2 id="visualization" >Screenshots on Wazuh Dashboard</h2>
 
-8. Screenshots on Wazuh Dashboard:
+<img width="800" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization.jpg" />
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization2.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization3.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization4.jpg" />
 
 
 
