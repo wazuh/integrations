@@ -1,66 +1,71 @@
 # <h1>Wazuh - OpenVAS Integration</h1>
 
-Introduction
+## Table of Contents
+
+- <a href="#intro">Introduction</a>
+
+
+## <h2 id="intro" >Introduction</h2>
+
 OpenVAS (part of the Greenbone Vulnerability Management suite) is an open-source vulnerability scanner that identifies security risks across systems and applications. Wazuh, on the other hand, is a Security Information and Event Management (SIEM) and XDR platform that centralises log collection, threat detection, and alerting.
-Integrating OpenVAS with Wazuh allows:
-Centralised vulnerability results inside the Wazuh dashboard
-Continuous monitoring of assets against vulnerabilities
-Correlation of OpenVAS alerts with endpoint and network events
-For reliable integration, OpenVAS was deployed natively on Kali Linux instead of Docker, because:
-Native installation ensures full access to PostgreSQL tables (results, nvts)
-Easier control over file system paths and scripts
-Better alignment with Wazuh wodles (command execution)
 
-Deploying OpenVAS (Greenbone) on Kali Linux
- Update system
-sudo apt update
+## <h3>Integrating OpenVAS with Wazuh allows</h3>
 
-Install OpenVAS 
-sudo apt install openvas
+- Centralised vulnerability results inside the Wazuh dashboard
+- Continuous monitoring of assets against vulnerabilities
+- Correlation of OpenVAS alerts with endpoint and network events
 
+## <h3>For reliable integration, OpenVAS was deployed natively on Kali Linux instead of Docker, because</h3>
 
-sudo apt install gvm
+- Native installation ensures full access to PostgreSQL tables (results, nvts)
+- Easier control over file system paths and scripts
+- Better alignment with Wazuh wodles (command execution)
 
-Setup OpenVAS
-sudo gvm-setup
+## <h2 id="deployovas" >Deploying OpenVAS (Greenbone) on Kali Linux</h2>
 
+**Update system**
 
-Verify services
+`sudo apt update`
 
-sudo gvm-check-setup
+**Install OpenVAS**
 
+`sudo apt install openvas`
+`sudo apt install gvm`
 
-sudo systemctl status gvmd
+**Setup OpenVAS**
 
+`sudo gvm-setup`
 
-sudo systemctl status gsad
+**Verify services**
 
+`sudo gvm-check-setup`
 
-Change the admin password
+`sudo systemctl status gvmd`
 
-sudo gvmd --user=admin --new-password=Str0ng-password
+`sudo systemctl status gsad`
 
+**Change the `admin` password**
 
-Start the GVM
+`sudo gvmd --user=admin --new-password=Str0ng-password`
 
-sudo gvm-start
+**Start the GVM**
 
+`sudo gvm-start`
 
-Log in to Greenbone Security Assistant (Web UI)
+**Log in to Greenbone Security Assistant (Web UI)**
 
 Default URL: https://127.0.0.1:9392
 
-Accessing OpenVAS Dashboard from External Systems
+## <h2 id="ovasdashbaord" >Accessing OpenVAS Dashboard from External Systems</h2>
 
-By default, the Greenbone Security Assistant Daemon (GSAD) only listens on 127.0.0.1 (localhost), which restricts access to the Kali machine itself.
+By default, the Greenbone Security Assistant Daemon (GSAD) only listens on `127.0.0.1` (`ocalhost`), which restricts access to the Kali machine itself.
 To make the dashboard accessible from other systems on the network, follow these steps:
-Edit GSAD service file
-sudo nano /usr/lib/systemd/system/gsad.service
 
+**Edit GSAD service file**
 
+`sudo nano /usr/lib/systemd/system/gsad.service`
 
-
-Modify the listen address
+**Modify the listen address**
 
 Reload systemd daemon
 sudo systemctl daemon-reexec
