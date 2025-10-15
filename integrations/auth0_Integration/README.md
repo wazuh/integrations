@@ -25,8 +25,8 @@ Integrate Auth0 logs into Wazuh by polling the Auth0 Management API. Logs such a
 
 **Poll the Auth0 Management API Create a Machine-to-Machine (M2M) App in Auth0**: In your Auth0 dashboard, register an application (Type: **Machine-to-Machine**) and authorize it for the Auth0 Management API with the `read:logs` scope. Save the `client_id` and `client_secret`.
 
-<img width="400" height="600" src="https://github.com/Harry4share/devopspractice/blob/wazuh/cerateapp.jpg" />
-<img width="400" height="600" src="https://github.com/Harry4share/devopspractice/blob/wazuh/m2mapp.jpg" />
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/cerateapp.jpg" />
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/m2mapp.jpg" />
 
 ## <h3>Get an Access Token</h3> 
 Use the OAuth client-credentials flow to obtain a JWT. For example:
@@ -43,7 +43,7 @@ curl -X POST 'https://<YOUR_TENANT>.auth0.com/oauth/token' \
 
 Add instructions on how to generate the Auth
 
-<img width="1000" height="300" src="https://github.com/Harry4share/devopspractice/blob/wazuh/genauth.jpg" />
+<img width="1000" height="300" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/genauth.jpg" />
 
 The response JSON contains `"access_token"`.
 
@@ -78,7 +78,7 @@ Edit the Wazuh configuration (`/var/ossec/etc/ossec.conf`) and add:
 </localfile>
 ```
 
-<h3>Restart Wazuh manager/agent:</h3>h3>
+<h3>Restart Wazuh manager/agent:</h3>
 
 `systemctl restart wazuh-manager`
 
