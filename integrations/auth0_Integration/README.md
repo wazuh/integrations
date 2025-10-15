@@ -8,6 +8,7 @@
 - <a href="#approach1">Approach One</a>
 - <a href="#readauth0">Configure Wazuh to Read Auth0 Logs</a>
 - <a href="#validateint">Validate Integration</a>
+- <a href="#approach2" >Approach Two</a>
 
 
 ## <h2 id="overview" >Overview</h2>
@@ -94,53 +95,20 @@ Test decoding in Wazuh: `/var/ossec/bin/wazuh-logtest`
 
 <img width="1000" height="800" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/validateint.jpg" />
 
-Approach Two
+## <h2 id="approach2" >Approach Two</h2>
 
-Write a Script for Auth0 Log Fetching
-Create a script, e.g.,/var/ossec/bin/auth0_wodle_fetch.sh.
-#!/bin/bash
+<h3>Prepare a Script to fetch Auth0 Log</h3>
 
-AUTH0_DOMAIN="your-tenant.auth0.com"
-CLIENT_ID="YOUR_CLIENT_ID"
-CLIENT_SECRET="YOUR_CLIENT_SECRET"
-AUDIENCE="https://${AUTH0_DOMAIN}/api/v2/"
-STATE_FILE="/var/ossec/queue/last_auth0_id.txt"
+On the Wazuh Manager, Create a [bash script](auth0_wodle_fetch.sh), e.g.,`/var/ossec/bin/auth0_wodle_fetch.sh`.
 
-# get token
-ACCESS_TOKEN=$(curl -s -H "Content-Type: application/json" \
-  -d "{\"client_id\":\"$CLIENT_ID\",\"client_secret\":\"$CLIENT_SECRET\",\"audience\":\"$AUDIENCE\",\"grant_type\":\"client_credentials\"}" \
-  "https://${AUTH0_DOMAIN}/oauth/token" | jq -r .access_token)
+<h3>Make it Executable:</h3>
 
-[ -z "$ACCESS_TOKEN" ] && exit 1
+`sudo chmod +x /var/ossec/bin/auth0_wodle_fetch.sh`
 
-# get last processed id
-if [ -f "$STATE_FILE" ]; then
-  LAST_ID=$(cat "$STATE_FILE")
-else
-  LAST_ID=""
-fi
+<h3>Configure the command wodle in `ossec.conf`</h3>
 
-# fetch logs
-RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "https://${AUTH0_DOMAIN}/api/v2/logs?from=${LAST_ID}&take=100")
-
-# count logs
-COUNT=$(echo "$RESPONSE" | jq 'length' 2>/dev/null)
-
-if [ "$COUNT" -gt 0 ]; then
-  # print each log as json line to stdout
-  echo "$RESPONSE" | jq -c '.[]'
-
-  # update state
-  NEW_LAST_ID=$(echo "$RESPONSE" | jq -r '.[-1]._id')
-  echo "$NEW_LAST_ID" > "$STATE_FILE"
-fi
-
-Make it Executable:
-sudo chmod +x /var/ossec/bin/auth0_wodle_fetch.sh
-
-Configure the command wodle in ossec.conf
-Edit the Wazuh manager’s ossec.conf (usually /var/ossec/etc/ossec.conf), add a block inside <wodle>:
+Edit the Wazuh manager’s `ossec.conf` (usually `/var/ossec/etc/ossec.conf`), add a block inside `<wodle>`:
+```
 <wodle name="command">
   <disabled>no</disabled>
   <tag>auth0-logs</tag>
@@ -150,18 +118,20 @@ Edit the Wazuh manager’s ossec.conf (usually /var/ossec/etc/ossec.conf), add a
   <ignore_output>no</ignore_output>
   <run_on_start>yes</run_on_start> 
 </wodle>
+```
+<h3>Explanation:</h3>
 
-Explanation:
-<tag>: a label; log messages from this wodle will have auth0-logs tag.
-<command>: path to your script.
-<interval>: how often to run. Wodle supports time suffixes like s, m, h. 
-<timeout>: max time allowed; if the script runs longer, it's killed. 
-<ignore_output>: if set to “no”, the output is sent to Wazuh. If “yes”, output is ignored. 
-Restart the Wazuh Manager
-sudo systemctl restart wazuh-manager
+`<tag>`: a label; log messages from this wodle will have `auth0-logs` tag.
+`<command>`: path to your script.
+`<interval>`: how often to run. Wodle supports time suffixes like `s, m, h`. 
+`<timeout>`: max time allowed; if the script runs longer, it's killed. 
+`<ignore_output>`: if set to `“no”`, the output is sent to Wazuh. If `“yes”`, output is ignored. 
+
+<h3>Restart the Wazuh Manager</h3>
+
+`sudo systemctl restart wazuh-manager`
 
 Command Validation:
-
 
 Create a rules: nano /var/ossec/etc/rules/auth0_rules.xml
 <group name="auth0">
