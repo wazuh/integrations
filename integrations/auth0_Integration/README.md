@@ -10,6 +10,7 @@
 - <a href="#validateint">Validate Integration</a>
 - <a href="#approach2" >Approach Two</a>
 - <a href="#createrule" >Create rule</a>
+- <a href="#visualization">Screenshots on Wazuh Dashboard</a>
 
 
 ## <h2 id="overview" >Overview</h2>
