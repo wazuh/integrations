@@ -140,6 +140,7 @@ Command Validation:
 
 `nano /var/ossec/etc/rules/auth0_rules.xml`
 
+```
 <group name="auth0">
   <rule id="100765" level="5">
     <decoded_as>json</decoded_as>
@@ -148,7 +149,7 @@ Command Validation:
     <options>no_full_log</options>
   </rule>
 </group>
-
+```
 
 
 
