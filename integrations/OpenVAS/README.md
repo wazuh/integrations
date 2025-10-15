@@ -1,4 +1,5 @@
-Wazuh - OpenVAS Integration
+# <h1>Wazuh - OpenVAS Integration</h1>
+
 Introduction
 OpenVAS (part of the Greenbone Vulnerability Management suite) is an open-source vulnerability scanner that identifies security risks across systems and applications. Wazuh, on the other hand, is a Security Information and Event Management (SIEM) and XDR platform that centralises log collection, threat detection, and alerting.
 Integrating OpenVAS with Wazuh allows:
