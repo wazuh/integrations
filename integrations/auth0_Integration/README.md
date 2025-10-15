@@ -92,7 +92,7 @@ Check the local log file:
 
 Test decoding in Wazuh: `/var/ossec/bin/wazuh-logtest`
 
-
+<img width="1000" height="800" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/validateint.jpg" />
 
 Approach Two
 
