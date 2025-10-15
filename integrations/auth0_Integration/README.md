@@ -6,8 +6,8 @@
 - <a href="#prerequisites">Prerequisites</a>
 - <a href="#confauth0">Configure Auth0</a>
 - <a href="#approach1">Approach One</a>
-- <a href="readauth0">Configure Wazuh to Read Auth0 Logs</a>
-- <a href="validateint">Validate Integration</a>
+- <a href="#readauth0">Configure Wazuh to Read Auth0 Logs</a>
+- <a href="#validateint">Validate Integration</a>
 
 
 ## <h2 id="overview" >Overview</h2>
