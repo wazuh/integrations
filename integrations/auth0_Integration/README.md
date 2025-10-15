@@ -8,6 +8,9 @@
 - <a href="#approach1">Approach One</a>
 - <a href="#readauth0">Configure Wazuh to Read Auth0 Logs</a>
 - <a href="#validateint">Validate Integration</a>
+- <a href="#approach2" >Approach Two</a>
+- <a href="#createrule" >Create rule</a>
+- <a href="#visualization">Screenshots on Wazuh Dashboard</a>
 
 
 ## <h2 id="overview" >Overview</h2>
@@ -25,8 +28,8 @@ Integrate Auth0 logs into Wazuh by polling the Auth0 Management API. Logs such a
 
 **Poll the Auth0 Management API Create a Machine-to-Machine (M2M) App in Auth0**: In your Auth0 dashboard, register an application (Type: **Machine-to-Machine**) and authorize it for the Auth0 Management API with the `read:logs` scope. Save the `client_id` and `client_secret`.
 
-<img width="400" height="600" src="https://github.com/Harry4share/devopspractice/blob/wazuh/cerateapp.jpg" />
-<img width="400" height="600" src="https://github.com/Harry4share/devopspractice/blob/wazuh/m2mapp.jpg" />
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/cerateapp.jpg" />
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/m2mapp.jpg" />
 
 ## <h3>Get an Access Token</h3> 
 Use the OAuth client-credentials flow to obtain a JWT. For example:
@@ -43,7 +46,7 @@ curl -X POST 'https://<YOUR_TENANT>.auth0.com/oauth/token' \
 
 Add instructions on how to generate the Auth
 
-<img width="1000" height="300" src="https://github.com/Harry4share/devopspractice/blob/wazuh/genauth.jpg" />
+<img width="1000" height="300" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/genauth.jpg" />
 
 The response JSON contains `"access_token"`.
 
@@ -78,7 +81,7 @@ Edit the Wazuh configuration (`/var/ossec/etc/ossec.conf`) and add:
 </localfile>
 ```
 
-<h3>Restart Wazuh manager/agent:</h3>h3>
+<h3>Restart Wazuh manager/agent:</h3>
 
 `systemctl restart wazuh-manager`
 
@@ -92,55 +95,22 @@ Check the local log file:
 
 Test decoding in Wazuh: `/var/ossec/bin/wazuh-logtest`
 
+<img width="1000" height="800" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/validateint.jpg" />
 
+## <h2 id="approach2" >Approach Two</h2>
 
-Approach Two
+<h3>Prepare a Script to fetch Auth0 Log</h3>
 
-Write a Script for Auth0 Log Fetching
-Create a script, e.g.,/var/ossec/bin/auth0_wodle_fetch.sh.
-#!/bin/bash
+On the Wazuh Manager, Create a [bash script](auth0_wodle_fetch.sh), e.g.,`/var/ossec/bin/auth0_wodle_fetch.sh`.
 
-AUTH0_DOMAIN="your-tenant.auth0.com"
-CLIENT_ID="YOUR_CLIENT_ID"
-CLIENT_SECRET="YOUR_CLIENT_SECRET"
-AUDIENCE="https://${AUTH0_DOMAIN}/api/v2/"
-STATE_FILE="/var/ossec/queue/last_auth0_id.txt"
+<h3>Make it Executable:</h3>
 
-# get token
-ACCESS_TOKEN=$(curl -s -H "Content-Type: application/json" \
-  -d "{\"client_id\":\"$CLIENT_ID\",\"client_secret\":\"$CLIENT_SECRET\",\"audience\":\"$AUDIENCE\",\"grant_type\":\"client_credentials\"}" \
-  "https://${AUTH0_DOMAIN}/oauth/token" | jq -r .access_token)
+`sudo chmod +x /var/ossec/bin/auth0_wodle_fetch.sh`
 
-[ -z "$ACCESS_TOKEN" ] && exit 1
+<h3>Configure the command wodle in `ossec.conf`</h3>
 
-# get last processed id
-if [ -f "$STATE_FILE" ]; then
-  LAST_ID=$(cat "$STATE_FILE")
-else
-  LAST_ID=""
-fi
-
-# fetch logs
-RESPONSE=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "https://${AUTH0_DOMAIN}/api/v2/logs?from=${LAST_ID}&take=100")
-
-# count logs
-COUNT=$(echo "$RESPONSE" | jq 'length' 2>/dev/null)
-
-if [ "$COUNT" -gt 0 ]; then
-  # print each log as json line to stdout
-  echo "$RESPONSE" | jq -c '.[]'
-
-  # update state
-  NEW_LAST_ID=$(echo "$RESPONSE" | jq -r '.[-1]._id')
-  echo "$NEW_LAST_ID" > "$STATE_FILE"
-fi
-
-Make it Executable:
-sudo chmod +x /var/ossec/bin/auth0_wodle_fetch.sh
-
-Configure the command wodle in ossec.conf
-Edit the Wazuh manager’s ossec.conf (usually /var/ossec/etc/ossec.conf), add a block inside <wodle>:
+Edit the Wazuh manager’s `ossec.conf` (usually `/var/ossec/etc/ossec.conf`), add a block inside `<wodle>`:
+```
 <wodle name="command">
   <disabled>no</disabled>
   <tag>auth0-logs</tag>
@@ -150,20 +120,28 @@ Edit the Wazuh manager’s ossec.conf (usually /var/ossec/etc/ossec.conf), add a
   <ignore_output>no</ignore_output>
   <run_on_start>yes</run_on_start> 
 </wodle>
+```
+<h3>Explanation:</h3>
 
-Explanation:
-<tag>: a label; log messages from this wodle will have auth0-logs tag.
-<command>: path to your script.
-<interval>: how often to run. Wodle supports time suffixes like s, m, h. 
-<timeout>: max time allowed; if the script runs longer, it's killed. 
-<ignore_output>: if set to “no”, the output is sent to Wazuh. If “yes”, output is ignored. 
-Restart the Wazuh Manager
-sudo systemctl restart wazuh-manager
+- `<tag>`: a label; log messages from this wodle will have `auth0-logs` tag.
+- `<command>`: path to your script.
+- `<interval>`: how often to run. Wodle supports time suffixes like `s, m, h`. 
+- `<timeout>`: max time allowed; if the script runs longer, it's killed. 
+- `<ignore_output>`: if set to `“no”`, the output is sent to Wazuh. If `“yes”`, output is ignored. 
+
+<h3>Restart the Wazuh Manager</h3>
+
+`sudo systemctl restart wazuh-manager`
 
 Command Validation:
 
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/commandValidation.jpg" />
 
-Create a rules: nano /var/ossec/etc/rules/auth0_rules.xml
+## <h2 id="createrule" >Create rule:</h2>
+
+`nano /var/ossec/etc/rules/auth0_rules.xml`
+
+```
 <group name="auth0">
   <rule id="100765" level="5">
     <decoded_as>json</decoded_as>
@@ -172,11 +150,16 @@ Create a rules: nano /var/ossec/etc/rules/auth0_rules.xml
     <options>no_full_log</options>
   </rule>
 </group>
+```
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/ruleValidation.jpg" />
 
 
+## <h2 id="visualization" >Screenshots on Wazuh Dashboard</h2>
 
-
-8. Screenshots on Wazuh Dashboard:
+<img width="800" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization.jpg" />
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization2.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization3.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization4.jpg" />
 
 
 
