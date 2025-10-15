@@ -6,6 +6,8 @@
 - <a href="#prerequisites">Prerequisites</a>
 - <a href="#confauth0">Configure Auth0</a>
 - <a href="#approach1">Approach One</a>
+- <a href="readauth0">Configure Wazuh to Read Auth0 Logs</a>
+- <a href="validateint">Validate Integration</a>
 
 
 ## <h2 id="overview" >Overview</h2>
@@ -58,33 +60,37 @@ On the Wazuh manager, create a [bash script](auth0-poll-logs.sh) file at `/usr/l
 ## <h3>Make it executable:</h3>
 ``chmod 700 /usr/local/bin/auth0-poll-logs.sh``
 
-Schedule Script
+## <h3>Schedule Script</h3>
+
 Set up a cron job to poll every 5 minutes (adjust as needed):
-*/5 * * * * /usr/local/bin/auth0-poll-logs.sh
 
+`*/5 * * * * /usr/local/bin/auth0-poll-logs.sh`
 
-This ensures new logs are continuously fetched and appended to /var/log/auth0_logs.json.
+This ensures new logs are continuously fetched and appended to `/var/log/auth0_logs.json`.
 
-6. Configure Wazuh to Read Auth0 Logs
-Edit the Wazuh configuration (/var/ossec/etc/ossec.conf) and add:
+## <h2 id="readauth0" >Configure Wazuh to Read Auth0 Logs</h2>
+
+Edit the Wazuh configuration (`/var/ossec/etc/ossec.conf`) and add:
+```
 <localfile>
   <log_format>json</log_format>
   <location>/var/log/auth0_logs.json</location>
 </localfile>
+```
 
+<h3>Restart Wazuh manager/agent:</h3>h3>
 
-Restart Wazuh manager/agent:
-systemctl restart wazuh-manager
+`systemctl restart wazuh-manager`
 
+## <h2 id="validateint" >Validate Integration</h2>
 
-7. Validate Integration
 Generate some events in Auth0 (e.g., failed login attempts).
 
-
 Check the local log file:
-tail -n5 /var/log/auth0_logs.json | jq .
 
-Test decoding in Wazuh: /var/ossec/bin/wazuh-logtest
+`tail -n5 /var/log/auth0_logs.json | jq .`
+
+Test decoding in Wazuh: `/var/ossec/bin/wazuh-logtest`
 
 
 
