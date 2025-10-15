@@ -9,7 +9,7 @@
 - <a href="#readauth0">Configure Wazuh to Read Auth0 Logs</a>
 - <a href="#validateint">Validate Integration</a>
 - <a href="#approach2" >Approach Two</a>
-- <a href="#createrule" >Create a rules:</a>
+- <a href="#createrule" >Create rule</a>
 
 
 ## <h2 id="overview" >Overview</h2>
@@ -136,7 +136,7 @@ Command Validation:
 
 <img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/commandValidation.jpg" />
 
-## <h2 id="createrule" >Create a rules:</h2>
+## <h2 id="createrule" >Create rule:</h2>
 
 `nano /var/ossec/etc/rules/auth0_rules.xml`
 
