@@ -121,11 +121,11 @@ Edit the Wazuh manager’s `ossec.conf` (usually `/var/ossec/etc/ossec.conf`), a
 ```
 <h3>Explanation:</h3>
 
-`<tag>`: a label; log messages from this wodle will have `auth0-logs` tag.
-`<command>`: path to your script.
-`<interval>`: how often to run. Wodle supports time suffixes like `s, m, h`. 
-`<timeout>`: max time allowed; if the script runs longer, it's killed. 
-`<ignore_output>`: if set to `“no”`, the output is sent to Wazuh. If `“yes”`, output is ignored. 
+- `<tag>`: a label; log messages from this wodle will have `auth0-logs` tag.
+- `<command>`: path to your script.
+- `<interval>`: how often to run. Wodle supports time suffixes like `s, m, h`. 
+- `<timeout>`: max time allowed; if the script runs longer, it's killed. 
+- `<ignore_output>`: if set to `“no”`, the output is sent to Wazuh. If `“yes”`, output is ignored. 
 
 <h3>Restart the Wazuh Manager</h3>
 
