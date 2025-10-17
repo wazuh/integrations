@@ -145,37 +145,26 @@ and set the configuration for the JSON file path `/opt/openvas/openvas_combined.
 
 ## <h2 id="rulecreation" >Now, create Rules for the CVE and Open Ports</h2>
 
-Log in to Wazuh Manager and create a [here](openvas_rules.xml)rule file:
+Log in to Wazuh Manager and create a [rule file](openvas_rules.xml):
 `nano /var/ossec/etc/rules/openvas_rules.xml`
 
-Add the following configurations:
-<group name="openvas">
-  <rule id="100767" level="5">
-    <decoded_as>json</decoded_as>
-    <field name="target_host">\.*</field>
-    <field name="open_ports">\.*</field>
-    <description>open port found $(open_ports)</description>
-    <options>no_full_log</options>
-  </rule>
-<rule id="100766" level="5">
-    <decoded_as>json</decoded_as>
-    <field name="OVS_CVE">\.*</field>
-    <description>CVE found $(OVS_CVE) with base score $(base_score)</description>
-    <options>no_full_log</options>
-  </rule>
-</group>
+## <h2 id="startscan" >Start the scan from the OpenVAS dashboard:</h2>
 
-
-7. Start the scan from the OpenVAS dashboard:
 Log in to OpenVAS, go to Scans in the left pane, click on Tasks, then select the Wizard wand icon and choose Task Wizard.
+
+<img width="400" height="300" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/startscan.jpg" />
 
 Now, put the IP address for the Scan and click on the Start Scan button
 
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/taskwizard.jpg" />
+
 All data is stored in the PostgreSQL database, and every alert is triggered instantly on the Wazuh Dashboard as soon as it is detected.
 
+<img width="400" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization.jpg" />
 
+<img width="400" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization2.jpg" />
 
+[OpenVAS Dashboard]:(export.ndjson)
 
-OpenVAS Dashboard:
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization2.jpg" />
 
-Dashboard Configuration
