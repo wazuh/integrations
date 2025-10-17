@@ -67,17 +67,24 @@ To make the dashboard accessible from other systems on the network, follow these
 
 **Modify the listen address**
 
-Reload systemd daemon
-sudo systemctl daemon-reexec
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/modlistenaddr.jpg" />
 
-Restart GSAD service
-sudo systemctl restart gsad
+<h3>Reload systemd daemon</h3>
 
-Access externally
- From a remote system’s browser:
+`sudo systemctl daemon-reexec`
+
+<h3>Restart GSAD service</h3>
+
+`sudo systemctl restart gsad`
+
+<h3>Access externally</h3>
+
+From a remote system’s browser:
 https://<kali-ip>:9392
-Security note: For production, restrict access using a firewall or reverse proxy, rather than leaving GSAD open on all interfaces.
+
+<code style="color : red">**Security note:**</code> For production, restrict access using a firewall or reverse proxy, rather than leaving GSAD open on all interfaces.
 Data Extraction from OpenVAS Database
+
 To extract vulnerability results, we use the internal PostgreSQL database where scan results are stored. The two main tables used are:
 results → Stores scan findings (per host, per port).
 
