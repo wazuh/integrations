@@ -26,7 +26,8 @@ The AI Assistant runs queries against Wazuh indices (e.g., `wazuh-alerts`, `wazu
 
 ### Architecture
 
-<img width="3200" height="1400" alt="wazuh-mcpserver" src="https://github.com/user-attachments/assets/d2fb527b-bece-4de8-823e-df366f5fa0f2" />
+
+<img src="./images/wazuh-mcpserver.png" alt="Wazuh MCP Server" width="1200">
 
 The integration uses OpenSearch ML Commons with an external MCP server. Instead of calling a traditional ML model endpoint, the ML Commons HTTP Connector points to the MCP-LLM Gateway. The Gateway orchestrates the LLM, applies the system prompt, and proxies tool calls to the MCP server.
 
@@ -889,9 +890,9 @@ To launch the Dashboard Assistant, click the chat icon  in the top-right corner 
 
 If the change is not visible, try signing out and logging in again to the Wazuh Dashboard.
 
-<img width="1909" height="965" alt="Dashboard-assistant" src="https://github.com/user-attachments/assets/b595fbb8-9c70-403b-9b60-6c4118db0e53" />
+<img src="./images/Dashboard-assistant.png" alt="Wazuh Dashboard Assistant overview" width="1200">
 
-<img width="904" height="550" alt="dashboard-assistant-zoom" src="https://github.com/user-attachments/assets/dc2e15b9-233f-4eae-9cba-e1f0d5a63e9b" />
+<img src="./images/dashboard-assistant-zoom.png" alt="Dashboard Assistant chat panel (zoomed)" width="1200">
 
 </details> 
 
@@ -907,12 +908,11 @@ Use these to validate end-to-end behavior and the reporting format:
 -  Analyze the alerts from the last X minutes
 
 
-<img width="1902" height="959" alt="2-Analyze brute force attack alerts" src="https://github.com/user-attachments/assets/cf59d312-5e96-449a-b3a5-0d27ec21daef" />
+<img src="./images/2-Analyze%20brute%20force%20attack%20alerts.png" alt="Analyze brute-force attack alerts" width="1200">
 
-<img width="1902" height="959" alt="5-Which endpoints are affected by this CVE-2023-47038 " src="https://github.com/user-attachments/assets/ffec956f-e991-491c-9d09-cdb5caa9ceed" />
+<img src="./images/5-Which%20endpoints%20are%20affected%20by%20this%20CVE-2023-47038%20.png" alt="Endpoints affected by CVE-2023-47038" width="1200">
 
-<img width="1902" height="959" alt="4-Please analyze the alert with the rule ID 553" src="https://github.com/user-attachments/assets/6cba0760-6912-4a06-b6f8-ff8e6c49895c" />
-
+<img src="./images/4-Please%20analyze%20the%20alert%20with%20the%20rule%20ID%20553.png" alt="Analysis of alert with rule ID 553" width="1200">
 
 ---
 
