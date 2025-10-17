@@ -82,7 +82,7 @@ To make the dashboard accessible from other systems on the network, follow these
 From a remote system’s browser:
 https://kali-ip:9392
 
-<span style="color:red">**Security note:**</span> For production, restrict access using a firewall or reverse proxy, rather than leaving GSAD open on all interfaces.
+<p><span class="note-security">Security note:</span> For production, restrict access using a firewall or reverse proxy, rather than leaving GSAD open on all interfaces.
 Data Extraction from OpenVAS Database
 
 To extract vulnerability results, we use the internal PostgreSQL database where scan results are stored. The two main tables used are:
