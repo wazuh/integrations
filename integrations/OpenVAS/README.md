@@ -160,11 +160,11 @@ Now, put the IP address for the Scan and click on the Start Scan button
 
 All data is stored in the PostgreSQL database, and every alert is triggered instantly on the Wazuh Dashboard as soon as it is detected.
 
-<img width="400" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization.jpg" />
 
-<img width="400" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization2.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization2.jpg" />
 
 [OpenVAS Dashboard]:(export.ndjson)
 
-<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization2.jpg" />
+<img width="1000" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/openvasdashboard.jpg" />
 
