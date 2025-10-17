@@ -3,6 +3,12 @@
 ## Table of Contents
 
 - <a href="#intro">Introduction</a>
+- <a href="#deployovas" >Deploying OpenVAS (Greenbone) on Kali Linux</a>
+- <a href="#ovasdashbaord" >Accessing OpenVAS Dashboard from External Systems</a>
+- <a href="#dataextract" >Data Extraction from OpenVAS Database</a>
+- <a href="#wodleconf" >Automating with Wazuh (Wodle Configuration)</a>
+- <a href="#rulecreation" >Now, create Rules for the CVE and Open Ports</a>
+- <a href="#startscan" >Start the scan from the OpenVAS dashboard</a>
 
 
 ## <h2 id="intro" >Introduction</h2>
