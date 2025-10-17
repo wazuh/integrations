@@ -82,80 +82,43 @@ To make the dashboard accessible from other systems on the network, follow these
 From a remote system’s browser:
 https://kali-ip:9392
 
-<p><span class="note-security">Security note:</span> For production, restrict access using a firewall or reverse proxy, rather than leaving GSAD open on all interfaces.
-Data Extraction from OpenVAS Database
+**Security note:** For production, restrict access using a firewall or reverse proxy, rather than leaving GSAD open on all interfaces.
+
+## <h2 id="dataextract" >Data Extraction from OpenVAS Database</h2>
 
 To extract vulnerability results, we use the internal PostgreSQL database where scan results are stored. The two main tables used are:
-results → Stores scan findings (per host, per port).
+
+- `results` → Stores scan findings (per host, per port).
 
 
-nvts → Stores metadata about each Network Vulnerability Test (CVE, CVSS, OID, family).
+- `nvts` → Stores metadata about each Network Vulnerability Test (CVE, CVSS, OID, family).
 
 
 The goal is to combine data from both tables into a single JSON output that Wazuh can ingest.
-Bash Script: nano /var/ossec/bin/openvas_extract.sh
-Create openvas directory under /opt
-#!/bin/bash
 
-# ===============================
-# OpenVAS Combined JSON Export (Results + NVTS + Report Creation Time)
-# ===============================
+On the Wazuh-agent(OpenVAS server) create [Bash Script](openvas_extract.sh) `nano /var/ossec/bin/openvas_extract.sh`
 
-DB_NAME="gvmd"
-DB_USER="_gvm"
-OUTPUT_DIR="/opt/openvas"
-SOCKET_DIR="/var/run/postgresql"
-mkdir -p "$OUTPUT_DIR"
-OUTPUT_FILE="$OUTPUT_DIR/openvas_combined.json"
+Create `openvas` directory under `/opt` and give full permission `/opt/openvas`
 
-echo "Exporting combined results of nvts, results, and reports (creation time) to $OUTPUT_FILE ..."
+`sudo chmod +R 777 /opt/openvas`
 
-# Start JSON array
-echo "[" > "$OUTPUT_FILE"
+<h3>Script Explanation:</h3>
 
-# Stream combined JSON row by row
-sudo -u _gvm psql -d "$DB_NAME" -h "$SOCKET_DIR" -t -A -F "" -c "
-SELECT row_to_json(combined)
-FROM (
-    SELECT
-        r.id AS result_id,
-        r.report AS report_id,
-        r.host,
-        r.port,
-        r.severity,
-        r.description AS result_description,
-        n.name AS nvt_name,
-        n.oid AS nvt_oid,
-        n.family AS nvt_family,
-        n.cvss_base AS nvt_cvss_base,
-        n.cve AS nvt_cve,
-        rep.creation_time AS report_creation_epoch,
-        to_timestamp(rep.creation_time) AS report_creation_time
-    FROM results r
-    LEFT JOIN nvts n ON r.nvt = n.oid
-    LEFT JOIN reports rep ON r.report = rep.id
-    ORDER BY r.report, r.host
-) combined;" | awk 'NR>0 {print (NR==1?"":"") $0}' >> "$OUTPUT_FILE"
+- **Database variables** – Defines DB name (`gvmd`), user (`_gvm`), and socket directory.
+- **Output directory & file** – `JSON` file will be saved at `/opt/openvas/openvas_combined.json`.
+- **Start JSON structure** – Writes `[` to begin a JSON array.
+- **SQL Query** –
+      - Selects relevant fields from `results` (findings) and joins them with `nvts` (metadata).
+      - Converts each row into JSON format using `row_to_json`.
+- **`awk` formatting** – Ensures rows are comma-separated inside JSON array.
+- **Close JSON array** – Writes `]` at the end.
+- **Output confirmation** – Prints export location.
 
-# End JSON array
-echo "]" >> "$OUTPUT_FILE"
+## <h2 id="wodleconf" >Automating with Wazuh (Wodle Configuration)</h2>
 
-echo "Export completed. Combined JSON saved at $OUTPUT_FILE"
-
-
-Script Explanation:
-Database variables – Defines DB name (gvmd), user (_gvm), and socket directory.
-Output directory & file – JSON file will be saved at /opt/openvas/openvas_combined.json.
-Start JSON structure – Writes [ to begin a JSON array.
-SQL Query –
-Selects relevant fields from results (findings) and joins them with nvts (metadata).
-Converts each row into JSON format using row_to_json.
-awk formatting – Ensures rows are comma-separated inside JSON array.
-Close JSON array – Writes ] at the end.
-Output confirmation – Prints export location.
-5. Automating with Wazuh (Wodle Configuration)
-To ensure new OpenVAS results are ingested into Wazuh automatically, we use the command wodle in /var/ossec/etc/ossec.conf.
+To ensure new OpenVAS results are ingested into Wazuh automatically, we use the command wodle in `/var/ossec/etc/ossec.conf`.
 Example Configuration:
+```
 <wodle name="command">
   <disabled>no</disabled>
   <tag>openvas_export</tag>
@@ -165,21 +128,25 @@ Example Configuration:
   <timeout>0</timeout>
   <ignore_output>no</ignore_output>
 </wodle>
+```
 
 
-
-and set the configuration for the JSON file path /opt/openvas/openvas_combined.json 
+and set the configuration for the JSON file path `/opt/openvas/openvas_combined.json`
+```
 <localfile>
     <log_format>json</log_format>
     <location>/opt/openvas/openvas_combined.json</location>
 </localfile>
+```
 
-Restart the Wazuh-agent service
-systemctl restart wazuh-agent
+<h3>Restart the Wazuh-agent service</h3>
 
-6. Now, create Rules for the CVE and Open Ports
-Log in to Wazuh Manager and create a rule file:
-nano /var/ossec/etc/rules/openvas_rules.xml
+`systemctl restart wazuh-agent`
+
+## <h2 id="rulecreation" >Now, create Rules for the CVE and Open Ports</h2>
+
+Log in to Wazuh Manager and create a [here](openvas_rules.xml)rule file:
+`nano /var/ossec/etc/rules/openvas_rules.xml`
 
 Add the following configurations:
 <group name="openvas">
