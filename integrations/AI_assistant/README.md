@@ -231,7 +231,7 @@ systemctl status mcp-server
 </details> 
 
 <details>
-  <summary><b>9. View logs:</b></summary
+  <summary><b>9. View logs</b></summary
 
 Log files:
 
@@ -445,7 +445,7 @@ systemctl status mcp-llm-gateway
 </details> 
 
 <details>
-  <summary><b>11. Run a health check:</b></summary>
+  <summary><b>11. Run a health check</b></summary>
 
 Verify Gateway, LLM, and MCP connectivity. 
 
