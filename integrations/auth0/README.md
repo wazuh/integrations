@@ -28,8 +28,8 @@ Integrate Auth0 logs into Wazuh by polling the Auth0 Management API. Logs such a
 
 **Poll the Auth0 Management API Create a Machine-to-Machine (M2M) App in Auth0**: In your Auth0 dashboard, register an application (Type: **Machine-to-Machine**) and authorize it for the Auth0 Management API with the `read:logs` scope. Save the `client_id` and `client_secret`.
 
-<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/cerateapp.jpg" />
-<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/m2mapp.jpg" />
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/cerateapp.jpg" />
+<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/m2mapp.jpg" />
 
 ## <h3>Get an Access Token</h3> 
 Use the OAuth client-credentials flow to obtain a JWT. For example:
@@ -46,7 +46,7 @@ curl -X POST 'https://<YOUR_TENANT>.auth0.com/oauth/token' \
 
 Add instructions on how to generate the Auth
 
-<img width="1000" height="300" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/genauth.jpg" />
+<img width="1000" height="300" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/genauth.jpg" />
 
 The response JSON contains `"access_token"`.
 
@@ -95,7 +95,7 @@ Check the local log file:
 
 Test decoding in Wazuh: `/var/ossec/bin/wazuh-logtest`
 
-<img width="1000" height="800" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/validateint.jpg" />
+<img width="1000" height="800" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/validateint.jpg" />
 
 ## <h2 id="approach2" >Approach Two</h2>
 
@@ -151,15 +151,15 @@ Command Validation:
   </rule>
 </group>
 ```
-<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/ruleValidation.jpg" />
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/ruleValidation.jpg" />
 
 
 ## <h2 id="visualization" >Screenshots on Wazuh Dashboard</h2>
 
-<img width="800" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization.jpg" />
-<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization2.jpg" />
-<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization3.jpg" />
-<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/DashboardVisualization4.jpg" />
+<img width="800" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization.jpg" />
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization2.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization3.jpg" />
+<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization4.jpg" />
 
 
 
