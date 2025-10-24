@@ -135,7 +135,7 @@ Edit the Wazuh manager’s `ossec.conf` (usually `/var/ossec/etc/ossec.conf`), a
 
 Command Validation:
 
-<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0_Integration/Screenshots/commandValidation.jpg" />
+<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/commandValidation.jpg" />
 
 ## <h2 id="createrule" >Create rule:</h2>
 
