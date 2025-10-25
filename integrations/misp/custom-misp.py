@@ -19,12 +19,12 @@ ERR_BAD_ARGUMENTS = 13
 
 # Service configuration constants
 SERVICE_NAME = "wazuh-misp-integration"
-LOG_FILE = os.environ.get("WAZUH_MISP_LOG_PATH", "/custom-misp-integration/logs/integrations.log")
+LOG_FILE = os.environ.get("WAZUH_MISP_LOG_PATH", "custom-misp-integration/logs/integrations.log")
 SOCKET_ADDR = "/var/ossec/queue/sockets/queue"
-QUEUE_FILE_PATH = Path(os.environ.get("WAZUH_MISP_QUEUE_FILE_PATH", "/custom-misp-integration/wazuh-retry-queue"))
+QUEUE_FILE_PATH = Path(os.environ.get("WAZUH_MISP_QUEUE_FILE_PATH", "custom-misp-integration/wazuh-retry-queue"))
 QUEUE_FILE = QUEUE_FILE_PATH / "misp_queue.json"
 QUEUE_TMP = QUEUE_FILE.with_suffix(".inprocess")
-FAILED_MISP_ALERTS_DIR = Path("/custom-misp-integration/misp-failed-enrichment")
+FAILED_MISP_ALERTS_DIR = Path("custom-misp-integration/misp-failed-enrichment")
 
 # These will be populated from CLI args or options file
 MISP_BASE_URL = ""
