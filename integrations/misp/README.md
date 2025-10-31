@@ -12,7 +12,7 @@
 - [MISP-Wazuh Integration](#misp-wazuh-integration)
   - [Integration Steps](#integration-steps)
   - [Integration Testing](#integration-testing)
-- [Sources](#sources)
+- [Sources/Acknowledgements](#sourcesacknowledgements)
 
 ## Introduction
 
@@ -344,7 +344,8 @@ In the integration test, you can use any attribute from the feeds. However, we'l
 ![Alert Details](images/test2.png)
 </details>
 
-## Sources
+## Sources/Acknowledgements
+This enhanced integration was forked from [Ratandeep18](https://github.com/Ratandeep18). Big thanks for the contribution!
 
 <details>
 <summary>Click to expand source references</summary>
