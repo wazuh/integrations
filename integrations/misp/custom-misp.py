@@ -137,29 +137,30 @@ async def misp_fetch(client: httpx.AsyncClient, value: str, sem: asyncio.Semapho
     }
 
     async with sem:
-            for attempt in range(1, 4):
-                try:
-                    resp = await client.post(url, headers=headers, json=payload, timeout=10.0)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        logger.info(f"MISP query successful for '{value}', status {resp.status_code}")
-                        return value, data
-                    else:
-                        logger.error(f"MISP responded with error status {resp.status_code} for IOC value {value}")
-                        try:
-                            error_data = resp.json()
-                        except json.JSONDecodeError:
-                            error_data = {"message": resp.text}
-                        return value, {"error": {"status": resp.status_code, "data": error_data}}
-                except httpx.TimeoutException:
-                    logger.warning(f"Timeout on attempt {attempt} for IOC '{value}', retrying...")
-                except Exception as e:
-                    logger.warning(f"Request exception on attempt {attempt} for IOC '{value}': {e}")
-                await asyncio.sleep(2**attempt)
+        for attempt in range(1, 4):
+            try:
+                resp = await client.post(url, headers=headers, json=payload, timeout=10.0)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    logger.info(f"MISP query successful for '{value}', status {resp.status_code}")
+                    return value, data
+                else:
+                    logger.error(f"MISP responded with error status {resp.status_code} for IOC value {value}")
+                    try:
+                        error_data = resp.json()
+                    except json.JSONDecodeError:
+                        error_data = {"message": resp.text}
+                    return value, {"error": {"status": resp.status_code, "data": error_data}}
+            except httpx.TimeoutException:
+                logger.warning(f"Timeout on attempt {attempt} for IOC '{value}', retrying...")
+            except Exception as e:
+                logger.warning(f"Request exception on attempt {attempt} for IOC '{value}': {e}")
+            await asyncio.sleep(2**attempt)
 
-    # All retries failed
-            logger.error(f"Failed to fetch MISP data for IOC '{value}' after retries")
-            return value, None
+        # All retries failed
+        logger.error(f"Failed to fetch MISP data for IOC '{value}' after retries")
+        return value, None
+
 
 def save_failed_misp_alert(alert: dict) -> None:
     """
@@ -319,9 +320,8 @@ async def process_alerts(alerts: List[Dict[str, Any]], misp_base_url: str, misp_
 
         enrichment_iocs: Dict[str, Any] = {}
         result_flags: Dict[str, bool] = {}
-        #misp_response: Dict[str, Optional[Dict[str, Any]]] = {}
         misp_response: Dict[str, Dict[str, Any]] = {}
-        misp_error_response: Dict[str, Dict[str, Any]] = {}
+        misp_error_response: Dict[str, Any] = {}
 
         # Populate enrichment fields per key
         for value, keys in value_to_keys.items():
@@ -333,13 +333,12 @@ async def process_alerts(alerts: List[Dict[str, Any]], misp_base_url: str, misp_
                 logger.info(f"No response from MISP for IOC value '{value}'")
             elif "error" in data:
                 logger.error(f"MISP error for IOC value '{value}': {data['error']}")
-                error_info = {
+                misp_error_response = {
                     "status": data["error"]["status"],
+                    "name": data["error"]["data"].get("name", ""),
                     "message": data["error"]["data"].get("message", ""),
                     "url": data["error"]["data"].get("url", "")
                 }
-                for key in keys:
-                    misp_error_response[key] = error_info
             else:
                 misp_attrs = data.get("response", {}).get("Attribute")
                 if misp_attrs and len(misp_attrs) > 0:
@@ -369,16 +368,14 @@ async def process_alerts(alerts: List[Dict[str, Any]], misp_base_url: str, misp_
                 logger.info(f"No MISP match for IOC value '{value}'")
 
         # Build final enriched event payload
-        enrichment: Dict[str, Any] = {}
+        enrichment = {
+            "ioc": enrichment_iocs,
+            "result_flags": result_flags,
+            "misp_response": misp_response,
+            "original_alert": filtered_alert(alert),
+        }
         if misp_error_response:
             enrichment["misp_error_response"] = misp_error_response
-        else:
-            enrichment = {
-                "ioc": enrichment_iocs,
-                "result_flags": result_flags,
-                "misp_response": misp_response,
-                "original_alert": filtered_alert(alert),
-            }
 
         if any(result_flags.values()) or misp_error_response:
             enriched_event = {
