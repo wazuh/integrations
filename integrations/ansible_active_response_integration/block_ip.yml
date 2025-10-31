@@ -1,0 +1,36 @@
+---
+- name: Block SSH from specific IP using UFW
+  hosts: wazuh-agents
+  become: true
+  vars:
+    ip_to_block: ""  # Pass this using -e ip_to_block=<IP>
+  tasks:
+    - name: Ensure UFW is installed
+      apt:
+        name: ufw
+        state: present
+      tags: ufw
+
+    - name: Check UFW status
+      command: ufw status
+      register: ufw_status
+      changed_when: false
+
+    - name: Enable UFW if not already enabled
+      command: ufw --force enable
+      when: "'inactive' in ufw_status.stdout"
+      tags: enable
+
+    - name: Check if SSH deny rule already exists
+      command: ufw status numbered
+      register: ufw_rules
+      changed_when: false
+
+    - name: Block SSH (port 22) from IP if not already blocked
+      command: ufw insert 1 deny from {{ ip_to_block }} to any port 22
+      when: "'{{ ip_to_block }} to any port 22' not in ufw_rules.stdout"
+      tags: block
+
+    - name: Reload UFW
+      command: ufw reload
+      tags: reload

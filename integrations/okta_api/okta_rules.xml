@@ -1,0 +1,57 @@
+<group name="okta,">
+
+<rule id="310001" level="5">
+  <field name="okta.displayMessage">OIDC id token is granted</field>
+  <description>OIDC authentication token successfully issued</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310002" level="5">
+  <field name="okta.displayMessage">Perform LDAP read by AD agent</field>
+  <description>Active Directory Agent performed LDAP read operation (IP: $(okta.client.ipAddress))</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310003" level="5">
+  <field name="okta.displayMessage">Authentication of user via MFA</field>
+  <description>User authentication via MFA for $(okta.target[0].displayName) ($(okta.target[0].alternateId)) - Result: $(okta.outcome.result)</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310004" level="5">
+  <field name="okta.displayMessage">Evaluation of sign-on policy</field>
+  <description>Sign-on policy evaluation - Result: $(okta.outcome.result)</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310005" level="3">
+  <field name="okta.displayMessage">Email delivery</field>
+  <description>Okta email delivery via $(okta.debugContext.debugData.emailProvider) to $(okta.target[0].displayName) - Result: $(okta.outcome.result)</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310006" level="5">
+  <field name="okta.displayMessage">Add user</field>
+  <description>New Okta user account created: $(okta.target[0].displayName) ($(okta.target[0].alternateId))</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310007" level="5">
+  <field name="okta.displayMessage">Activate user</field>
+  <description>Okta user account activated: $(okta.target[0].displayName) ($(okta.target[0].alternateId))</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310008" level="7">
+  <field name="okta.displayMessage">Deactivate user</field>
+  <description>User account deactivated: $(okta.target[0].displayName) ($(okta.target[0].alternateId))</description>
+  <group>okta,</group>
+</rule>
+
+<rule id="310009" level="6">
+  <field name="okta.displayMessage">Reset user password</field>
+  <description>Password reset for $(okta.target[0].displayName) ($(okta.target[0].alternateId))</description>
+  <group>okta,</group>
+</rule>  
+
+</group>

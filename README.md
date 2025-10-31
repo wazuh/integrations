@@ -3,7 +3,7 @@
 This public repository contains integrations for third-party solutions, Wazuh rulesets, active responses, Security Configuration Assessment (SCA) policies, threat intelligence feeds, and custom dashboards. 
 
 **Disclaimer:**
-The integrations and content within this repository are primarily community-contributed and are provided "as is" without warranty of any kind, express or implied. Users are responsible for evaluating the security, quality, and compatibility of any code or configurations they choose to utilize from this repository. The maintainers and associated company do not guarantee the absence of vulnerabilities, errors, or suitability for any particular purpose.
+The integrations and content within this repository are primarily community-contributed and are provided "as is" without warranty of any kind, express or implied. Users are responsible for evaluating the security, quality, and compatibility of any code or configurations they choose to utilize from this repository. The maintainers and associated company do not guarantee the absence of vulnerabilities, errors, or suitability for any particular purpose. References to third-party vendors or trademarks are for identification only and do not imply endorsement.
 
 ## Repository Structure
 

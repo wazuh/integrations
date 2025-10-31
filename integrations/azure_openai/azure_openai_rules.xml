@@ -2,7 +2,7 @@
 
   <!-- A general rule for all Azure OpenAI logs to act as a parent for specific rules. -->
   <rule id="100001" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <match>azure</match>
     <description>Azure OpenAI log received.</description>
   </rule>

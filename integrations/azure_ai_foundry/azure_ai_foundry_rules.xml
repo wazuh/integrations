@@ -2,7 +2,7 @@
 
   <!-- General parent rule for all Azure AI Foundry logs -->
   <rule id="100000" level="2">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="azure.ai_foundry.properties.api_id">azure-ai-foundry-apim-api</field>
     <description>Azure AI Foundry log event</description>
   </rule>

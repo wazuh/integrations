@@ -2,7 +2,7 @@
 
   <!-- Parent rule for all Azure logs. This rule is a foundation for more specific rules below. -->
   <rule id="100010" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <match>azure</match>
     <description>Azure log received.</description>
   </rule>

@@ -1,7 +1,7 @@
 <group name="akamai,">
 
   <rule id="100020" level="0">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <field name="observer.vendor">^akamai$</field>
     <description>Akamai event occurred.</description>
   </rule>

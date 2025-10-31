@@ -1,7 +1,7 @@
 <group name="aws,">
 
   <rule id="100000" level="3">
-    <if_sid>0</if_sid>
+    <decoded_as>json</decoded_as>
     <match>aws</match>
     <description>An AWS log has been detected.</description>
   </rule>

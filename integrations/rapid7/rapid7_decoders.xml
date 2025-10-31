@@ -1,0 +1,9 @@
+<decoder name="rapid7">
+  <prematch>^\d\d/\d\d/\d\d\d\d \d\d:\d\d:\d\d</prematch>
+</decoder>
+
+<decoder name="rapid7_fields">
+  <parent>rapid7</parent>
+  <regex>^(\d\d/\d\d/\d\d\d\d \d\d:\d\d:\d\d)\s+(\S*)\s+(\w*)\s+(\S*)\s+(\w*) \.* (\S*)$</regex>
+  <order>event_timestamp, id, event_type, event_id, protocol, log_source</order>
+</decoder>
