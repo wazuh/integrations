@@ -1,4 +1,4 @@
-# Wazuh – MISP Integration v2
+# Wazuh – MISP Integration
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -14,43 +14,28 @@
   - [Integration Testing](#integration-testing)
 - [Sources/Acknowledgements](#sourcesacknowledgements)
 
-## ✨ Overview
+## Introduction
 
-This version builds upon the official Wazuh repository script and introduces several improvements to make the integration more scalable, resilient, and production-ready.
+This project provides a detailed guide and necessary scripts to integrate MISP (Malware Information Sharing Platform) with Wazuh, a security monitoring solution. By combining these tools, security teams can automatically check Sysmon events against MISP's threat intelligence database, enabling real-time detection of known threats and indicators of compromise (IoCs).
 
-## 🔍 Key Improvements
+It also implements a local queuing mechanism to buffer alerts when the MISP API is unreachable, and writes detailed logs to `/var/log/wazuh-misp/custom-misp.log` for auditing and troubleshooting.
 
 <p align="center">
   <img src="images/misp_workflow.svg" alt="workflow">
 </p>
 
-### 2. MISP Querying
-- **Original**: Synchronous requests, one IOC per alert.  
-- **Enhanced**: Asynchronous with `httpx`, concurrent lookups with semaphores, deduplication, retries with exponential backoff, and richer payload (context, tags, sightings).
+## Prerequisites
 
-### 3. Error Handling & Retry
-- **Original**: Single local queue (`misp_queue.json`) for failed events.  
-- **Enhanced**: Two persistence layers:  
-  - Retry queue for socket failures.  
-  - Separate directory for failed MISP enrichments (retried once MISP is available again).  
-  Includes healthcheck before retries.
+Before starting the integration, ensure you have the following:
 
 - A machine with two Ubuntu Servers installed (for MISP and Wazuh installation)
 - Docker installed for MISP. Optional as MISP can be installed without docker.
 - Python 3 and `pip3` installed (for the integration script)
 - Python `requests` library installed (`pip3 install requests`)
 
-### 5. Output to Wazuh
-- **Original**: Limited enrichment (basic MISP fields).  
-- **Enhanced**: Rich enrichment payload including:  
-  - IOC values mapped to Wazuh keys.  
-  - Flags for matched indicators.  
-  - Full MISP attribute metadata (UUID, event info, threat level, etc.).  
-  - Original alert context.
+## Installation and Configuration
 
-### 6. Code Quality & Extensibility
-- **Original**: Procedural, minimal modularization, hard-coded.  
-- **Enhanced**: Modular async design (`extract_all_iocs`, `misp_fetch`, `save_failed_misp_alert`, etc.), cleaner architecture, easier to extend to new data sources.
+### Installing MISP
 
 - MISP can be installed using three methods: automatic script, manual installation, or Docker. Choose the method that best suits your needs.
 - In this guide, we will configure and run MISP using **Docker** For a faster and isolated deployment on an **Ubuntu Server** (virtual machine on OracleVM using vagrant).
@@ -361,7 +346,8 @@ In the integration test, you can use any attribute from the feeds. However, we'l
 ## Sources/Acknowledgements
 This enhanced integration was forked from [Ratandeep18](https://github.com/Ratandeep18). Big thanks for the contribution!
 
-Compared to the Wazuh repository script, this enhanced implementation is:
+<details>
+<summary>Click to expand source references</summary>
 
 - [MISP Project Documentation](https://www.misp-project.org/documentation/)
 - [Wazuh Documentation](https://documentation.wazuh.com/)
@@ -372,7 +358,7 @@ Compared to the Wazuh repository script, this enhanced implementation is:
 - [Additional guide](https://kravensecurity.com/threat-intelligence-with-misp-part-2-setting-up-misp/)
 - [Recognition](https://github.com/aymenmarjan/MISP-Wazuh-Integration)
 
-In short: the Wazuh repo script works for basic MISP lookups, but this version is **more production-ready, scalable, and informative**.
+</details>
 
 ---
 
@@ -394,5 +380,4 @@ graph TD
     C -->|Display Alerts| F[Wazuh Dashboard]
 ```
 
-This enhanced integration was originally created by [Ratandeep18](https://github.com/Ratandeep18).  
-We are publishing it here as **`v2`** in parallel to the official integration, to highlight the improvements and make it easier to use in production environments.
+</div>
