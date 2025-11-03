@@ -174,3 +174,4 @@ All data is stored in the PostgreSQL database, and every alert is triggered inst
 
 <img width="1000" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/openvasdashboard.jpg" />
 
+
