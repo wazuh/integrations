@@ -73,7 +73,7 @@ To make the dashboard accessible from other systems on the network, follow these
 
 **Modify the listen address**
 
-<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/modlistenaddr.jpg" />
+<img width="400" height="600" src="https://github.com/user-attachments/assets/458311e2-aceb-42f1-8365-7bbbda2b28cc" />
 
 <h3>Reload systemd daemon</h3>
 
@@ -158,20 +158,20 @@ Log in to Wazuh Manager and create a [rule file](openvas_rules.xml):
 
 Log in to OpenVAS, go to Scans in the left pane, click on Tasks, then select the Wizard wand icon and choose Task Wizard.
 
-<img width="400" height="300" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/startscan.jpg" />
+<img width="400" height="300" src="https://github.com/user-attachments/assets/1fd0e04f-2532-494f-ad82-e954051729ef" />
 
 Now, put the IP address for the Scan and click on the Start Scan button
 
-<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/taskwizard.jpg" />
+<img width="400" height="600" src="https://github.com/user-attachments/assets/72bc994d-4a10-4131-a87d-d92d502c74cb" />
 
 All data is stored in the PostgreSQL database, and every alert is triggered instantly on the Wazuh Dashboard as soon as it is detected.
 
-<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization.jpg" />
+<img width="800" height="1000" src="https://github.com/user-attachments/assets/09bf241c-1b79-4a25-a894-3be62c23b021" />
 
-<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/dashboardVisualization2.jpg" />
+<img width="800" height="1000" src="https://github.com/user-attachments/assets/e1555b70-9ef5-490a-a239-9127e0c606f8" />
 
 [OpenVAS Dashboard](export.ndjson)
 
-<img width="1000" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/OpenVAS/Screenshots/openvasdashboard.jpg" />
+<img width="1000" height="1000" src="https://github.com/user-attachments/assets/2c844ff4-7c32-4e6b-ab93-eccaa897f42f" />
 
 
