@@ -19,12 +19,13 @@ ERR_BAD_ARGUMENTS = 13
 
 # Service configuration constants
 SERVICE_NAME = "wazuh-misp-integration"
-LOG_FILE = os.environ.get("WAZUH_MISP_LOG_PATH", "custom-misp-integration/logs/integrations.log")
+LOG_DIR = Path("/var/log/wazuh-misp")
+LOG_FILE = LOG_DIR / "integrations.log"
 SOCKET_ADDR = "/var/ossec/queue/sockets/queue"
-QUEUE_FILE_PATH = Path(os.environ.get("WAZUH_MISP_QUEUE_FILE_PATH", "custom-misp-integration/wazuh-retry-queue"))
+QUEUE_FILE_PATH = LOG_DIR / "wazuh-retry-queue"
 QUEUE_FILE = QUEUE_FILE_PATH / "misp_queue.json"
 QUEUE_TMP = QUEUE_FILE.with_suffix(".inprocess")
-FAILED_MISP_ALERTS_DIR = Path("custom-misp-integration/misp-failed-enrichment")
+FAILED_MISP_ALERTS_DIR = LOG_DIR / "misp-failed-enrichment"
 
 # These will be populated from CLI args or options file
 MISP_BASE_URL = ""
@@ -39,7 +40,7 @@ SUPPORTED_KEYS = [
     ("sha256", ["sha256", "sha256sum", "file_sha256", "ciscoendpoint.file.identity.sha256"]),
     ("md5",    ["md5", "md5sum", "file_md5", "ciscoendpoint.file.identity.md5"]),
     ("url",    ["url", "source_url", "TargetURL", "download_url", "http_url"]),
-    ("domain", ["domain", "hostname", "base_domain", "fqdn", "TargetDestination", "Fqdn_s"]),
+    ("domain", ["domain", "hostname", "base_domain", "fqdn", "TargetDestination", "Fqdn_s", "win.eventdata.queryName"]),
 ]
 
 # -------------------- Logging Setup ---------------------
@@ -139,11 +140,17 @@ async def misp_fetch(client: httpx.AsyncClient, value: str, sem: asyncio.Semapho
         for attempt in range(1, 4):
             try:
                 resp = await client.post(url, headers=headers, json=payload, timeout=10.0)
-                if resp.status_code != 200:
-                    logger.warning(f"MISP responded with status {resp.status_code} for IOC value {value}")
-                data = resp.json()
-                logger.info(f"MISP query successful for '{value}', status {resp.status_code}")
-                return value, data
+                if resp.status_code == 200:
+                    data = resp.json()
+                    logger.info(f"MISP query successful for '{value}', status {resp.status_code}")
+                    return value, data
+                else:
+                    logger.error(f"MISP responded with error status {resp.status_code} for IOC value {value}")
+                    try:
+                        error_data = resp.json()
+                    except json.JSONDecodeError:
+                        error_data = {"message": resp.text}
+                    return value, {"error": {"status": resp.status_code, "data": error_data}}
             except httpx.TimeoutException:
                 logger.warning(f"Timeout on attempt {attempt} for IOC '{value}', retrying...")
             except Exception as e:
@@ -266,9 +273,6 @@ async def process_alerts(alerts: List[Dict[str, Any]], misp_base_url: str, misp_
             "rule.level": alert.get("rule", {}).get("level"),
             "timestamp": alert.get("timestamp"),
             "rule.description": alert.get("rule", {}).get("description"),
-            "agent.id": alert.get("agent", {}).get("id"),
-            "agent.name": alert.get("agent", {}).get("name"),
-            "data.Category": alert.get("data", {}).get("Category"),
         }
 
     if not alerts:
@@ -316,40 +320,51 @@ async def process_alerts(alerts: List[Dict[str, Any]], misp_base_url: str, misp_
 
         enrichment_iocs: Dict[str, Any] = {}
         result_flags: Dict[str, bool] = {}
-        misp_response: Dict[str, Optional[Dict[str, Any]]] = {}
+        misp_response: Dict[str, Dict[str, Any]] = {}
+        misp_error_response: Dict[str, Any] = {}
 
         # Populate enrichment fields per key
         for value, keys in value_to_keys.items():
             data = global_misp_results.get(value)
-            misp_attrs = data.get("response", {}).get("Attribute") if data else None
-
             matched = False
             attr_info = None
 
-            if misp_attrs and len(misp_attrs) > 0:
-                attr = misp_attrs[0]
-                event = attr.get("Event", {})
-                if value == attr.get("value"):
-                    matched = True
-                    attr_info = {
-                        "value": attr.get("value"),
-                        "comment": attr.get("comment"),
-                        "uuid": attr.get("uuid"),
-                        "timestamp": attr.get("timestamp"),
-                        "event_id": attr.get("event_id"),
-                        "event_org_id": event.get("org_id"),
-                        "event_info": event.get("info"),
-                        "threat_level_id": event.get("threat_level_id"),
-                    }
+            if data is None:
+                logger.info(f"No response from MISP for IOC value '{value}'")
+            elif "error" in data:
+                logger.error(f"MISP error for IOC value '{value}': {data['error']}")
+                misp_error_response = {
+                    "status": data["error"]["status"],
+                    "name": data["error"]["data"].get("name", ""),
+                    "message": data["error"]["data"].get("message", ""),
+                    "url": data["error"]["data"].get("url", "")
+                }
+            else:
+                misp_attrs = data.get("response", {}).get("Attribute")
+                if misp_attrs and len(misp_attrs) > 0:
+                    attr = misp_attrs[0]
+                    event = attr.get("Event", {})
+                    if value == attr.get("value"):
+                        matched = True
+                        attr_info = {
+                            "value": attr.get("value"),
+                            "comment": attr.get("comment"),
+                            "uuid": attr.get("uuid"),
+                            "timestamp": attr.get("timestamp"),
+                            "event_id": attr.get("event_id"),
+                            "event_org_id": event.get("org_id"),
+                            "event_info": event.get("info"),
+                            "threat_level_id": event.get("threat_level_id"),
+                        }
 
             for key in keys:
                 enrichment_iocs[key] = value
                 result_flags[f"{key}_misp"] = matched
-                misp_response[key] = attr_info if matched else None
+                misp_response[key] = attr_info if matched else {}
 
             if matched:
                 logger.info(f"MISP match found for IOC value '{value}'")
-            else:
+            elif data and "error" not in data:
                 logger.info(f"No MISP match for IOC value '{value}'")
 
         # Build final enriched event payload
@@ -359,12 +374,14 @@ async def process_alerts(alerts: List[Dict[str, Any]], misp_base_url: str, misp_
             "misp_response": misp_response,
             "original_alert": filtered_alert(alert),
         }
+        if misp_error_response:
+            enrichment["misp_error_response"] = misp_error_response
 
-        if any(result_flags.values()):
+        if any(result_flags.values()) or misp_error_response:
             enriched_event = {
-                "enrichment": enrichment,
-                "source": "MISP",
-                "threat": "MISP match",
+                **enrichment,
+                "integration": "misp",
+                "threat": "MISP match" if any(result_flags.values()) else "MISP error",
             }
             send_event(enriched_event, alert.get("agent"))
 
