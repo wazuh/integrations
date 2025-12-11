@@ -1,0 +1,19 @@
+<group name="local,virustotal,sshd,">
+  <rule id="199901" level="12">
+    <if_sid>87100</if_sid>
+    <field name="virustotal_ip.verdict">^malicious$</field>
+    <description>Source IP flagged malicious by VirusTotal</description>
+  </rule>
+
+  <rule id="199902" level="7">
+    <if_sid>87100</if_sid>
+    <field name="virustotal_ip.verdict">^suspicious$</field>
+    <description>Source IP suspicious per VirusTotal</description>
+  </rule>
+
+  <rule id="199903" level="3">
+    <if_sid>87100</if_sid>
+    <field name="virustotal_ip.verdict">^unknown$</field>
+    <description>Source IP unknown per VirusTotal</description>
+  </rule>
+</group>
