@@ -28,7 +28,7 @@ Integrate Auth0 logs into Wazuh by polling the Auth0 Management API. Logs such a
 
 **Poll the Auth0 Management API Create a Machine-to-Machine (M2M) App in Auth0**: In your Auth0 dashboard, register an application (Type: **Machine-to-Machine**) and authorize it for the Auth0 Management API with the `read:logs` scope. Save the `client_id` and `client_secret`.
 
-<img width="400" height="600" src="(https://github.com/user-attachments/assets/5753500e-b11a-407e-8661-58aedf5ac1a4)" />
+<img width="400" height="600" src="https://github.com/user-attachments/assets/5753500e-b11a-407e-8661-58aedf5ac1a4" />
 
 
 <img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/m2mapp.jpg" />
