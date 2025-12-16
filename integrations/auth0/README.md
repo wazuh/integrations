@@ -30,8 +30,8 @@ Integrate Auth0 logs into Wazuh by polling the Auth0 Management API. Logs such a
 
 <img width="400" height="600" src="https://github.com/user-attachments/assets/5753500e-b11a-407e-8661-58aedf5ac1a4" />
 
+<img width="400" height="600" src="https://github.com/user-attachments/assets/0dd60bde-aaa1-49e3-a4cc-bfcd8cd17a6c" />
 
-<img width="400" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/m2mapp.jpg" />
 
 ## <h3>Get an Access Token</h3> 
 Use the OAuth client-credentials flow to obtain a JWT. For example:
@@ -48,7 +48,7 @@ curl -X POST 'https://<YOUR_TENANT>.auth0.com/oauth/token' \
 
 Add instructions on how to generate the Auth
 
-<img width="1000" height="300" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/genauth.jpg" />
+<img width="1000" height="300" src="https://github.com/user-attachments/assets/a53d05b8-2f21-4a6a-8d48-7ce5ac36d09a" />
 
 The response JSON contains `"access_token"`.
 
@@ -97,7 +97,8 @@ Check the local log file:
 
 Test decoding in Wazuh: `/var/ossec/bin/wazuh-logtest`
 
-<img width="1000" height="800" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/validateint.jpg" />
+<img width="1000" height="800" src="https://github.com/user-attachments/assets/d6bed386-9872-4080-9b8e-c133d6d0c071" />
+
 
 ## <h2 id="approach2" >Approach Two</h2>
 
@@ -137,7 +138,7 @@ Edit the Wazuh manager’s `ossec.conf` (usually `/var/ossec/etc/ossec.conf`), a
 
 Command Validation:
 
-<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/commandValidation.jpg" />
+<img width="800" height="400" src="https://github.com/user-attachments/assets/ffdfafd7-c96b-449a-9b1d-c4c7aafdf5b7" />
 
 ## <h2 id="createrule" >Create rule:</h2>
 
@@ -153,16 +154,18 @@ Command Validation:
   </rule>
 </group>
 ```
-<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/ruleValidation.jpg" />
+<img width="800" height="400" src="https://github.com/user-attachments/assets/e38c72f4-7665-4963-847d-aa492058805a" />
 
 
 ## <h2 id="visualization" >Screenshots on Wazuh Dashboard</h2>
 
-<img width="800" height="600" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization.jpg" />
-<img width="800" height="400" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization2.jpg" />
-<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization3.jpg" />
-<img width="800" height="1000" src="https://github.com/wazuh/integrations/blob/Harry4share-auth0-integration/integrations/auth0/Screenshots/DashboardVisualization4.jpg" />
+<img width="800" height="600" src="https://github.com/user-attachments/assets/c2e3ac4c-d953-4962-9fb8-8fc48c64279d" />
 
+<img width="800" height="400" src="https://github.com/user-attachments/assets/618c1082-119e-4894-95e2-c2900707a8f7" />
+
+<img width="800" height="1000" src="https://github.com/user-attachments/assets/b7ce76c1-01a4-446f-a1b7-6312e11911f5" />
+
+<img width="800" height="1000" src="https://github.com/user-attachments/assets/a17d43d4-4a63-4568-9bf7-53866dc64711" />
 
 
 
