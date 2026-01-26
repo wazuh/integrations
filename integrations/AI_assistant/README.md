@@ -332,9 +332,18 @@ This isolates MCP-LLM Gateway dependencies from the system Python.
 
   ```bash
 python -m pip install --upgrade \
-  "fastapi>=0.110" "uvicorn[standard]>=0.29" "pydantic>=2.6" \
-  "langchain>=0.2.6" "langchain-openai>=0.1.7" "langchain-mcp-adapters>=0.1.9" \
-  "langchain-aws>=0.1.6" "boto3>=1.34"
+  "fastapi==0.128.0" \
+  "uvicorn[standard]==0.40.0" \
+  "pydantic==2.12.5" \
+  "langchain==0.3.27" \
+  "langchain-core==0.3.79" \
+  "langchain-openai==0.3.35" \
+  "langchain-anthropic==0.3.22" \
+  "langchain-mcp-adapters==0.1.9" \
+  "langchain-aws==0.2.35" \
+  "boto3==1.42.30" \
+  "httpx==0.28.1"
+
 ```
 
 </details> 
