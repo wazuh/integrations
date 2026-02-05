@@ -911,10 +911,9 @@ If the change is not visible, try signing out and logging in again to the Wazuh 
 Use these to validate end-to-end behavior and the reporting format:
 -  Analyze the most important alerts in my environment
 -  Analyze brute force attack alerts
+-  List critical CVEs from the vulnerabilities index
 -  Please analyze the alerts: "sshd: brute force trying to get access to the system. Non existent user."
 -  Please analyze the alert with the rule ID XXX
--  Which endpoints are affected by this CVE-XXXX-XXXXX
--  Analyze the alerts from the last X minutes
 
 
 <img src="./images/2-Analyze%20brute%20force%20attack%20alerts.png" alt="Analyze brute-force attack alerts" width="1200">

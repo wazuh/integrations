@@ -351,10 +351,7 @@ async def predict(body: PredictBody, x_api_key: Optional[str] = Header(default=N
                 "Hello! I can help with cybersecurity questions and analyze alerts and vulnerabilities from your Wazuh environment.\n"
                 "Examples of queries:\n"
                 "- Analyze the most important alerts in my environment\n"
-                "- Analyze the alerts from the last X minutes\n"
                 "- Analyze brute force attack alerts\n"
-                "- Please analyze the alert with the rule ID X\n"
-                "- Which endpoints are affected by this CVE-XXXX-XXXXX\n"
                 "- List critical CVEs"
             )}
         }
