@@ -46,7 +46,7 @@ This project provides a script to fetch messages from Oracle Cloud Streaming and
         user=ocid1.user.oc1..example
         fingerprint=2f:31:ae:1a:5f:e4:a5:5b:6a:15:9c:8a:1c:7f:1d:53
         key_file=/path/to/your/private_key.pem
-        tenancy=ocid1.tenancy.oc1..example
+        tenancy=ocid1.tenancy.oc1.region.example
         region=us-ashburn-1
         ```
 
