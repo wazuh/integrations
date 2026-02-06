@@ -100,7 +100,7 @@
    * Destination: `/var/ossec/etc/rules/oci_rules.xml`
 
  4. Custom Dashboard:
- * Download the dashboard file: [dashboards/oci_dashboard.ndjson](dashboard/oci_dashboard.ndjson)
+ * Download the dashboard file: [dashboard/oci_dashboard.ndjson](dashboard/oci_dashboard.ndjson)
  * Import it into the Wazuh Dashboard (OpenSearch Dashboards).
  * Navigate to Stack Management > Saved Objects > Import.
  * Select the `.ndjson` file and complete the import.
