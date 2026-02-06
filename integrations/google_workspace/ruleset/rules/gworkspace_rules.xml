@@ -1,0 +1,187 @@
+<!--
+  Google Workspace rules ID: 664600 - 665499
+-->
+
+<var name="gworkspace_description">[$(gworkspace.source_account)] Google $(gworkspace.application) : $(gworkspace.eventname)</var>
+
+<group name="gworkspace,">
+
+  <rule id="664600" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="gworkspace.application">\.+</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+  <rule id="664601" level="14">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^wazuh extraction</field>
+    <field name="gworkspace.eventname">^extraction error</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+  <rule id="664602" level="12">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^wazuh extraction</field>
+    <field name="gworkspace.eventname">^extraction warning</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+  <rule id="664610" level="5">
+    <if_sid>664600</if_sid>  
+    <field name="gworkspace.application">^saml|^token|^login</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+  <rule id="664612" level="6">
+    <if_sid>664600</if_sid>  
+    <field name="gworkspace.application">^admin|^groups|^context aware access|^access transparency|^gcp</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+  <rule id="664614" level="7">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^rules|^user accounts</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+  <rule id="664616" level="10">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^admin</field>
+    <field name="gworkspace.eventtype">^security settings</field>
+    <description>[$(gworkspace.source_account)] Google Workspace : Change of global $(gworkspace.eventtype) "$(gworkspace.eventname)"</description>
+  </rule>
+
+  <rule id="664618" level="9">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^admin</field>
+    <field name="gworkspace.eventname">^reject from quarantine|^drop from quarantine</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+  <rule id="664620" level="9">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^admin</field>
+    <field name="gworkspace.eventname">^email log search</field>
+    <description>$gworkspace_description</description>
+  </rule>
+  
+  <rule id="664622" level="10">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^vault</field>
+    <description>[$(gworkspace.source_account)] Google $(gworkspace.application) : mass data recovery, DLP warning for user $(dstuser)</description>
+    <group>DLP</group>
+  </rule>
+
+  <rule id="664624" level="12">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^admin</field>
+    <field name="gworkspace.eventtype">^delegated admin</field>
+    <description>[$(gworkspace.source_account)] Google $(gworkspace.application) : sensitive "$(gworkspace.eventname)" activity by user $(dstuser)</description>
+  </rule>
+
+  <rule id="664626" level="12">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^access transparency</field>
+    <description>[$(gworkspace.source_account)] Google Workspace : access to Workspace resources by Google</description>
+  </rule>
+
+  <rule id="664628" level="10">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.eventname">^login success$</field>
+    <field name="gworkspace.parameters.login_type">^google_password$</field>
+    <field name="gworkspace.parameters.is_suspicious">^true$</field>
+    <description>[$(gworkspace.source_account)] Google Workspace : suspicious login by user $(dstuser)</description>
+  </rule>
+
+  <rule id="664630" level="10">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^mobile$</field>
+    <field name="gworkspace.eventtype">^suspicious activity$</field>
+    <description>[$(gworkspace.source_account)] Google Workspace : suspicious activity "$(gworkspace.eventname)" on device of user $(dstuser)</description>
+  </rule>
+
+  <rule id="664632" level="10">
+    <if_sid>664610</if_sid>
+    <field name="gworkspace.application">^login$</field>
+    <field name="gworkspace.eventtype">^account warning$|^attack warning$|^titanium change$|^email forwarding change$</field>
+    <description>[$(gworkspace.source_account)] Google Workspace : warning of type "$(gworkspace.eventname)" for user $(dstuser)</description>
+  </rule>
+
+
+  <rule id="664650" level="10" frequency="100" timeframe="300" ignore="600">
+    <if_matched_sid>664600</if_matched_sid>
+    <field name="gworkspace.application">^drive</field>
+    <field name="gworkspace.eventname">^download</field>
+    <same_field>dstuser</same_field>
+    <same_field>gworkspace.application</same_field>
+    <same_field>gworkspace.eventname</same_field>
+    <!-- Ensure frequency counts are isolated per account -->
+    <same_field>gworkspace.source_account</same_field>
+    <description>[$(gworkspace.source_account)] Google $(gworkspace.application) : intensive file download activity, DLP warning for user $(dstuser)</description>
+    <group>DLP</group>
+  </rule>
+
+  <rule id="664651" level="12" frequency="100" timeframe="300" ignore="600">
+    <if_matched_sid>664600</if_matched_sid>
+    <field name="gworkspace.application">^drive</field>
+    <field name="gworkspace.eventname">^download</field>
+    <field name="gworkspace.parameters.actor_is_collaborator_account">^true</field>
+    <same_field>dstuser</same_field>
+    <same_field>gworkspace.application</same_field>
+    <same_field>gworkspace.eventname</same_field>
+    <same_field>gworkspace.source_account</same_field>
+    <description>[$(gworkspace.source_account)] Google $(gworkspace.application) : intensive file download activity, DLP warning for EXTERNAL user $(dstuser)</description>
+    <group>DLP</group>
+  </rule>
+
+<!--
+  do not raise alerts for calendars, and exempt drive since it is managed by a specific rule (see below)
+-->
+
+  <rule id="664652" level="10" frequency="100" timeframe="60" ignore="600">
+    <if_matched_sid>664600</if_matched_sid>
+    <field name="gworkspace.application" negate="yes">^calendar|^drive</field>
+    <field name="gworkspace.parameters.primary_event">^true</field>
+    <same_field>dstuser</same_field>
+    <same_field>gworkspace.application</same_field>
+    <same_field>gworkspace.eventname</same_field>
+    <same_field>gworkspace.source_account</same_field>
+    <description>[$(gworkspace.source_account)] Google $(gworkspace.application) : intensive "$(gworkspace.eventname)" activity by user $(dstuser)</description>
+  </rule>
+
+<!--
+  special rule for drive events, where we only track intensive activity for primary events
+-->
+  <rule id="664653" level="10" frequency="100" timeframe="60" ignore="600">
+    <if_matched_sid>664600</if_matched_sid>
+    <field name="gworkspace.application">^drive</field>
+    <field name="gworkspace.parameters.primary_event">^true</field>
+    <same_field>dstuser</same_field>
+    <same_field>gworkspace.application</same_field>
+    <same_field>gworkspace.eventname</same_field>
+    <same_field>gworkspace.source_account</same_field>
+    <description>[$(gworkspace.source_account)] Google $(gworkspace.application) : intensive "$(gworkspace.eventname)" activity by user $(dstuser)</description>
+  </rule>
+
+  <rule id="664654" level="12" frequency="30" timeframe="300" ignore="600">
+    <if_matched_sid>664600</if_matched_sid>
+    <field name="gworkspace.eventname">^login failure</field>
+    <!-- Added same_field to track attacks per specific account, preventing cross-tenant noise -->
+    <same_field>gworkspace.source_account</same_field>
+    <description>[$(gworkspace.source_account)] Google Workspace : Many failed logins, possible credential stuffing attack</description>
+  </rule>
+
+  <rule id="664655" level="0">
+    <if_sid>664600</if_sid>
+    <field name="gworkspace.application">^drive</field>
+    <field name="gworkspace.parameters.deletion_reason">^trash_auto_delete</field>
+    <description>ignore auto-delete events, they have no user and are always the result of another event that is not ignored</description>
+  </rule>
+
+  <rule id="664700" level="10">
+    <if_matched_sid>664600</if_matched_sid>
+    <field name="gworkspace.application">^alert center</field>
+    <description>$gworkspace_description</description>
+  </rule>
+
+</group>
