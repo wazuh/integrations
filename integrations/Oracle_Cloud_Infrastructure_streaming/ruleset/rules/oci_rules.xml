@@ -1,0 +1,7 @@
+<group name="oci-stream,">
+  <rule id="100013" level="3">
+    <decoded_as>custom_oci</decoded_as>
+    <match>oracle</match>
+    <description>Log detected from OCI Streaming.</description>
+  </rule>
+</group>
