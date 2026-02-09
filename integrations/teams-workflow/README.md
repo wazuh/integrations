@@ -110,7 +110,7 @@ sudo nano /var/ossec/integrations/custom-teams.py
 3. **Replace** `your.wazuh.dashboard.ip` with your Dashboard's IP address or DNS name.
 For example:
 ````
-"url":f"https://192.168.69.50/app/threat-hunting#/overview/?tab=general&tabView=events&_a=(filters:!(),query:(language:kuery,query:''))&_g=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:now-24h,to:now))&agentId={agent.get('id','')}"}]
+"url":f"https://x.x.x.x/app/threat-hunting#/overview/?tab=general&tabView=events&_a=(filters:!(),query:(language:kuery,query:''))&_g=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:now-24h,to:now))&agentId={agent.get('id','')}"}]
 ````
 4. **Save** the file and **restart Wazuh Manager** for the changes to take effect:
 ````
