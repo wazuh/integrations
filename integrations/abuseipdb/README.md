@@ -103,9 +103,9 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
 ```bash
 [root@wazuh-server ~]# python3 /var/ossec/integrations/custom-abuseipdb.py /var/log/abuseipdb.json $ABUSEIPDB_API sshd debug
 # Running AbuseIPDB IP script
-# Opening alert file at '/var/log/abuseipdb.json' with '{'timestamp': '2025-07-21T12:41:18.157+0000', 'rule': {'level': 5, 'description': 'sshd: Authentication succeeded from a public IP address 108.157.98.17.', 'id': '100003', 'firedtimes': 2, 'mail': False, 'groups': ['local', 'syslog', 'sshd', 'authentication_failed', 'authentication_success'], 'pci_dss': ['10.2.4', '10.2.5']}, 'agent': {'id': '000', 'name': 'rhel9.localdomain'}, 'manager': {'name': 'rhel9.localdomain'}, 'id': '1753101678.8211', 'full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2', 'predecoder': {'program_name': 'sshd', 'timestamp': 'Dec 10 01:02:02', 'hostname': 'host'}, 'decoder': {'parent': 'sshd', 'name': 'sshd'}, 'data': {'srcip': '108.157.98.17', 'srcport': '1066', 'dstuser': 'root'}, 'location': '/var/log/test.log'}'
-# Alert output: {'abuseipdb': {'found': 0, 'source': {'alert_id': '1753101678.8211', 'rule': '100003', 'ip': '108.157.98.17'}}, 'integration': 'custom-abuseipdb', 'original_full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2'}
-# Request result from AbuseIPDB server: 1:abuseipdb:{"abuseipdb": {"found": 0, "source": {"alert_id": "1753101678.8211", "rule": "100003", "ip": "108.157.98.17"}}, "integration": "custom-abuseipdb", "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2"}
+# Opening alert file at '/var/log/abuseipdb.json' with '{'timestamp': '2025-07-21T12:41:18.157+0000', 'rule': {'level': 5, 'description': 'sshd: Authentication succeeded from a public IP address <public-ip>.', 'id': '100003', 'firedtimes': 2, 'mail': False, 'groups': ['local', 'syslog', 'sshd', 'authentication_failed', 'authentication_success'], 'pci_dss': ['10.2.4', '10.2.5']}, 'agent': {'id': '000', 'name': 'rhel9.localdomain'}, 'manager': {'name': 'rhel9.localdomain'}, 'id': '1753101678.8211', 'full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2', 'predecoder': {'program_name': 'sshd', 'timestamp': 'Dec 10 01:02:02', 'hostname': 'host'}, 'decoder': {'parent': 'sshd', 'name': 'sshd'}, 'data': {'srcip': '<puiblic-ip>', 'srcport': '1066', 'dstuser': 'root'}, 'location': '/var/log/test.log'}'
+# Alert output: {'abuseipdb': {'found': 0, 'source': {'alert_id': '1753101678.8211', 'rule': '100003', 'ip': '<puiblic-ip>'}}, 'integration': 'custom-abuseipdb', 'original_full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2'}
+# Request result from AbuseIPDB server: 1:abuseipdb:{"abuseipdb": {"found": 0, "source": {"alert_id": "1753101678.8211", "rule": "100003", "ip": "<puiblic-ip>"}}, "integration": "custom-abuseipdb", "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2"}
 ```
 
 **JSON event from archives (Clean IP - Not Found):**
@@ -132,18 +132,18 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
         "found": "0",
         "source": {
           "alert_id": "1753101678.8211",
-          "ip": "108.157.98.17",
+          "ip": "<puiblic-ip>",
           "rule": "100003"
         }
       },
       "integration": "custom-abuseipdb",
-      "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2"
+      "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2"
     },
     "rule": {
       "firedtimes": 1,
       "mail": false,
       "level": 3,
-      "description": "Source IP 108.157.98.17 unknown per AbuseIPDB",
+      "description": "Source IP <puiblic-ip> unknown per AbuseIPDB",
       "groups": [
         "local",
         "abuseipdb",
@@ -157,7 +157,7 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
       "name": "json"
     },
     "id": "1765450544.10736222",
-    "full_log": "{\"abuseipdb\": {\"found\": 0, \"source\": {\"alert_id\": \"1753101678.8211\", \"rule\": \"100003\", \"ip\": \"108.157.98.17\"}}, \"integration\": \"custom-abuseipdb\", \"original_full_log\": \"Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2\"}",
+    "full_log": "{\"abuseipdb\": {\"found\": 0, \"source\": {\"alert_id\": \"1753101678.8211\", \"rule\": \"100003\", \"ip\": \"<puiblic-ip>\"}}, \"integration\": \"custom-abuseipdb\", \"original_full_log\": \"Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2\"}",
     "timestamp": "2025-12-11T11:55:44.091+0100"
   },
   "fields": {
@@ -186,9 +186,9 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
 ```bash
 [root@wazuh-server ~]# python3 /var/ossec/integrations/custom-abuseipdb.py /var/log/abuseipdb_malicious.json $ABUSEIPDB_API sshd debug
 # Running AbuseIPDB IP script
-# Opening alert file at '/var/log/abuseipdb_malicious.json' with '{'timestamp': '2025-07-21T12:41:18.157+0000', 'rule': {'level': 5, 'description': 'sshd: Authentication succeeded from a public IP address 64.62.197.132.', 'id': '100003', 'firedtimes': 2, 'mail': False, 'groups': ['local', 'syslog', 'sshd', 'authentication_failed', 'authentication_success'], 'pci_dss': ['10.2.4', '10.2.5']}, 'agent': {'id': '000', 'name': 'rhel9.localdomain'}, 'manager': {'name': 'rhel9.localdomain'}, 'id': '1753101678.8211', 'full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 64.62.197.132 port 1066 ssh2', 'predecoder': {'program_name': 'sshd', 'timestamp': 'Dec 10 01:02:02', 'hostname': 'host'}, 'decoder': {'parent': 'sshd', 'name': 'sshd'}, 'data': {'srcip': '64.62.197.132', 'srcport': '1066', 'dstuser': 'root'}, 'location': '/var/log/test.log'}'
-# Alert output: {'abuseipdb': {'found': 1, 'source': {'alert_id': '1753101678.8211', 'rule': '100003', 'ip': '64.62.197.132'}, 'abuse_confidence_score': 100, 'country_code': 'US', 'usage_type': 'Fixed Line ISP', 'isp': 'The Shadowserver Foundation, Inc.', 'domain': 'shadowserver.org', 'total_reports': 2216, 'last_reported_at': '2025-12-11T09:02:57+00:00', 'permalink': 'https://www.abuseipdb.com/check/64.62.197.132'}, 'integration': 'custom-abuseipdb', 'original_full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 64.62.197.132 port 1066 ssh2'}
-# Request result from AbuseIPDB server: 1:abuseipdb:{"abuseipdb": {"found": 1, "source": {"alert_id": "1753101678.8211", "rule": "100003", "ip": "64.62.197.132"}, "abuse_confidence_score": 100, "country_code": "US", "usage_type": "Fixed Line ISP", "isp": "The Shadowserver Foundation, Inc.", "domain": "shadowserver.org", "total_reports": 2216, "last_reported_at": "2025-12-11T09:02:57+00:00", "permalink": "https://www.abuseipdb.com/check/64.62.197.132"}, "integration": "custom-abuseipdb", "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 64.62.197.132 port 1066 ssh2"}
+# Opening alert file at '/var/log/abuseipdb_malicious.json' with '{'timestamp': '2025-07-21T12:41:18.157+0000', 'rule': {'level': 5, 'description': 'sshd: Authentication succeeded from a public IP address <blacklisted-ip>.', 'id': '100003', 'firedtimes': 2, 'mail': False, 'groups': ['local', 'syslog', 'sshd', 'authentication_failed', 'authentication_success'], 'pci_dss': ['10.2.4', '10.2.5']}, 'agent': {'id': '000', 'name': 'rhel9.localdomain'}, 'manager': {'name': 'rhel9.localdomain'}, 'id': '1753101678.8211', 'full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <blacklisted-ip> port 1066 ssh2', 'predecoder': {'program_name': 'sshd', 'timestamp': 'Dec 10 01:02:02', 'hostname': 'host'}, 'decoder': {'parent': 'sshd', 'name': 'sshd'}, 'data': {'srcip': '<blacklisted-ip>', 'srcport': '1066', 'dstuser': 'root'}, 'location': '/var/log/test.log'}'
+# Alert output: {'abuseipdb': {'found': 1, 'source': {'alert_id': '1753101678.8211', 'rule': '100003', 'ip': '<blacklisted-ip>'}, 'abuse_confidence_score': 100, 'country_code': 'US', 'usage_type': 'Fixed Line ISP', 'isp': 'The Shadowserver Foundation, Inc.', 'domain': 'shadowserver.org', 'total_reports': 2216, 'last_reported_at': '2025-12-11T09:02:57+00:00', 'permalink': 'https://www.abuseipdb.com/check/<blacklisted-ip>'}, 'integration': 'custom-abuseipdb', 'original_full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <blacklisted-ip> port 1066 ssh2'}
+# Request result from AbuseIPDB server: 1:abuseipdb:{"abuseipdb": {"found": 1, "source": {"alert_id": "1753101678.8211", "rule": "100003", "ip": "<blacklisted-ip>"}, "abuse_confidence_score": 100, "country_code": "US", "usage_type": "Fixed Line ISP", "isp": "The Shadowserver Foundation, Inc.", "domain": "shadowserver.org", "total_reports": 2216, "last_reported_at": "2025-12-11T09:02:57+00:00", "permalink": "https://www.abuseipdb.com/check/<blacklisted-ip>"}, "integration": "custom-abuseipdb", "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <blacklisted-ip> port 1066 ssh2"}
 ```
 
 **JSON event from archives (Malicious - 100% Confidence):**
@@ -222,13 +222,13 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
         "abuse_confidence_score": "100",
         "source": {
           "alert_id": "1753101678.8211",
-          "ip": "64.62.197.132",
+          "ip": "<blacklisted-ip>",
           "rule": "100003"
         },
-        "permalink": "https://www.abuseipdb.com/check/64.62.197.132"
+        "permalink": "https://www.abuseipdb.com/check/<blacklisted-ip>"
       },
       "integration": "custom-abuseipdb",
-      "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 64.62.197.132 port 1066 ssh2"
+      "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <blacklisted-ip> port 1066 ssh2"
     },
     "rule": {
       "firedtimes": 1,
@@ -246,7 +246,7 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
         "CC7.2",
         "CC7.3"
       ],
-      "description": "Source IP 64.62.197.132 flagged malicious with a 100% confidence score per AbuseIPDB",
+      "description": "Source IP <blacklisted-ip> flagged malicious with a 100% confidence score per AbuseIPDB",
       "groups": [
         "local",
         "abuseipdb",
@@ -269,7 +269,7 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
       "name": "json"
     },
     "id": "1765450551.10736922",
-    "full_log": "{\"abuseipdb\": {\"found\": 1, \"source\": {\"alert_id\": \"1753101678.8211\", \"rule\": \"100003\", \"ip\": \"64.62.197.132\"}, \"abuse_confidence_score\": 100, \"country_code\": \"US\", \"usage_type\": \"Fixed Line ISP\", \"isp\": \"The Shadowserver Foundation, Inc.\", \"domain\": \"shadowserver.org\", \"total_reports\": 2216, \"last_reported_at\": \"2025-12-11T09:02:57+00:00\", \"permalink\": \"https://www.abuseipdb.com/check/64.62.197.132\"}, \"integration\": \"custom-abuseipdb\", \"original_full_log\": \"Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 64.62.197.132 port 1066 ssh2\"}",
+    "full_log": "{\"abuseipdb\": {\"found\": 1, \"source\": {\"alert_id\": \"1753101678.8211\", \"rule\": \"100003\", \"ip\": \"<blacklisted-ip>\"}, \"abuse_confidence_score\": 100, \"country_code\": \"US\", \"usage_type\": \"Fixed Line ISP\", \"isp\": \"The Shadowserver Foundation, Inc.\", \"domain\": \"shadowserver.org\", \"total_reports\": 2216, \"last_reported_at\": \"2025-12-11T09:02:57+00:00\", \"permalink\": \"https://www.abuseipdb.com/check/<blacklisted-ip>\"}, \"integration\": \"custom-abuseipdb\", \"original_full_log\": \"Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <blacklisted-ip> port 1066 ssh2\"}",
     "timestamp": "2025-12-11T11:55:51.924+0100"
   },
   "fields": {
@@ -298,8 +298,8 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
 ```bash
 [root@wazuh-server ~]# python3 /var/ossec/integrations/custom-abuseipdb.py /var/log/abuseipdb.json INVALID_KEY sshd debug
 # Running AbuseIPDB IP script
-# Opening alert file at '/var/log/abuseipdb.json' with '{'timestamp': '2025-07-21T12:41:18.157+0000', 'rule': {'level': 5, 'description': 'sshd: Authentication succeeded from a public IP address 108.157.98.17.', 'id': '100003', 'firedtimes': 2, 'mail': False, 'groups': ['local', 'syslog', 'sshd', 'authentication_failed', 'authentication_success'], 'pci_dss': ['10.2.4', '10.2.5']}, 'agent': {'id': '000', 'name': 'rhel9.localdomain'}, 'manager': {'name': 'rhel9.localdomain'}, 'id': '1753101678.8211', 'full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2', 'predecoder': {'program_name': 'sshd', 'timestamp': 'Dec 10 01:02:02', 'hostname': 'host'}, 'decoder': {'parent': 'sshd', 'name': 'sshd'}, 'data': {'srcip': '108.157.98.17', 'srcport': '1066', 'dstuser': 'root'}, 'location': '/var/log/test.log'}'
-# Request result from AbuseIPDB server: 1:abuseipdb:{"abuseipdb": {"error": 401, "description": "Error: Unauthorized (check API key)"}, "integration": "custom-abuseipdb", "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2"}
+# Opening alert file at '/var/log/abuseipdb.json' with '{'timestamp': '2025-07-21T12:41:18.157+0000', 'rule': {'level': 5, 'description': 'sshd: Authentication succeeded from a public IP address <puiblic-ip>.', 'id': '100003', 'firedtimes': 2, 'mail': False, 'groups': ['local', 'syslog', 'sshd', 'authentication_failed', 'authentication_success'], 'pci_dss': ['10.2.4', '10.2.5']}, 'agent': {'id': '000', 'name': 'rhel9.localdomain'}, 'manager': {'name': 'rhel9.localdomain'}, 'id': '1753101678.8211', 'full_log': 'Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2', 'predecoder': {'program_name': 'sshd', 'timestamp': 'Dec 10 01:02:02', 'hostname': 'host'}, 'decoder': {'parent': 'sshd', 'name': 'sshd'}, 'data': {'srcip': '<puiblic-ip>', 'srcport': '1066', 'dstuser': 'root'}, 'location': '/var/log/test.log'}'
+# Request result from AbuseIPDB server: 1:abuseipdb:{"abuseipdb": {"error": 401, "description": "Error: Unauthorized (check API key)"}, "integration": "custom-abuseipdb", "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2"}
 ```
 
 **JSON event from archives (Error - Unauthorized):**
@@ -327,7 +327,7 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
         "error": "401"
       },
       "integration": "custom-abuseipdb",
-      "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2"
+      "original_full_log": "Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2"
     },
     "rule": {
       "firedtimes": 1,
@@ -347,7 +347,7 @@ Add the [custom rules](./custom_abuseipdb.xml) to trigger alerts based on AbuseI
       "name": "json"
     },
     "id": "1765450523.10735551",
-    "full_log": "{\"abuseipdb\": {\"error\": 401, \"description\": \"Error: Unauthorized (check API key)\"}, \"integration\": \"custom-abuseipdb\", \"original_full_log\": \"Dec 10 01:02:02 host sshd[1234]: Accepted none for root from 108.157.98.17 port 1066 ssh2\"}",
+    "full_log": "{\"abuseipdb\": {\"error\": 401, \"description\": \"Error: Unauthorized (check API key)\"}, \"integration\": \"custom-abuseipdb\", \"original_full_log\": \"Dec 10 01:02:02 host sshd[1234]: Accepted none for root from <puiblic-ip> port 1066 ssh2\"}",
     "timestamp": "2025-12-11T11:55:23.902+0100"
   },
   "fields": {
