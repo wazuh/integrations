@@ -1,0 +1,23 @@
+<group name="json,upguard,">
+
+        <rule id="101190" level="3">
+                <decoded_as>json</decoded_as>
+                <field name="integration">upguard</field>
+                <description>Upgrade Log appear</description>
+        </rule>
+
+        <rule id="101191" level="5">
+                      <if_sid>101190</if_sid>
+                       <field name="category">vulnerability_management</field>
+                       <description>Upgrade Vulnerability Log: the risk_id:$(risk_id) found in the vulnerability management</description>
+        </rule>
+
+
+        <rule id="101192" level="5">
+                <if_sid>101190</if_sid>
+                <field name="category">\.*</field>
+                <field name="risk_id">\.*</field>
+                <field name="source.description">\.*</field>
+                <description>Upgrade Log: at the $(category) category, the risk:$(risk_id) found with full details:$(source.description)</description>
+         </rule>
+</group>
