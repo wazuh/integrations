@@ -1,0 +1,17 @@
+<group name="custom-chatgpt,">
+  <rule id="560000" level="15" >
+  <decoded_as>json</decoded_as>
+    <field name="integration">custom-chatgpt</field>
+    <description>Information received from integration</description>
+  </rule>
+  <rule id="560001" level="15" >
+    <if_sid>560000</if_sid>
+    <field name="custom-chatgpt.error">\.+</field>
+    <description>Error received from integration</description>
+  </rule>
+<rule id="560002" level="15" >
+    <if_sid>560000</if_sid>
+    <field name="custom-chatgpt.answer">\.+</field>
+    <description>Analisys finished for alert: $(custom-chatgpt.origin.rule) - $(custom-chatgpt.origin.description)</description>
+  </rule>
+</group>
