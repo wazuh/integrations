@@ -1,0 +1,12 @@
+#!/bin/bash
+# Wazuh → Teams wrapper; passes all arguments to the Python script
+
+SCRIPT="/var/ossec/integrations/custom-teams.py"
+
+[ ! -f "$SCRIPT" ] && echo "Error: $SCRIPT not found" && exit 1
+[ ! -x "$SCRIPT" ] && echo "Error: $SCRIPT not executable" && exit 1
+
+
+exec python3 "$SCRIPT" "$@"
+
+

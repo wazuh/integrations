@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+import sys
+import json
+import urllib.request
+import urllib.error
+import time
+
+# ------------------------------------------
+# Wazuh to Threatlens Integration Script
+# ------------------------------------------
+
+debug_enabled = True
+log_file = '/var/ossec/logs/integrations.log'
+
+def write_debug(msg):
+    if debug_enabled:
+        with open(log_file, 'a') as f:
+            f.write(f"{time.strftime('%Y/%m/%d %H:%M:%S')} custom-threatlens: {msg}\n")
+
+def main():
+    try:
+        # 1. Input validation
+        if len(sys.argv) < 4:
+            write_debug("Error: Missing parameters. Expected arguments: alert_file, api_key, hook_url")
+            sys.exit(1)
+
+        alert_file_path = sys.argv[1]
+        api_key = sys.argv[2]
+        hook_url = sys.argv[3]
+
+        # 2. Read the alert file
+        with open(alert_file_path) as f:
+            alert_json = json.load(f)
+
+        # 3. Prepare Payload 
+        # Threatlens requires the data to be inside an "alert" key
+        final_payload = {
+            "alert": alert_json
+        }
+        
+        payload_bytes = json.dumps(final_payload).encode('utf-8')
+
+        # 4. Define Headers
+        # Added User-Agent to bypass Cloudflare 1010 Error
+        headers = {
+            'Content-Type': 'application/json',
+            'X-Api-Key': api_key,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+
+        # 5. Send Request using standard library
+        write_debug(f"Sending alert to {hook_url}")
+        
+        req = urllib.request.Request(hook_url, data=payload_bytes, headers=headers)
+        
+        try:
+            with urllib.request.urlopen(req) as response:
+                if response.status == 200 or response.status == 201:
+                    write_debug("Success: Alert sent to Threatlens.")
+                    # Optional: Log response body if needed for debugging
+                    # write_debug(f"Response: {response.read().decode('utf-8')}")
+                else:
+                    write_debug(f"Warning: Unexpected HTTP {response.status}")
+        except urllib.error.HTTPError as e:
+            write_debug(f"HTTP Error: {e.code} - {e.reason}")
+            try:
+                error_body = e.read().decode('utf-8')
+                write_debug(f"Response Body: {error_body}")
+            except:
+                pass
+        except urllib.error.URLError as e:
+            write_debug(f"Connection Error: {e.reason}")
+
+    except Exception as e:
+        write_debug(f"Critical Error: {str(e)}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

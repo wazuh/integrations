@@ -332,9 +332,18 @@ This isolates MCP-LLM Gateway dependencies from the system Python.
 
   ```bash
 python -m pip install --upgrade \
-  "fastapi>=0.110" "uvicorn[standard]>=0.29" "pydantic>=2.6" \
-  "langchain>=0.2.6" "langchain-openai>=0.1.7" "langchain-mcp-adapters>=0.1.9" \
-  "langchain-aws>=0.1.6" "boto3>=1.34"
+  "fastapi==0.128.0" \
+  "uvicorn[standard]==0.40.0" \
+  "pydantic==2.12.5" \
+  "langchain==0.3.27" \
+  "langchain-core==0.3.79" \
+  "langchain-openai==0.3.35" \
+  "langchain-anthropic==0.3.22" \
+  "langchain-mcp-adapters==0.1.9" \
+  "langchain-aws==0.2.35" \
+  "boto3==1.42.30" \
+  "httpx==0.28.1"
+
 ```
 
 </details> 
@@ -902,10 +911,9 @@ If the change is not visible, try signing out and logging in again to the Wazuh 
 Use these to validate end-to-end behavior and the reporting format:
 -  Analyze the most important alerts in my environment
 -  Analyze brute force attack alerts
+-  List critical CVEs from the vulnerabilities index
 -  Please analyze the alerts: "sshd: brute force trying to get access to the system. Non existent user."
 -  Please analyze the alert with the rule ID XXX
--  Which endpoints are affected by this CVE-XXXX-XXXXX
--  Analyze the alerts from the last X minutes
 
 
 <img src="./images/2-Analyze%20brute%20force%20attack%20alerts.png" alt="Analyze brute-force attack alerts" width="1200">
