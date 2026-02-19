@@ -1,0 +1,16 @@
+#!/bin/sh
+# SOCRadar Wodle Launcher
+# This shell wrapper is required by Wazuh's wodle command framework.
+SCRIPT_DIR="$(cd "$(dirname "$0")"; pwd -P)"
+PYTHON_SCRIPT="${SCRIPT_DIR}/socradar.py"
+
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+elif [ -x "/var/ossec/framework/python/bin/python3" ]; then
+    PYTHON_BIN="/var/ossec/framework/python/bin/python3"
+else
+    echo "ERROR: python3 not found"
+    exit 1
+fi
+
+${PYTHON_BIN} "${PYTHON_SCRIPT}" "$@"

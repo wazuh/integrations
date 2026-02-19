@@ -1,0 +1,25 @@
+{
+  "company_id": "YOUR_COMPANY_ID",
+  "api_key": "YOUR_SOCRADAR_API_KEY",
+  "user_email": "your-email@company.com",
+
+  "_comment_fetch": "=== Wodle Fetch Settings ===",
+  "fetch_status": "OPEN",
+  "fetch_limit": 50,
+  "min_severity": null,
+  "alarm_main_types": [],
+  "initial_lookback_hours": 24,
+  "max_pages": 10,
+  "auto_comment_on_fetch": false,
+
+  "_comment_integration": "=== Integration (Wazuh → SOCRadar) Settings ===",
+  "integration": {
+    "auto_tag": true,
+    "post_wazuh_context": true,
+    "auto_close_rule_ids": [],
+    "auto_resolve_rule_ids": [],
+    "escalate_threshold": 12,
+    "auto_ask_analyst": false,
+    "ask_analyst_threshold": 10
+  }
+}
