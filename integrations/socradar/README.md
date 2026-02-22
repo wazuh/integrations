@@ -213,7 +213,6 @@ Expected: Rule 100803, Level 10.
 ## References
 
 - [SOCRadar Platform](https://platform.socradar.com)
-- [SOCRadar API Documentation](https://docs.socradar.io)
 - [Wazuh Custom Integration Guide](https://documentation.wazuh.com/current/user-manual/manager/integration-with-external-apis.html)
 
 ## Author
