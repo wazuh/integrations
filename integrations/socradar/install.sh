@@ -27,7 +27,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 WAZUH_HOME="${WAZUH_HOME:-/var/ossec}"
-SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 echo -e "${BLUE}"
 echo "╔══════════════════════════════════════════════════════════════╗"
@@ -87,6 +87,11 @@ LOOKBACK="${LOOKBACK:-24}"
 read -p "Fetch interval in minutes (default: 1): " INTERVAL
 INTERVAL="${INTERVAL:-1}"
 
+if ! [[ "${INTERVAL}" =~ ^[0-9]+$ ]]; then
+  echo -e "${YELLOW}  ⚠ Invalid interval '${INTERVAL}', using 1 minute${NC}"
+  INTERVAL=1
+fi
+
 echo ""
 echo -e "${BLUE}Installing integration files...${NC}"
 
@@ -103,8 +108,8 @@ echo -e "${GREEN}  ✓ Wodle files installed${NC}"
 
 # --- Step 2: Copy integration files ---
 
-cp "$SCRIPT_DIR/integrations/custom-socradar" "$WAZUH_HOME/integrations/custom-socradar"
-cp "$SCRIPT_DIR/integrations/custom-socradar.py" "$WAZUH_HOME/integrations/custom-socradar.py"
+cp "$SCRIPT_DIR/integration/custom-socradar" "$WAZUH_HOME/integrations/custom-socradar"
+cp "$SCRIPT_DIR/integration/custom-socradar.py" "$WAZUH_HOME/integrations/custom-socradar.py"
 chmod 750 "$WAZUH_HOME/integrations/custom-socradar"
 chmod 750 "$WAZUH_HOME/integrations/custom-socradar.py"
 chown root:$WAZUH_GROUP "$WAZUH_HOME/integrations/custom-socradar"
@@ -113,8 +118,8 @@ echo -e "${GREEN}  ✓ Integration files installed${NC}"
 
 # --- Step 3: Copy decoder and rules ---
 
-cp "$SCRIPT_DIR/decoders/0910-socradar_decoders.xml" "$WAZUH_HOME/etc/decoders/"
-cp "$SCRIPT_DIR/rules/0910-socradar_rules.xml" "$WAZUH_HOME/etc/rules/"
+cp "$SCRIPT_DIR/ruleset/decoders/0910-socradar_decoders.xml" "$WAZUH_HOME/etc/decoders/"
+cp "$SCRIPT_DIR/ruleset/rules/0910-socradar_rules.xml" "$WAZUH_HOME/etc/rules/"
 chown root:$WAZUH_GROUP "$WAZUH_HOME/etc/decoders/0910-socradar_decoders.xml"
 chown root:$WAZUH_GROUP "$WAZUH_HOME/etc/rules/0910-socradar_rules.xml"
 echo -e "${GREEN}  ✓ Decoder and rules installed${NC}"
@@ -130,8 +135,6 @@ cat > "$WAZUH_HOME/etc/socradar.conf" << CONFEOF
   "min_severity": null,
   "alarm_main_types": [],
   "initial_lookback_hours": $LOOKBACK,
-  "interval_seconds": 60,
-  "auto_comment_on_fetch": false,
   "integration": {
     "auto_tag": true,
     "post_wazuh_context": true,
@@ -167,7 +170,7 @@ else
   <wodle name=\"command\">\\
     <disabled>no</disabled>\\
     <tag>socradar</tag>\\
-    <command>/var/ossec/wodles/socradar/socradar</command>\\
+    <command>${WAZUH_HOME}/wodles/socradar/socradar</command>\\
     <interval>${INTERVAL}m</interval>\\
     <ignore_output>no</ignore_output>\\
     <run_on_start>yes</run_on_start>\\

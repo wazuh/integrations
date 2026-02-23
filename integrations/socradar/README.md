@@ -30,10 +30,10 @@ No cron jobs, scheduled tasks, or manual triggers are needed. The integration ru
 socradar/
 ├── ruleset/
 │   ├── rules/
-│   │   └── 0910-socradar_rules.xml       # 16 Wazuh rules (IDs 100800-100822)
+│   │   └── 0910-socradar_rules.xml       # 15 Wazuh rules (IDs 100800-100822)
 │   └── decoders/
 │       └── 0910-socradar_decoders.xml     # JSON decoder for SOCRadar events
-├── wodle/
+├── wodles/
 │   ├── socradar                           # Shell launcher wrapper
 │   └── socradar.py                        # Incident fetcher (epoch time, reverse pagination)
 ├── integration/
@@ -74,8 +74,8 @@ The installer prompts for your SOCRadar Company ID and API Key, then automatical
 ```bash
 # Wodle
 mkdir -p /var/ossec/wodles/socradar
-cp wodle/socradar /var/ossec/wodles/socradar/
-cp wodle/socradar.py /var/ossec/wodles/socradar/
+cp wodles/socradar /var/ossec/wodles/socradar/
+cp wodles/socradar.py /var/ossec/wodles/socradar/
 
 # Integration
 cp integration/custom-socradar /var/ossec/integrations/
@@ -106,8 +106,9 @@ Create `/var/ossec/etc/socradar.conf`:
   "company_id": "YOUR_COMPANY_ID",
   "api_key": "YOUR_API_KEY",
   "fetch_status": "OPEN",
+  "fetch_limit": 100,
   "initial_lookback_hours": 24,
-  "interval_seconds": 60
+  "max_pages": 10
 }
 ```
 
