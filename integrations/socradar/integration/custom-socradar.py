@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 """
-SOCRadar Incident Fetcher Wodle for Wazuh
-==========================================
-Fetches incidents from SOCRadar Incident API v4 and outputs
-JSON to stdout for Wazuh ingestion via wodle command framework.
+SOCRadar Bidirectional Integration for Wazuh
+=============================================
+Receives Wazuh alerts (via integratord) and sends feedback to SOCRadar:
+  - Auto-tag incidents as "wazuh-ingested"
+  - Post Wazuh context (rule ID, level, description) as comment
+  - Auto-close/resolve incidents based on rule IDs
+  - Severity escalation based on Wazuh alert level
+  - Ask analyst assignment for high-severity alerts
 
-Features:
-  - Epoch time based start_date / end_date
-  - Full reverse pagination (last page → first page)
-  - Chronological output (oldest alarms first)
-  - Deduplication via state file
-  - Runs every 1 minute via Wazuh wodle command
+This script is called by Wazuh integratord when a SOCRadar alert triggers.
+It receives two arguments:
+  $1 = path to alert JSON file
+  $2 = API key (from ossec.conf, optional — we use socradar.conf)
 
-Pagination Logic:
-  SOCRadar returns newest alarms on page 1, oldest on last page.
-  We want chronological order, so:
-    1. GET page=1 with include_total_records=true → total count
-    2. total_pages = ceil(total / 100)
-    3. Fetch pages: total_pages, total_pages-1, ..., 2, 1
-    4. Emit in that order → oldest first, newest last
+Placement:
+  /var/ossec/integrations/custom-socradar.py
 
 Author: SOCRadar Integration Team
 Version: 1.0.0
@@ -27,30 +24,30 @@ Version: 1.0.0
 import json
 import os
 import sys
-import time
-import math
 import ssl
+import time
 import urllib.request
 import urllib.error
-import urllib.parse
 from datetime import datetime, timezone
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths & Constants
 # ---------------------------------------------------------------------------
 WAZUH_HOME = os.environ.get("WAZUH_HOME", "/var/ossec")
 CONFIG_FILE = os.path.join(WAZUH_HOME, "etc", "socradar.conf")
-STATE_FILE = os.path.join(WAZUH_HOME, "var", "socradar_state.json")
-LOG_FILE = os.path.join(WAZUH_HOME, "logs", "socradar-wodle.log")
+LOG_FILE = os.path.join(WAZUH_HOME, "logs", "socradar-integration.log")
 
 SOCRADAR_BASE_URL = "https://platform.socradar.com/api"
-DEFAULT_PAGE_SIZE = 100  # SOCRadar returns max 100 per page
-MAX_PAGE_SIZE = 100
 
-# SSL context — disable verification for environments with proxy/self-signed certs
-SSL_CTX = ssl.create_default_context()
-SSL_CTX.check_hostname = False
-SSL_CTX.verify_mode = ssl.CERT_NONE
+VERSION = "1.0.1"
+USER_AGENT = f"wazuh-socradar-integration/{VERSION}"
+
+# SSL context (initialized in main() after config is loaded)
+SSL_CTX = None
+
+# Throttle outbound requests to reduce SOCRadar rate-limit hits.
+# This integration can make multiple API calls per alert (tag/comment/status/severity/ask-analyst).
+OUTBOUND_REQUEST_DELAY_SECONDS = 1
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +56,7 @@ SSL_CTX.verify_mode = ssl.CERT_NONE
 
 def log(level, msg):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    line = f"{ts} socradar-wodle {level}: {msg}"
+    line = f"{ts} socradar-integration {level}: {msg}"
     try:
         with open(LOG_FILE, "a") as f:
             f.write(line + "\n")
@@ -72,333 +69,423 @@ def log(level, msg):
 def load_config():
     if not os.path.isfile(CONFIG_FILE):
         log("ERROR", f"Config not found: {CONFIG_FILE}")
-        sys.exit(1)
-    with open(CONFIG_FILE) as f:
-        return json.load(f)
-
-
-def load_state():
-    if os.path.isfile(STATE_FILE):
-        try:
-            with open(STATE_FILE) as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-
-def save_state(state):
-    tmp = STATE_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(state, f)
-    os.replace(tmp, STATE_FILE)
-
-
-def api_request(url, headers):
-    req = urllib.request.Request(url, headers=headers, method="GET")
-    try:
-        with urllib.request.urlopen(req, timeout=120, context=SSL_CTX) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode() if e.fp else ""
-        log("ERROR", f"HTTP {e.code} from {url}: {err_body}")
         return None
+    try:
+        with open(CONFIG_FILE) as f:
+            return json.load(f)
     except Exception as e:
-        log("ERROR", f"Request failed: {e}")
+        log("ERROR", f"Config parse error: {e}")
         return None
 
 
-def now_epoch():
-    return int(time.time())
-
-
-def get_page_size(config):
+def load_alert(alert_file):
     try:
-        page_size = int(config.get("fetch_limit", DEFAULT_PAGE_SIZE))
-    except Exception:
-        page_size = DEFAULT_PAGE_SIZE
-
-    if page_size < 1:
-        page_size = 1
-    if page_size > MAX_PAGE_SIZE:
-        page_size = MAX_PAGE_SIZE
-    return page_size
-
-
-def get_max_pages(config):
-    value = config.get("max_pages")
-    if value is None or value == "":
+        with open(alert_file) as f:
+            return json.load(f)
+    except Exception as e:
+        log("ERROR", f"Alert file error: {e}")
         return None
-    try:
-        max_pages = int(value)
-    except Exception:
-        return None
-    return max_pages if max_pages > 0 else None
 
 
-# ---------------------------------------------------------------------------
-# SOCRadar API v4 — Full Reverse Pagination
-# ---------------------------------------------------------------------------
-
-def build_url(config, start_epoch, end_epoch, page, page_size, include_total=False):
-    """Build API URL with epoch timestamps."""
-    company_id = config["company_id"]
-
-    params = {
-        "page": page,
-        "limit": page_size,
-        "start_date": start_epoch,
-        "end_date": end_epoch,
-        "include_alarm_details": "true",
-        "include_ai_insight": "true",
-    }
-
-    if include_total:
-        params["include_total_records"] = "true"
-
-    # Optional filters from config
-    if config.get("fetch_status"):
-        params["status"] = config["fetch_status"]
-    if config.get("min_severity"):
-        params["severities"] = config["min_severity"]
-
-    main_types = config.get("alarm_main_types", [])
-    for i, t in enumerate(main_types):
-        params[f"alarm_main_types[{i}]"] = t
-
-    query = urllib.parse.urlencode(params, doseq=False)
-    return f"{SOCRADAR_BASE_URL}/company/{company_id}/incidents/v4?{query}"
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    s = str(value).strip().lower()
+    if s in ("1", "true", "yes", "y", "on"):
+        return True
+    if s in ("0", "false", "no", "n", "off"):
+        return False
+    return default
 
 
-def fetch_page(config, start_epoch, end_epoch, page, page_size, include_total=False):
-    """Fetch a single page of incidents."""
-    url = build_url(config, start_epoch, end_epoch, page, page_size, include_total)
-    headers = {"API-Key": config["api_key"], "Accept": "application/json"}
-    return api_request(url, headers)
+def build_ssl_context(config):
+    """Build an SSLContext based on config.
 
-
-def fetch_all_incidents(config, start_epoch, end_epoch):
+    Config options:
+      - tls_verify: bool (default true)
+      - ca_bundle_path: path to PEM bundle (optional)
     """
-    Full reverse pagination for chronological order:
+    tls_verify = _parse_bool((config or {}).get("tls_verify"), default=True)
+    ca_bundle_path = (config or {}).get("ca_bundle_path") or (config or {}).get("ca_bundle")
 
-    SOCRadar page layout (newest on page 1):
-      Page 1: alarms 401-500 (newest)
-      Page 2: alarms 301-400
-      ...
-      Page 5: alarms   1-100 (oldest)
+    if tls_verify:
+        if ca_bundle_path:
+            if not os.path.isfile(ca_bundle_path):
+                log("ERROR", f"ca_bundle_path not found: {ca_bundle_path}")
+                return ssl.create_default_context()
+            return ssl.create_default_context(cafile=ca_bundle_path)
+        return ssl.create_default_context()
 
-    We fetch: page 5 → 4 → 3 → 2 → 1
-    Result:   alarms 1 → 500 (chronological)
-    """
-    log("INFO", f"Fetching | epoch {start_epoch} -> {end_epoch}")
+    log("WARN", "TLS verification is disabled (tls_verify=false). This is insecure and not recommended.")
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
-    page_size = get_page_size(config)
-    max_pages = get_max_pages(config)
 
-    # Step 1: Get total count from first request
-    result = fetch_page(config, start_epoch, end_epoch, page=1, page_size=page_size, include_total=True)
-
-    if not result or not result.get("is_success", False):
-        log("ERROR", f"Initial call failed: {result}")
-        return []
-
-    total_records = result.get("total_records", 0)
-    first_page_data = result.get("data", [])
-
-    # Handle both list and dict response formats
-    if isinstance(first_page_data, dict):
-        total_records = first_page_data.get("total_records", total_records)
-        first_page_data = first_page_data.get("data", first_page_data.get("items", []))
-
-    if not isinstance(first_page_data, list):
-        log("ERROR", f"Unexpected data type: {type(first_page_data)}")
-        return []
-
-    if total_records == 0 and not first_page_data:
-        log("INFO", "No incidents in time range")
-        return []
-
-    if total_records == 0:
-        total_records = len(first_page_data)
-
-    total_pages = math.ceil(total_records / page_size)
-
-    if max_pages and total_pages > max_pages:
-        log("INFO", f"Total: {total_records} records, {total_pages} pages (limiting to {max_pages})")
-        total_pages = max_pages
+def _sleep_backoff(attempt, retry_after=None):
+    # Small bounded backoff to avoid blocking integratord too long.
+    if retry_after is not None:
+        try:
+            seconds = int(float(retry_after))
+            seconds = max(1, min(seconds, 30))
+        except Exception:
+            seconds = 2
     else:
-        log("INFO", f"Total: {total_records} records, {total_pages} pages")
+        seconds = min(2 ** attempt, 8)
+    time.sleep(seconds)
 
-    # Single page — reverse and return
-    if total_pages <= 1:
-        return list(reversed(first_page_data))
 
-    # Step 2: Fetch from LAST page to page 2 (we already have page 1)
-    all_pages = {1: first_page_data}
+def api_post(url, headers, data):
+    """Send POST request to SOCRadar API (with basic retry/backoff)."""
+    body = json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    for attempt in range(1, 4):
+        try:
+            open_kwargs = {"timeout": 30}
+            if SSL_CTX is not None:
+                open_kwargs["context"] = SSL_CTX
+            with urllib.request.urlopen(req, **open_kwargs) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            retry_after = None
+            try:
+                retry_after = e.headers.get("Retry-After")
+            except Exception:
+                retry_after = None
+            err_body = ""
+            try:
+                err_body = e.read().decode(errors="replace") if e.fp else ""
+            except Exception:
+                err_body = ""
 
-    for page_num in range(total_pages, 1, -1):
-        log("INFO", f"Fetching page {page_num}/{total_pages}")
-        page_result = fetch_page(config, start_epoch, end_epoch, page_num, page_size)
+            if e.code in (429, 500, 502, 503, 504) and attempt < 3:
+                log("WARN", f"HTTP {e.code} on POST (attempt {attempt}/3). Retrying...")
+                _sleep_backoff(attempt, retry_after=retry_after)
+                continue
 
-        if not page_result or not page_result.get("is_success", False):
-            log("ERROR", f"Failed page {page_num}")
-            continue
+            log("ERROR", f"HTTP {e.code}: {err_body[:500]}")
+            return None
+        except Exception as e:
+            if attempt < 3:
+                log("WARN", f"Request failed on POST (attempt {attempt}/3): {e}. Retrying...")
+                _sleep_backoff(attempt)
+                continue
+            log("ERROR", f"Request failed: {e}")
+            return None
 
-        page_data = page_result.get("data", [])
 
-        # Handle dict response
-        if isinstance(page_data, dict):
-            page_data = page_data.get("data", page_data.get("items", []))
+def api_put(url, headers, data):
+    """Send PUT request to SOCRadar API (with basic retry/backoff)."""
+    body = json.dumps(data).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers=headers, method="PUT")
+    for attempt in range(1, 4):
+        try:
+            open_kwargs = {"timeout": 30}
+            if SSL_CTX is not None:
+                open_kwargs["context"] = SSL_CTX
+            with urllib.request.urlopen(req, **open_kwargs) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            retry_after = None
+            try:
+                retry_after = e.headers.get("Retry-After")
+            except Exception:
+                retry_after = None
+            err_body = ""
+            try:
+                err_body = e.read().decode(errors="replace") if e.fp else ""
+            except Exception:
+                err_body = ""
 
-        if isinstance(page_data, list) and page_data:
-            all_pages[page_num] = page_data
+            if e.code in (429, 500, 502, 503, 504) and attempt < 3:
+                log("WARN", f"HTTP {e.code} on PUT (attempt {attempt}/3). Retrying...")
+                _sleep_backoff(attempt, retry_after=retry_after)
+                continue
 
-        time.sleep(0.2)
-
-    # Step 3: Assemble chronologically (last page first → first page last)
-    all_incidents = []
-    for page_num in range(total_pages, 0, -1):
-        if page_num in all_pages:
-            all_incidents.extend(reversed(all_pages[page_num]))
-
-    log("INFO", f"Collected {len(all_incidents)} incidents (chronological)")
-    return all_incidents
+            log("ERROR", f"HTTP {e.code}: {err_body[:500]}")
+            return None
+        except Exception as e:
+            if attempt < 3:
+                log("WARN", f"Request failed on PUT (attempt {attempt}/3): {e}. Retrying...")
+                _sleep_backoff(attempt)
+                continue
+            log("ERROR", f"Request failed: {e}")
+            return None
 
 
 # ---------------------------------------------------------------------------
-# Wazuh Output
+# SOCRadar API Actions
 # ---------------------------------------------------------------------------
 
-def emit_alert(incident):
-    """Print JSON line to stdout for Wazuh ingestion via wodle command."""
-    if not isinstance(incident, dict):
+def add_tag(config, alarm_id, tag):
+    """Add a tag to a SOCRadar alarm."""
+    company_id = config["company_id"]
+    url = f"{SOCRADAR_BASE_URL}/company/{company_id}/alarm/tag"
+    headers = {
+        "API-Key": config["api_key"],
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    data = {
+        "alarm_id": alarm_id,
+        "tag": tag,
+        "action": "add"
+    }
+    result = api_post(url, headers, data)
+    if result:
+        log("INFO", f"Tag '{tag}' added to alarm {alarm_id}")
+    return result
+
+
+def add_comment(config, alarm_id, comment_text):
+    """Add a comment to a SOCRadar alarm."""
+    company_id = config["company_id"]
+    url = f"{SOCRADAR_BASE_URL}/company/{company_id}/alarm/add/comment/v2"
+    headers = {
+        "API-Key": config["api_key"],
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    data = {
+        "alarm_id": alarm_id,
+        "comment": comment_text,
+    }
+    if config.get("user_email"):
+        data["email"] = config["user_email"]
+
+    result = api_post(url, headers, data)
+    if result:
+        log("INFO", f"Comment added to alarm {alarm_id}")
+    return result
+
+
+def change_status(config, alarm_id, new_status, resolution_type=None):
+    """
+    Change alarm status on SOCRadar.
+    new_status: OPEN, RESOLVED, CLOSED, FALSE_POSITIVE
+    resolution_type: Used when closing — e.g. "false_positive", "resolved", "duplicate"
+    """
+    company_id = config["company_id"]
+    url = f"{SOCRADAR_BASE_URL}/company/{company_id}/incidents/v4/status/change"
+    headers = {
+        "API-Key": config["api_key"],
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    data = {
+        "alarm_ids": [alarm_id],
+        "status": new_status,
+    }
+    if resolution_type:
+        data["resolution_type"] = resolution_type
+
+    result = api_post(url, headers, data)
+    if result:
+        log("INFO", f"Alarm {alarm_id} status changed to {new_status}")
+    return result
+
+
+def change_severity(config, alarm_id, new_severity):
+    """
+    Change alarm severity on SOCRadar.
+    new_severity: LOW, MEDIUM, HIGH, CRITICAL
+    """
+    company_id = config["company_id"]
+    url = f"{SOCRADAR_BASE_URL}/company/{company_id}/incidents/v4/severity/change"
+    headers = {
+        "API-Key": config["api_key"],
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    data = {
+        "alarm_ids": [alarm_id],
+        "severity": new_severity,
+    }
+    result = api_post(url, headers, data)
+    if result:
+        log("INFO", f"Alarm {alarm_id} severity changed to {new_severity}")
+    return result
+
+
+def ask_analyst(config, alarm_id):
+    """Request analyst assignment for an alarm."""
+    company_id = config["company_id"]
+    url = f"{SOCRADAR_BASE_URL}/company/{company_id}/alarm/ask-analyst"
+    headers = {
+        "API-Key": config["api_key"],
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
+    data = {
+        "alarm_id": alarm_id,
+    }
+    result = api_post(url, headers, data)
+    if result:
+        log("INFO", f"Analyst requested for alarm {alarm_id}")
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Alert Processing Logic
+# ---------------------------------------------------------------------------
+
+def build_wazuh_comment(alert):
+    """Build a comment string from Wazuh alert data."""
+    rule = alert.get("rule", {})
+    agent = alert.get("agent", {})
+    timestamp = alert.get("timestamp", "")
+
+    lines = [
+        "=== Wazuh SIEM Alert ===",
+        f"Timestamp: {timestamp}",
+        f"Rule ID: {rule.get('id', 'N/A')}",
+        f"Level: {rule.get('level', 'N/A')}",
+        f"Description: {rule.get('description', 'N/A')}",
+        f"Groups: {', '.join(rule.get('groups', []))}",
+    ]
+
+    if agent.get("name"):
+        lines.append(f"Agent: {agent.get('name', '')} (ID: {agent.get('id', '')})")
+
+    manager = alert.get("manager", {})
+    if manager.get("name"):
+        lines.append(f"Manager: {manager.get('name', '')}")
+
+    lines.append("========================")
+    return "\n".join(lines)
+
+
+def wazuh_level_to_socradar_severity(level):
+    """Map Wazuh alert level to SOCRadar severity."""
+    if level >= 13:
+        return "CRITICAL"
+    elif level >= 10:
+        return "HIGH"
+    elif level >= 7:
+        return "MEDIUM"
+    else:
+        return "LOW"
+
+
+def _throttle_outbound():
+    try:
+        time.sleep(OUTBOUND_REQUEST_DELAY_SECONDS)
+    except Exception:
+        pass
+
+
+def process_alert(config, alert):
+    """Process a single Wazuh alert and perform SOCRadar actions."""
+    # Extract SOCRadar alarm ID from alert data.
+    # Depending on decoder/version, socradar payload may exist under alert.data or at top-level.
+    socradar_data = (
+        (alert.get("data") or {}).get("socradar")
+        or (alert.get("socradar") or {})
+    )
+    if not socradar_data:
+        log("DEBUG", "No socradar data in alert, skipping")
         return
 
-    risk_level = incident.get("alarm_risk_level", "UNKNOWN")
-    if risk_level is None:
-        risk_level = "UNKNOWN"
+    alarm_id = socradar_data.get("alarm_id")
+    if not alarm_id:
+        log("DEBUG", "No alarm_id in socradar data, skipping")
+        return
 
-    output = {
-        "socradar": {
-            "source": "incident_api_v4",
-            "alarm_id": incident.get("alarm_id"),
-            "alarm_asset": incident.get("alarm_asset", ""),
-            "risk_level": str(risk_level).upper(),
-            "status": incident.get("status", ""),
-            "alarm_text": incident.get("alarm_text", ""),
-            "alarm_response": incident.get("alarm_response", ""),
-            "date": incident.get("date", ""),
-            "notification_id": incident.get("notification_id"),
-            "assignees": incident.get("alarm_assignees", []),
-            "related_assets": incident.get("alarm_related_assets", []),
-            "related_entities": incident.get("alarm_related_entities", []),
-            "tags": incident.get("tags", []),
-        }
-    }
+    rule = alert.get("rule", {})
+    rule_id = int(rule.get("id", 0))
+    rule_level = int(rule.get("level", 0))
 
-    # Alarm type details
-    atd = incident.get("alarm_type_details") or {}
-    if atd and isinstance(atd, dict):
-        output["socradar"]["main_type"] = atd.get("alarm_main_type", "")
-        output["socradar"]["sub_type"] = atd.get("alarm_sub_type", "")
-        output["socradar"]["generic_title"] = atd.get("alarm_generic_title", "")
-        output["socradar"]["mitigation"] = atd.get("alarm_default_mitigation_plan", "")
-        output["socradar"]["detection_analysis"] = atd.get("alarm_detection_and_analysis", "")
+    integration_config = config.get("integration", {})
 
-        compliance = atd.get("alarm_compliance_list", [])
-        if compliance and isinstance(compliance, list):
-            output["socradar"]["compliance"] = [
-                {
-                    "framework": c.get("name", ""),
-                    "control": c.get("control_item", ""),
-                    "description": c.get("description", ""),
-                }
-                for c in compliance
-                if isinstance(c, dict)
-            ]
+    log("INFO", f"Processing alarm {alarm_id} | Rule: {rule_id}, Level: {rule_level}")
 
-    # Technical content
-    content = incident.get("content") or {}
-    if content and isinstance(content, dict):
-        tech = {}
-        for key in [
-            "compromised_domains", "compromised_emails", "compromised_ips",
-            "computer_name", "malware_family", "malware_path", "username",
-            "antivirus", "app", "log_date",
-        ]:
-            if content.get(key):
-                tech[key] = content[key]
+    # --- Action 1: Auto-tag ---
+    if integration_config.get("auto_tag", True):
+        add_tag(config, alarm_id, "wazuh-ingested")
+        _throttle_outbound()
 
-        creds = content.get("credential_details", [])
-        if creds and isinstance(creds, list):
-            tech["credential_count"] = len(creds)
-            tech["credential_urls"] = [
-                c.get("URL", "") for c in creds if isinstance(c, dict) and c.get("URL")
-            ]
-            tech["credential_users"] = [
-                c.get("User", "") for c in creds if isinstance(c, dict) and c.get("User")
-            ]
+    # --- Action 2: Post Wazuh context as comment ---
+    if integration_config.get("post_wazuh_context", True):
+        comment = build_wazuh_comment(alert)
+        add_comment(config, alarm_id, comment)
+        _throttle_outbound()
 
-        if tech:
-            output["socradar"]["content"] = tech
+    # --- Action 3: Auto-close by rule ID ---
+    auto_close_rules = integration_config.get("auto_close_rule_ids", [])
+    if auto_close_rules and rule_id in auto_close_rules:
+        change_status(config, alarm_id, "FALSE_POSITIVE", "false_positive")
+        _throttle_outbound()
+        log("INFO", f"Alarm {alarm_id} auto-closed (rule {rule_id})")
+        return  # Don't process further if closed
 
-    print(json.dumps(output))
+    # --- Action 4: Auto-resolve by rule ID ---
+    auto_resolve_rules = integration_config.get("auto_resolve_rule_ids", [])
+    if auto_resolve_rules and rule_id in auto_resolve_rules:
+        change_status(config, alarm_id, "RESOLVED", "resolved")
+        _throttle_outbound()
+        log("INFO", f"Alarm {alarm_id} auto-resolved (rule {rule_id})")
+        return
+
+    # --- Action 5: Severity escalation ---
+    escalate_threshold = integration_config.get("escalate_threshold", 12)
+    if escalate_threshold and rule_level >= escalate_threshold:
+        new_severity = wazuh_level_to_socradar_severity(rule_level)
+        current_severity = socradar_data.get("risk_level", "").upper()
+
+        severity_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+        if severity_order.get(new_severity, 0) > severity_order.get(current_severity, 0):
+            change_severity(config, alarm_id, new_severity)
+            _throttle_outbound()
+            log("INFO", f"Alarm {alarm_id} escalated to {new_severity}")
+
+    # --- Action 6: Ask analyst ---
+    ask_analyst_enabled = integration_config.get("auto_ask_analyst", False)
+    ask_analyst_threshold = integration_config.get("ask_analyst_threshold", 10)
+    if ask_analyst_enabled and rule_level >= ask_analyst_threshold:
+        ask_analyst(config, alarm_id)
+        _throttle_outbound()
 
 
 # ---------------------------------------------------------------------------
-# Main
+# Main — Called by Wazuh integratord
 # ---------------------------------------------------------------------------
 
 def main():
+    # integratord passes: $1 = alert file, $2 = api_key (optional)
+    if len(sys.argv) < 2:
+        log("ERROR", "No alert file provided")
+        sys.exit(1)
+
+    alert_file = sys.argv[1]
+
+    # Load config
     config = load_config()
-    state = load_state()
+    if not config:
+        sys.exit(1)
 
-    # Time window: last_run → now
-    end_epoch = now_epoch()
+    # TLS
+    global SSL_CTX
+    SSL_CTX = build_ssl_context(config)
 
-    last_run_epoch = state.get("last_run_epoch")
-    if last_run_epoch:
-        start_epoch = last_run_epoch
-    else:
-        # First run: look back N hours (default 24)
-        lookback_hours = config.get("initial_lookback_hours", 24)
-        start_epoch = end_epoch - (lookback_hours * 3600)
+    # Load alert
+    alert = load_alert(alert_file)
+    if not alert:
+        sys.exit(1)
 
-    log("INFO",
-        f"Starting | {start_epoch} -> {end_epoch} | "
-        f"{datetime.fromtimestamp(start_epoch, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} -> "
-        f"{datetime.fromtimestamp(end_epoch, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
-
-    # Fetch all incidents (reverse pagination, chronological output)
-    incidents = fetch_all_incidents(config, start_epoch, end_epoch)
-
-    # Deduplicate against seen alarm IDs
-    seen = set(state.get("seen_alarm_ids", []))
-    new_count = 0
-
-    for incident in incidents:
-        if not isinstance(incident, dict):
-            continue
-        alarm_id = incident.get("alarm_id")
-        if alarm_id is not None and alarm_id not in seen:
-            emit_alert(incident)
-            seen.add(alarm_id)
-            new_count += 1
-
-    # Bound the seen cache (keep last 10000)
-    seen_list = list(seen)
-    if len(seen_list) > 10000:
-        seen_list = seen_list[-10000:]
-
-    # Save state
-    state["seen_alarm_ids"] = seen_list
-    state["last_run_epoch"] = end_epoch
-    state["last_run_iso"] = datetime.fromtimestamp(end_epoch, tz=timezone.utc).isoformat()
-    state["last_fetch_new"] = new_count
-    state["last_fetch_total"] = len(incidents)
-    save_state(state)
-
-    log("INFO", f"Done | New: {new_count}, Total: {len(incidents)}, Cache: {len(seen_list)}")
+    # Process
+    try:
+        process_alert(config, alert)
+    except Exception as e:
+        log("ERROR", f"Unhandled error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

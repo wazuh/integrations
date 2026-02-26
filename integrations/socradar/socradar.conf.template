@@ -3,6 +3,14 @@
   "api_key": "YOUR_SOCRADAR_API_KEY",
   "user_email": "your-email@company.com",
 
+  "_comment_tls": "=== TLS / SSL ===",
+  "tls_verify": true,
+  "ca_bundle_path": null,
+
+  "_comment_logging": "=== Logging / Debug ===",
+  "verbose": false,
+  "log_level": "INFO",
+
   "_comment_fetch": "=== Wodle Fetch Settings ===",
   "fetch_status": "OPEN",
   "fetch_limit": 50,

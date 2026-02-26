@@ -35,6 +35,30 @@ import urllib.error
 import urllib.parse
 from datetime import datetime, timezone
 
+VERSION = "1.0.1"
+USER_AGENT = f"wazuh-socradar-integration/{VERSION}"
+
+
+# ---------------------------------------------------------------------------
+# Logging (supports INFO/DEBUG verbosity)
+# ---------------------------------------------------------------------------
+
+_LEVELS = {"ERROR": 0, "WARN": 1, "INFO": 2, "DEBUG": 3}
+_LOG_LEVEL_NUM = _LEVELS["INFO"]
+
+
+def set_log_level(level):
+    global _LOG_LEVEL_NUM
+    if not level:
+        return
+    level = str(level).strip().upper()
+    if level in _LEVELS:
+        _LOG_LEVEL_NUM = _LEVELS[level]
+
+
+def _should_log(level):
+    return _LEVELS.get(level, 2) <= _LOG_LEVEL_NUM
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -47,10 +71,9 @@ SOCRADAR_BASE_URL = "https://platform.socradar.com/api"
 DEFAULT_PAGE_SIZE = 100  # SOCRadar returns max 100 per page
 MAX_PAGE_SIZE = 100
 
-# SSL context — disable verification for environments with proxy/self-signed certs
-SSL_CTX = ssl.create_default_context()
-SSL_CTX.check_hostname = False
-SSL_CTX.verify_mode = ssl.CERT_NONE
+# TLS / SSL
+# Initialized in main() after config is loaded.
+SSL_CTX = None
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +81,8 @@ SSL_CTX.verify_mode = ssl.CERT_NONE
 # ---------------------------------------------------------------------------
 
 def log(level, msg):
+    if not _should_log(level):
+        return
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     line = f"{ts} socradar-wodle {level}: {msg}"
     try:
@@ -94,18 +119,166 @@ def save_state(state):
     os.replace(tmp, STATE_FILE)
 
 
+def _truncate(s, limit=1200):
+    if s is None:
+        return ""
+    if len(s) <= limit:
+        return s
+    return s[:limit] + f"... (truncated, {len(s)} chars)"
+
+
+def _safe_headers_for_log(headers_obj):
+    """Return selected response headers for debug logging."""
+    if not headers_obj:
+        return {}
+    keys = [
+        "Content-Type",
+        "Content-Length",
+        "Retry-After",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+        "Date",
+    ]
+    safe = {}
+    try:
+        for k in keys:
+            v = headers_obj.get(k)
+            if v is not None:
+                safe[k] = v
+    except Exception:
+        return {}
+    return safe
+
+
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    s = str(value).strip().lower()
+    if s in ("1", "true", "yes", "y", "on"):
+        return True
+    if s in ("0", "false", "no", "n", "off"):
+        return False
+    return default
+
+
+def build_ssl_context(config):
+    """Build an SSLContext based on config.
+
+    Config options:
+      - tls_verify: bool (default true)
+      - ca_bundle_path: path to PEM bundle (optional)
+    """
+    tls_verify = _parse_bool((config or {}).get("tls_verify"), default=True)
+    ca_bundle_path = (config or {}).get("ca_bundle_path") or (config or {}).get("ca_bundle")
+
+    if tls_verify:
+        if ca_bundle_path:
+            if not os.path.isfile(ca_bundle_path):
+                log("WARN", f"ca_bundle_path not found: {ca_bundle_path} (using system trust store)")
+                return ssl.create_default_context()
+            return ssl.create_default_context(cafile=ca_bundle_path)
+        return ssl.create_default_context()
+
+    log("WARN", "TLS verification is disabled (tls_verify=false). This is insecure and not recommended.")
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
 def api_request(url, headers):
     req = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=120, context=SSL_CTX) as resp:
-            return json.loads(resp.read().decode())
+        start = time.time()
+        open_kwargs = {"timeout": 120}
+        if SSL_CTX is not None:
+            open_kwargs["context"] = SSL_CTX
+        with urllib.request.urlopen(req, **open_kwargs) as resp:
+            status = getattr(resp, "status", None) or resp.getcode()
+            raw = resp.read()
+            elapsed_ms = int((time.time() - start) * 1000)
+
+            if _should_log("DEBUG"):
+                safe_resp_headers = _safe_headers_for_log(getattr(resp, "headers", None))
+                log("DEBUG", f"HTTP {status} {elapsed_ms}ms | {url} | headers={safe_resp_headers} | bytes={len(raw)}")
+
+            try:
+                return json.loads(raw.decode())
+            except Exception as e:
+                snippet = ""
+                try:
+                    snippet = _truncate(raw.decode(errors="replace"), 2000)
+                except Exception:
+                    snippet = "<non-text response>"
+                log("ERROR", f"Failed to parse JSON from {url}: {e} | body={snippet}")
+                return None
     except urllib.error.HTTPError as e:
-        err_body = e.read().decode() if e.fp else ""
-        log("ERROR", f"HTTP {e.code} from {url}: {err_body}")
+        err_body = ""
+        try:
+            err_body = e.read().decode(errors="replace") if e.fp else ""
+        except Exception:
+            err_body = ""
+        extra = ""
+        if _should_log("DEBUG"):
+            extra = f" | headers={_safe_headers_for_log(getattr(e, 'headers', None))}"
+        log("ERROR", f"HTTP {e.code} from {url}: {_truncate(err_body, 2000)}{extra}")
         return None
     except Exception as e:
-        log("ERROR", f"Request failed: {e}")
+        log("ERROR", f"Request failed: {e} | url={url}")
         return None
+
+
+def parse_args(argv):
+    args = {"verbose": False, "log_level": None}
+    for a in argv[1:]:
+        if a in ("-v", "--verbose", "--debug"):
+            args["verbose"] = True
+        elif a.startswith("--log-level="):
+            args["log_level"] = a.split("=", 1)[1]
+        elif a == "--log-level":
+            # Next token handled in a second pass below
+            pass
+
+    # second pass for "--log-level DEBUG" form
+    for i, a in enumerate(argv[1:]):
+        if a == "--log-level" and i + 2 <= len(argv) - 1:
+            args["log_level"] = argv[i + 2]
+            break
+
+    return args
+
+
+def apply_log_settings(config, args):
+    """Set global log level from CLI args/env/config."""
+    env_level = os.environ.get("SOCRADAR_LOG_LEVEL")
+    env_verbose = os.environ.get("SOCRADAR_VERBOSE")
+
+    if args.get("log_level"):
+        set_log_level(args["log_level"])
+        return
+
+    if args.get("verbose"):
+        set_log_level("DEBUG")
+        return
+
+    if env_level:
+        set_log_level(env_level)
+        return
+
+    if env_verbose and str(env_verbose).strip().lower() in ("1", "true", "yes", "y", "on"):
+        set_log_level("DEBUG")
+        return
+
+    cfg_level = config.get("log_level") if isinstance(config, dict) else None
+    cfg_verbose = config.get("verbose") if isinstance(config, dict) else None
+
+    if cfg_level:
+        set_log_level(cfg_level)
+    elif cfg_verbose is True or str(cfg_verbose).strip().lower() in ("1", "true", "yes", "y", "on"):
+        set_log_level("DEBUG")
 
 
 def now_epoch():
@@ -134,6 +307,43 @@ def get_max_pages(config):
     except Exception:
         return None
     return max_pages if max_pages > 0 else None
+
+
+def _extract_list_and_total(result):
+    """Extract incident list and total_records from varying API response shapes."""
+    if not isinstance(result, dict):
+        return [], 0
+
+    total_records = result.get("total_records", 0)
+    data = result.get("data", [])
+
+    # SOCRadar has returned multiple shapes historically. Support common patterns:
+    # - {data: [ ... ], total_records: N}
+    # - {data: {items: [ ... ], total_records: N}}
+    # - {data: {incidents: [ ... ]}}
+    # - {data: {alarms: [ ... ]}}
+    if isinstance(data, dict):
+        total_records = data.get("total_records", total_records)
+        for key in ("data", "items", "incidents", "alarms", "records", "results"):
+            candidate = data.get(key)
+            if isinstance(candidate, list):
+                return candidate, total_records
+
+        # Sometimes the list is nested one more level down.
+        nested = data.get("data")
+        if isinstance(nested, dict):
+            total_records = nested.get("total_records", total_records)
+            for key in ("data", "items", "incidents", "alarms", "records", "results"):
+                candidate = nested.get(key)
+                if isinstance(candidate, list):
+                    return candidate, total_records
+
+        return [], total_records
+
+    if isinstance(data, list):
+        return data, total_records
+
+    return [], total_records
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +383,11 @@ def build_url(config, start_epoch, end_epoch, page, page_size, include_total=Fal
 def fetch_page(config, start_epoch, end_epoch, page, page_size, include_total=False):
     """Fetch a single page of incidents."""
     url = build_url(config, start_epoch, end_epoch, page, page_size, include_total)
-    headers = {"API-Key": config["api_key"], "Accept": "application/json"}
+    headers = {
+        "API-Key": config["api_key"],
+        "Accept": "application/json",
+        "User-Agent": USER_AGENT,
+    }
     return api_request(url, headers)
 
 
@@ -195,6 +409,16 @@ def fetch_all_incidents(config, start_epoch, end_epoch):
     page_size = get_page_size(config)
     max_pages = get_max_pages(config)
 
+    if _should_log("DEBUG"):
+        debug_filters = {
+            "fetch_status": config.get("fetch_status"),
+            "min_severity": config.get("min_severity"),
+            "alarm_main_types": config.get("alarm_main_types", []),
+            "page_size": page_size,
+            "max_pages": max_pages,
+        }
+        log("DEBUG", f"Fetch settings: {debug_filters}")
+
     # Step 1: Get total count from first request
     result = fetch_page(config, start_epoch, end_epoch, page=1, page_size=page_size, include_total=True)
 
@@ -202,17 +426,7 @@ def fetch_all_incidents(config, start_epoch, end_epoch):
         log("ERROR", f"Initial call failed: {result}")
         return []
 
-    total_records = result.get("total_records", 0)
-    first_page_data = result.get("data", [])
-
-    # Handle both list and dict response formats
-    if isinstance(first_page_data, dict):
-        total_records = first_page_data.get("total_records", total_records)
-        first_page_data = first_page_data.get("data", first_page_data.get("items", []))
-
-    if not isinstance(first_page_data, list):
-        log("ERROR", f"Unexpected data type: {type(first_page_data)}")
-        return []
+    first_page_data, total_records = _extract_list_and_total(result)
 
     if total_records == 0 and not first_page_data:
         log("INFO", "No incidents in time range")
@@ -244,13 +458,9 @@ def fetch_all_incidents(config, start_epoch, end_epoch):
             log("ERROR", f"Failed page {page_num}")
             continue
 
-        page_data = page_result.get("data", [])
+        page_data, _ = _extract_list_and_total(page_result)
 
-        # Handle dict response
-        if isinstance(page_data, dict):
-            page_data = page_data.get("data", page_data.get("items", []))
-
-        if isinstance(page_data, list) and page_data:
+        if page_data:
             all_pages[page_num] = page_data
 
         time.sleep(0.2)
@@ -350,7 +560,12 @@ def emit_alert(incident):
 # ---------------------------------------------------------------------------
 
 def main():
+    args = parse_args(sys.argv)
     config = load_config()
+    apply_log_settings(config, args)
+
+    global SSL_CTX
+    SSL_CTX = build_ssl_context(config)
     state = load_state()
 
     # Time window: last_run → now
@@ -381,6 +596,15 @@ def main():
             continue
         alarm_id = incident.get("alarm_id")
         if alarm_id is not None and alarm_id not in seen:
+            if _should_log("DEBUG"):
+                log(
+                    "DEBUG",
+                    "Emitting new incident | "
+                    f"alarm_id={alarm_id} "
+                    f"risk={incident.get('alarm_risk_level')} "
+                    f"status={incident.get('status')} "
+                    f"date={incident.get('date')}"
+                )
             emit_alert(incident)
             seen.add(alarm_id)
             new_count += 1

@@ -74,7 +74,8 @@ if [ -z "$COMPANY_ID" ]; then
     exit 1
 fi
 
-read -p "SOCRadar API Key: " API_KEY
+read -s -p "SOCRadar API Key: " API_KEY
+echo ""
 if [ -z "$API_KEY" ]; then
     echo -e "${RED}ERROR: API Key is required${NC}"
     exit 1

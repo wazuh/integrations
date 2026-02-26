@@ -10,7 +10,7 @@
 |-----------|-------------|
 | **Type** | Wodle command + Custom integration |
 | **Data flow** | Bidirectional (SOCRadar → Wazuh, Wazuh → SOCRadar) |
-| **API** | SOCRadar Incident API v4 |
+| **API** | SOCRadar Incident API v4 (fetch) + Alarm feedback endpoints (tag/comment/status/severity) |
 | **Compatibility** | Wazuh 4.x |
 | **Dependencies** | Python 3.6+ (stdlib only, no pip packages) |
 
@@ -27,21 +27,20 @@ No cron jobs, scheduled tasks, or manual triggers are needed. The integration ru
 ## Contents
 
 ```
-socradar/
-├── ruleset/
-│   ├── rules/
-│   │   └── 0910-socradar_rules.xml       # 15 Wazuh rules (IDs 100800-100822)
-│   └── decoders/
-│       └── 0910-socradar_decoders.xml     # JSON decoder for SOCRadar events
-├── wodles/
-│   ├── socradar                           # Shell launcher wrapper
-│   └── socradar.py                        # Incident fetcher (epoch time, reverse pagination)
-├── integration/
-│   ├── custom-socradar                    # Bidirectional integration launcher
-│   └── custom-socradar.py                 # SOCRadar feedback integration
+.
 ├── install.sh                             # One-click installer
 ├── socradar.conf.template                 # Configuration template
-└── README.md
+├── integration/
+│   ├── custom-socradar                    # Wazuh integratord shell wrapper
+│   └── custom-socradar.py                 # Wazuh → SOCRadar feedback integration
+├── wodles/
+│   ├── socradar                           # Wodle shell wrapper
+│   └── socradar.py                        # SOCRadar → Wazuh fetcher (epoch time, reverse pagination)
+└── ruleset/
+  ├── decoders/
+  │   └── 0910-socradar_decoders.xml     # JSON decoder for SOCRadar events
+  └── rules/
+    └── 0910-socradar_rules.xml        # Wazuh rules (IDs 100800-100822)
 ```
 
 ## Prerequisites
@@ -60,12 +59,23 @@ socradar/
 sudo ./install.sh
 ```
 
-The installer prompts for your SOCRadar Company ID and API Key, then automatically:
+The installer prompts for your SOCRadar Company ID and API Key, and also:
+- Optional `user_email` (used when posting SOCRadar comments)
+- Initial lookback hours (first run only)
+- Fetch interval in minutes (wodle interval)
+
+Then it automatically:
 - Copies all files to correct Wazuh directories
 - Sets permissions (`root:wazuh`, `750`/`640`)
 - Creates configuration with your credentials
 - Injects wodle + integration blocks into `ossec.conf`
 - Restarts Wazuh Manager
+
+If your Wazuh is not installed under `/var/ossec`, set `WAZUH_HOME`:
+
+```bash
+sudo WAZUH_HOME=/custom/path ./install.sh
+```
 
 ### Manual Install
 
@@ -105,11 +115,41 @@ Create `/var/ossec/etc/socradar.conf`:
 {
   "company_id": "YOUR_COMPANY_ID",
   "api_key": "YOUR_API_KEY",
+  "user_email": "your-email@company.com",
+
+  "tls_verify": true,
+  "ca_bundle_path": null,
+
+  "verbose": false,
+  "log_level": "INFO",
+
   "fetch_status": "OPEN",
   "fetch_limit": 100,
+  "min_severity": null,
+  "alarm_main_types": [],
   "initial_lookback_hours": 24,
-  "max_pages": 10
+  "max_pages": 10,
+
+  "integration": {
+    "auto_tag": true,
+    "post_wazuh_context": true,
+    "auto_close_rule_ids": [],
+    "auto_resolve_rule_ids": [],
+    "escalate_threshold": 12,
+    "auto_ask_analyst": false,
+    "ask_analyst_threshold": 10
+  }
 }
+```
+
+Also create the state file used for deduplication:
+
+```bash
+sudo touch /var/ossec/var/socradar_state.json
+# Group is typically "wazuh" (or "ossec" on some installs)
+sudo chown root:wazuh /var/ossec/var/socradar_state.json
+sudo chmod 660 /var/ossec/var/socradar_state.json
+echo '{}' | sudo tee /var/ossec/var/socradar_state.json >/dev/null
 ```
 
 #### 4. Update ossec.conf
@@ -146,11 +186,29 @@ sudo /var/ossec/bin/wazuh-control restart
 |-----------|------|---------|-------------|
 | `company_id` | string | *required* | SOCRadar Company ID |
 | `api_key` | string | *required* | SOCRadar API Key |
+| `user_email` | string | `null` | Email to attribute comments in SOCRadar (used by the outbound integration) |
+| `tls_verify` | boolean | `true` | Verify TLS certificates/hostnames (set `false` only if you must) |
+| `ca_bundle_path` | string | `null` | Optional CA bundle path (PEM) for proxy/self-signed environments |
+| `verbose` | boolean | `false` | Enable verbose DEBUG logging (to `/var/ossec/logs/socradar-wodle.log`) |
+| `log_level` | string | `INFO` | Log level: `ERROR`, `WARN`, `INFO`, `DEBUG` (overrides `verbose`) |
 | `fetch_status` | string | `OPEN` | Filter: OPEN, RESOLVED, etc. |
+| `fetch_limit` | integer | `100` | Page size per API call (capped at 100 by the script) |
 | `min_severity` | string | `null` | Minimum severity filter |
 | `alarm_main_types` | array | `[]` | Filter by main type (empty = all) |
 | `initial_lookback_hours` | integer | `24` | Hours to look back on first run |
-| `interval_seconds` | integer | `60` | Fetch interval in seconds |
+| `max_pages` | integer | `null` | Optional safety limit for pagination (useful during first runs) |
+
+Outbound (Wazuh → SOCRadar) settings are under `integration` in the same config file:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `integration.auto_tag` | boolean | `true` | Add the `wazuh-ingested` tag to the alarm |
+| `integration.post_wazuh_context` | boolean | `true` | Post rule/level/context as a SOCRadar comment |
+| `integration.auto_close_rule_ids` | array[int] | `[]` | If Wazuh rule ID matches, close as FALSE_POSITIVE |
+| `integration.auto_resolve_rule_ids` | array[int] | `[]` | If Wazuh rule ID matches, resolve alarm |
+| `integration.escalate_threshold` | integer | `12` | If Wazuh alert level >= threshold, severity may be escalated |
+| `integration.auto_ask_analyst` | boolean | `false` | Ask an analyst assignment for high-severity alerts |
+| `integration.ask_analyst_threshold` | integer | `10` | Wazuh level threshold for ask-analyst action |
 
 ## Rule Reference
 
@@ -161,10 +219,10 @@ sudo /var/ossec/bin/wazuh-control restart
 | 100802 | 7 | MEDIUM severity |
 | 100803 | 10 | HIGH severity |
 | 100804 | 13 | CRITICAL severity |
-| 100810 | 12 | Dark Web detection |
+| 100810 | 12 | Deep & Dark Web Monitoring |
 | 100811 | 13 | Stolen credentials |
 | 100812 | 8 | Attack Surface Management |
-| 100813 | 9 | Vulnerability detected |
+| 100813 | 9 | Vulnerability Monitoring |
 | 100814 | 10 | Brand Protection |
 | 100815 | 11 | Fraud Protection |
 | 100816 | 10 | Supply Chain Intelligence |
@@ -177,6 +235,7 @@ sudo /var/ossec/bin/wazuh-control restart
 In Wazuh Dashboard:
 
 1. Navigate to **Threat Intelligence → Threat Hunting**
+  (On some Wazuh versions this is under **Security Events**)
 2. Search: `rule.groups:socradar`
 3. Set time range to **Last 24 hours**
 
@@ -186,6 +245,9 @@ In Wazuh Dashboard:
 # Fetcher logs
 tail -f /var/ossec/logs/socradar-wodle.log
 
+# Outbound integration logs (when SOCRadar rules trigger)
+tail -f /var/ossec/logs/socradar-integration.log
+
 # Check alerts
 grep socradar /var/ossec/logs/alerts/alerts.json | tail
 
@@ -193,11 +255,19 @@ grep socradar /var/ossec/logs/alerts/alerts.json | tail
 cat /var/ossec/var/socradar_state.json
 ```
 
+To temporarily enable more detailed HTTP/debug logging for a manual run:
+
+```bash
+python3 /var/ossec/wodles/socradar/socradar.py --verbose
+# or
+SOCRADAR_LOG_LEVEL=DEBUG python3 /var/ossec/wodles/socradar/socradar.py
+```
+
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| SSL certificate error | SSL verification is disabled by default for proxy environments |
+| SSL certificate error | Provide `ca_bundle_path` to your CA bundle (preferred) or set `tls_verify: false` (not recommended) |
 | Timeout on fetch | Increase `<timeout>` in ossec.conf (default: 300s) |
 | No alerts in dashboard | Test with `wazuh-logtest` — see below |
 | Exit code 1 | Verify `/var/ossec/etc/socradar.conf` is valid JSON |
