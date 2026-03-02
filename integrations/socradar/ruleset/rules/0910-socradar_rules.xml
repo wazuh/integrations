@@ -1,0 +1,138 @@
+<!--
+  SOCRadar Rules for Wazuh
+  ========================
+  Rule IDs: 100800 - 100899 (custom range, adjust if conflicts)
+  
+  Generates Wazuh alerts from decoded SOCRadar incidents.
+  Severity mapping:
+    LOW      → Wazuh level 3
+    MEDIUM   → Wazuh level 7
+    HIGH     → Wazuh level 10
+    CRITICAL → Wazuh level 13
+-->
+
+<group name="socradar,">
+
+  <!-- Base rule: any SOCRadar incident -->
+  <rule id="100800" level="5">
+    <field name="socradar.source">incident_api_v4</field>
+    <description>SOCRadar: Incident detected — $(socradar.generic_title)</description>
+    <options>no_full_log</options>
+    <group>socradar,incident,</group>
+  </rule>
+
+  <!-- LOW severity -->
+  <rule id="100801" level="3">
+    <if_sid>100800</if_sid>
+    <field name="socradar.risk_level">LOW</field>
+    <description>SOCRadar LOW: $(socradar.generic_title) | Asset: $(socradar.alarm_asset)</description>
+    <group>socradar,incident,low_severity,</group>
+  </rule>
+
+  <!-- MEDIUM severity -->
+  <rule id="100802" level="7">
+    <if_sid>100800</if_sid>
+    <field name="socradar.risk_level">MEDIUM</field>
+    <description>SOCRadar MEDIUM: $(socradar.generic_title) | Asset: $(socradar.alarm_asset)</description>
+    <group>socradar,incident,medium_severity,</group>
+  </rule>
+
+  <!-- HIGH severity -->
+  <rule id="100803" level="10">
+    <if_sid>100800</if_sid>
+    <field name="socradar.risk_level">HIGH</field>
+    <description>SOCRadar HIGH: $(socradar.generic_title) | Asset: $(socradar.alarm_asset)</description>
+    <group>socradar,incident,high_severity,</group>
+  </rule>
+
+  <!-- CRITICAL severity -->
+  <rule id="100804" level="13">
+    <if_sid>100800</if_sid>
+    <field name="socradar.risk_level">CRITICAL</field>
+    <description>SOCRadar CRITICAL: $(socradar.generic_title) | Asset: $(socradar.alarm_asset)</description>
+    <group>socradar,incident,critical_severity,</group>
+  </rule>
+
+  <!-- ===== Main Type Specific Rules ===== -->
+
+  <!-- Deep & Dark Web Monitoring -->
+  <rule id="100810" level="12">
+    <if_sid>100800</if_sid>
+    <field name="socradar.main_type">Deep & Dark Web Monitoring</field>
+    <description>SOCRadar Dark Web: $(socradar.generic_title) | $(socradar.alarm_asset)</description>
+    <group>socradar,darkweb,credential_leak,</group>
+  </rule>
+
+  <!-- Stolen credentials detected -->
+  <rule id="100811" level="13">
+    <if_sid>100810</if_sid>
+    <field name="socradar.content.credential_count">\d+</field>
+    <description>SOCRadar: Stolen credentials detected ($(socradar.content.credential_count) entries) — $(socradar.alarm_asset)</description>
+    <group>socradar,darkweb,credentials_stolen,</group>
+  </rule>
+
+  <!-- Attack Surface Management -->
+  <rule id="100812" level="8">
+    <if_sid>100800</if_sid>
+    <field name="socradar.main_type">Attack Surface Management</field>
+    <description>SOCRadar ASM: $(socradar.generic_title) | $(socradar.alarm_asset)</description>
+    <group>socradar,attack_surface,</group>
+  </rule>
+
+  <!-- Vulnerability Monitoring -->
+  <rule id="100813" level="9">
+    <if_sid>100800</if_sid>
+    <field name="socradar.main_type">Vulnerability Monitoring</field>
+    <description>SOCRadar Vulnerability: $(socradar.generic_title) | $(socradar.alarm_asset)</description>
+    <group>socradar,vulnerability,</group>
+  </rule>
+
+  <!-- Brand Protection -->
+  <rule id="100814" level="10">
+    <if_sid>100800</if_sid>
+    <field name="socradar.main_type">Brand Protection</field>
+    <description>SOCRadar Brand: $(socradar.generic_title) | $(socradar.alarm_asset)</description>
+    <group>socradar,brand_protection,impersonation,</group>
+  </rule>
+
+  <!-- Fraud Protection -->
+  <rule id="100815" level="11">
+    <if_sid>100800</if_sid>
+    <field name="socradar.main_type">Fraud Protection</field>
+    <description>SOCRadar Fraud: $(socradar.generic_title) | $(socradar.alarm_asset)</description>
+    <group>socradar,fraud,</group>
+  </rule>
+
+  <!-- Supply Chain Intelligence -->
+  <rule id="100816" level="10">
+    <if_sid>100800</if_sid>
+    <field name="socradar.main_type">Supply Chain Intelligence</field>
+    <description>SOCRadar Supply Chain: $(socradar.generic_title) | $(socradar.alarm_asset)</description>
+    <group>socradar,supply_chain,</group>
+  </rule>
+
+  <!-- Malware detected -->
+  <rule id="100820" level="12">
+    <if_sid>100800</if_sid>
+    <field name="socradar.content.malware_family">\.+</field>
+    <description>SOCRadar Malware: $(socradar.content.malware_family) — $(socradar.alarm_asset)</description>
+    <group>socradar,malware,</group>
+  </rule>
+
+  <!-- Compromised IPs -->
+  <rule id="100821" level="10">
+    <if_sid>100800</if_sid>
+    <field name="socradar.content.compromised_ips">\.+</field>
+    <description>SOCRadar: Compromised IPs detected — $(socradar.alarm_asset)</description>
+    <group>socradar,compromised_ip,</group>
+  </rule>
+
+  <!-- Compromised emails -->
+  <rule id="100822" level="10">
+    <if_sid>100800</if_sid>
+    <field name="socradar.content.compromised_emails">\.+</field>
+    <description>SOCRadar: Compromised emails detected — $(socradar.alarm_asset)</description>
+    <group>socradar,compromised_email,</group>
+  </rule>
+
+</group>
