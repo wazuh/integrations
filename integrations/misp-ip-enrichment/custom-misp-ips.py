@@ -49,6 +49,11 @@ timeout = 10
 retries = 3
 pwd = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 json_options = {}
+# IPs to ignore (benign / infrastructure)
+EXCLUDED_IPS = {
+    "8.8.8.8",
+    "8.8.4.4",
+}
 
 # Log and socket path
 LOG_FILE = f"{pwd}/logs/integrations.log"
@@ -83,8 +88,8 @@ def main(args):
         process_args(args)
 
     except Exception as e:
-        debug(str(e))
-        raise
+        debug(f"# Unhandled exception: {e}")
+        sys.exit(1)
 
 
 def process_args(args) -> None:
@@ -106,8 +111,11 @@ def process_args(args) -> None:
             options_file_location = args[idx]
             break
 
-    # Load options JSON
-    json_options = get_json_options(options_file_location)
+    # Load options JSON (always end up with a dict)
+    if not options_file_location:
+        json_options = {}
+    else:
+        json_options = get_json_options(options_file_location) or {}
     debug(f"# Opening options file at '{options_file_location}' with '{json_options}'")
 
     if "timeout" in json_options:
@@ -138,7 +146,7 @@ def process_args(args) -> None:
 
     if not msg:
         debug("# Error: Empty message")
-        raise Exception
+        sys.exit(0)
 
     send_msg(msg, json_alert.get("agent"))
 
@@ -174,11 +182,105 @@ def is_valid_ipv6(ip: str) -> bool:
     # Allow compressed form, hex groups 0-4 chars
     return re.fullmatch(r"([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}", ip) is not None or "::" in ip
 
+def is_public_ip(ip: str) -> bool:
+    """
+    Check if IP is public (not private/reserved).
+    Returns True only for globally routable IPs.
+    Filters out RFC 1918, loopback, link-local, multicast, etc.
+    """
+    if not isinstance(ip, str):
+        return False
+    
+    ip = ip.strip()
+    
+    # Check if IPv4
+    if is_valid_ipv4(ip):
+        parts = [int(p) for p in ip.split(".")]
+        first_octet = parts[0]
+        second_octet = parts[1]
+        
+        # Private networks (RFC 1918)
+        if first_octet == 10:  # 10.0.0.0/8
+            debug(f"# Skipping private IP (10.0.0.0/8): {ip}")
+            return False
+        if first_octet == 172 and 16 <= second_octet <= 31:  # 172.16.0.0/12
+            debug(f"# Skipping private IP (172.16.0.0/12): {ip}")
+            return False
+        if first_octet == 192 and second_octet == 168:  # 192.168.0.0/16
+            debug(f"# Skipping private IP (192.168.0.0/16): {ip}")
+            return False
+        
+        # Loopback (127.0.0.0/8)
+        if first_octet == 127:
+            debug(f"# Skipping loopback IP: {ip}")
+            return False
+        
+        # Link-local (169.254.0.0/16)
+        if first_octet == 169 and second_octet == 254:
+            debug(f"# Skipping link-local IP: {ip}")
+            return False
+        
+        # Multicast (224.0.0.0/4)
+        if first_octet >= 224 and first_octet <= 239:
+            debug(f"# Skipping multicast IP: {ip}")
+            return False
+        
+        # Reserved (240.0.0.0/4)
+        if first_octet >= 240:
+            debug(f"# Skipping reserved IP: {ip}")
+            return False
+        
+        # Broadcast
+        if ip == "255.255.255.255":
+            debug(f"# Skipping broadcast IP: {ip}")
+            return False
+        
+        # 0.0.0.0/8
+        if first_octet == 0:
+            debug(f"# Skipping 0.0.0.0/8 IP: {ip}")
+            return False
+        
+        debug(f"# Public IPv4 detected: {ip}")
+        return True
+    
+    # Check if IPv6
+    elif is_valid_ipv6(ip):
+        ip_lower = ip.lower()
+        
+        # Loopback (::1)
+        if ip_lower in ["::1", "0:0:0:0:0:0:0:1"]:
+            debug(f"# Skipping IPv6 loopback: {ip}")
+            return False
+        
+        # Link-local (fe80::/10)
+        if ip_lower.startswith("fe80:"):
+            debug(f"# Skipping IPv6 link-local: {ip}")
+            return False
+        
+        # Unique local (fc00::/7)
+        if ip_lower.startswith("fc") or ip_lower.startswith("fd"):
+            debug(f"# Skipping IPv6 unique local: {ip}")
+            return False
+        
+        # Multicast (ff00::/8)
+        if ip_lower.startswith("ff"):
+            debug(f"# Skipping IPv6 multicast: {ip}")
+            return False
+        
+        # Unspecified (::)
+        if ip_lower in ["::", "0:0:0:0:0:0:0:0"]:
+            debug(f"# Skipping IPv6 unspecified: {ip}")
+            return False
+        
+        debug(f"# Public IPv6 detected: {ip}")
+        return True
+    
+    return False
 
 def extract_ips(alert: dict) -> dict:
     """
     Extract data.srcip and data.dstip from FortiGate alerts.
-    Returns dict like {"srcip": "x.x.x.x", "dstip": "y.y.y.y"} with only valid IPs.
+    Returns dict like {"srcip": "x.x.x.x", "dstip": "y.y.y.y"} with ONLY PUBLIC IPs.
     """
     data = alert.get("data", {})
     src = data.get("srcip")
@@ -186,13 +288,30 @@ def extract_ips(alert: dict) -> dict:
 
     ips = {}
 
+    # --- Source IP ---
     if src and (is_valid_ipv4(src) or is_valid_ipv6(src)):
-        ips["srcip"] = src.strip()
+        src = src.strip()
 
+        if src in EXCLUDED_IPS:
+            debug(f"# Skipping excluded srcip: {src}")
+        elif is_public_ip(src):
+            ips["srcip"] = src
+        else:
+            debug(f"# Filtered out private srcip: {src}")
+
+    # --- Destination IP ---
     if dst and (is_valid_ipv4(dst) or is_valid_ipv6(dst)):
-        ips["dstip"] = dst.strip()
+        dst = dst.strip()
+
+        if dst in EXCLUDED_IPS:
+            debug(f"# Skipping excluded dstip: {dst}")
+        elif is_public_ip(dst):
+            ips["dstip"] = dst
+        else:
+            debug(f"# Filtered out private dstip: {dst}")
 
     return ips
+
 
 
 def request_ip_from_api(ips: dict, alert_output: dict, misp_url: str, api_key: str):
@@ -354,22 +473,22 @@ def query_api(ips: dict, misp_url: str, api_key: str) -> dict:
             "Error: API request rate limit reached"
         )
         send_msg(alert_output)
-        raise Exception("# Error: MISP API request rate limit reached")
+        sys.exit(0)
 
     if response.status_code == 403:
         alert_output["misp_fortigate_ips"]["error"] = response.status_code
         alert_output["misp_fortigate_ips"]["description"] = "Error: Check credentials"
         send_msg(alert_output)
-        raise Exception("# Error: MISP credentials, required privileges error")
+        sys.exit(0)
 
     alert_output["misp_fortigate_ips"]["error"] = response.status_code
     alert_output["misp_fortigate_ips"]["description"] = "Error: API request fail"
     send_msg(alert_output)
-    raise Exception("# Error: MISP API request failed")
+    sys.exit(0)
 
 
 def send_msg(msg: dict, agent: dict = None) -> None:
-    # Keep the “channel name” in the header similar to the official script,
+    # Keep the â€œchannel nameâ€ in the header similar to the official script,
     # but with our integration name.
     integration_name = "misp_fortigate_ips"
 
@@ -398,13 +517,39 @@ def send_msg(msg: dict, agent: dict = None) -> None:
 
 def get_json_alert(file_location: str) -> dict:
     try:
-        with open(file_location) as alert_file:
-            return json.load(alert_file)
+        # Read raw bytes (prevents UTF-8 crashes)
+        with open(file_location, "rb") as f:
+            raw = f.read()
+
+        # Decode safely
+        text = raw.decode("utf-8", errors="replace").strip()
+
+        # If file is NDJSON (alerts.json), grab the last valid JSON line
+        # Wazuh /var/ossec/logs/alerts/alerts.json is JSON-per-line
+        if "\n" in text:
+            for line in reversed(text.splitlines()):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    return json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+            # if nothing parsed:
+            debug("Failed getting JSON alert. Error: No valid JSON lines found")
+            sys.exit(ERR_INVALID_JSON)
+
+        # Single JSON object
+        return json.loads(text)
+
     except FileNotFoundError:
         debug("# JSON file for alert %s doesn't exist" % file_location)
         sys.exit(ERR_FILE_NOT_FOUND)
     except json.decoder.JSONDecodeError as e:
         debug("Failed getting JSON alert. Error: %s" % e)
+        sys.exit(ERR_INVALID_JSON)
+    except Exception as e:
+        debug("Failed reading JSON alert. Error: %s" % e)
         sys.exit(ERR_INVALID_JSON)
 
 
