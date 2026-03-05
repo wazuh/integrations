@@ -1,6 +1,6 @@
 # SOCRadar → Wazuh IOC Sync
 
-Automatically fetches threat intelligence feeds from [SOCRadar](https://socradar.io) and syncs malicious IOCs (IP, domain, URL, hash) into [Wazuh](https://wazuh.com) CDB lists. Runs once daily via systemd timer.
+Automatically fetches threat intelligence feeds from [SOCRadar](https://platform.socradar.com) and syncs malicious IOCs (IP, domain, URL, hash) into [Wazuh](https://wazuh.com) CDB lists. Runs once daily via systemd timer.
 
 ## How It Works
 
@@ -37,7 +37,7 @@ Automatically fetches threat intelligence feeds from [SOCRadar](https://socradar
 ### One-Line Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/socradar-wazuh-integration.git
+git clone https://github.com/Radargoger/integrations/tree/main/integrations/socradar_ti_feeds.git
 cd socradar-wazuh-integration
 sudo bash install.sh
 ```
