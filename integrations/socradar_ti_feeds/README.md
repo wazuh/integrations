@@ -1,4 +1,6 @@
-# SOCRadar → Wazuh IOC Sync
+# SOCRadar TI Feed Version 1.0.0
+
+# SOCRadar → Wazuh IOC Sync
 
 Automatically fetches threat intelligence feeds from [SOCRadar](https://platform.socradar.com) and syncs malicious IOCs (IP, domain, URL, hash) into [Wazuh](https://wazuh.com) CDB lists. Runs once daily via systemd timer.
 
