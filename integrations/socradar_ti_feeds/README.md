@@ -37,8 +37,8 @@ Automatically fetches threat intelligence feeds from [SOCRadar](https://platform
 ### One-Line Install
 
 ```bash
-git clone https://github.com/Radargoger/integrations/tree/main/integrations/socradar_ti_feeds.git
-cd socradar-wazuh-integration
+git clone https://github.com/wazuh/integrations.git
+cd integrations/integrations/socradar_ti_feeds
 sudo bash install.sh
 ```
 
