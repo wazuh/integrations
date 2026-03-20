@@ -381,8 +381,7 @@ def build_url(config, start_epoch, end_epoch, page, page_size, include_total=Fal
         "limit": page_size,
         "start_date": start_epoch,
         "end_date": end_epoch,
-        "include_alarm_details": "true",
-        "include_ai_insight": "true",
+
     }
     if include_total:
         params["include_total_records"] = "true"
