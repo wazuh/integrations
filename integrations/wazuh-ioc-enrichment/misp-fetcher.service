@@ -1,0 +1,12 @@
+[Unit]
+Description=MISP IOC Fetcher Sync (Twice a Day)
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/var/ossec/integrations
+ExecStart=/usr/bin/env python3 /var/ossec/integrations/misp_ioc_fetcher.py
+StandardOutput=journal
+StandardError=journal

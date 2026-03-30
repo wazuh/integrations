@@ -1,0 +1,17 @@
+[Unit]
+Description=Wazuh MISP IOC Webhook Enricher
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/ossec/integrations
+ExecStart=/usr/bin/env python3 /var/ossec/integrations/misp_enricher.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
