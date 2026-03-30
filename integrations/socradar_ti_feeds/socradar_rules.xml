@@ -1,0 +1,77 @@
+<!--
+  SOCRadar Threat Intelligence Rules
+  Copy to: /var/ossec/etc/rules/socradar_rules.xml
+
+  These rules trigger alerts when Wazuh detects IOCs that match
+  entries in the SOCRadar CDB lists.
+
+  Adjust rule IDs (100200+), levels, and <if_sid> parents to
+  match your environment.
+-->
+<group name="socradar,threat_intel,">
+
+  <!-- ── IP-based rules ──────────────────────────────────────── -->
+
+  <!-- Firewall / network log: source IP is malicious -->
+  <rule id="100200" level="10">
+    <if_sid>5700</if_sid>
+    <list field="srcip" lookup="address_match_key">etc/lists/socradar-ip</list>
+    <description>SOCRadar TI: Inbound connection from malicious IP $(srcip)</description>
+    <group>threat_intel,socradar,network,</group>
+  </rule>
+
+  <!-- Firewall / network log: destination IP is malicious -->
+  <rule id="100201" level="10">
+    <if_sid>5700</if_sid>
+    <list field="dstip" lookup="address_match_key">etc/lists/socradar-ip</list>
+    <description>SOCRadar TI: Outbound connection to malicious IP $(dstip)</description>
+    <group>threat_intel,socradar,network,</group>
+  </rule>
+
+  <!-- Auth log: login attempt from malicious IP -->
+  <rule id="100202" level="12">
+    <if_sid>5700</if_sid>
+    <list field="srcip" lookup="address_match_key">etc/lists/socradar-ip</list>
+    <description>SOCRadar TI: Authentication attempt from malicious IP $(srcip)</description>
+    <group>threat_intel,socradar,authentication,</group>
+  </rule>
+
+  <!-- ── Domain-based rules ──────────────────────────────────── -->
+
+  <!-- DNS query to malicious domain -->
+  <rule id="100210" level="10">
+    <if_sid>5700</if_sid>
+    <list field="url" lookup="address_match_key">etc/lists/socradar-domain</list>
+    <description>SOCRadar TI: DNS query to malicious domain</description>
+    <group>threat_intel,socradar,dns,</group>
+  </rule>
+
+  <!-- ── Hash-based rules (FIM integration) ──────────────────── -->
+
+  <!-- File Integrity Monitoring: malicious MD5 hash detected -->
+  <rule id="100220" level="12">
+    <if_sid>550</if_sid>
+    <list field="md5" lookup="address_match_key">etc/lists/socradar-hash</list>
+    <description>SOCRadar TI: File with malicious hash detected (MD5)</description>
+    <group>threat_intel,socradar,file_integrity,</group>
+  </rule>
+
+  <!-- File Integrity Monitoring: malicious SHA256 hash detected -->
+  <rule id="100221" level="12">
+    <if_sid>550</if_sid>
+    <list field="sha256" lookup="address_match_key">etc/lists/socradar-hash</list>
+    <description>SOCRadar TI: File with malicious hash detected (SHA256)</description>
+    <group>threat_intel,socradar,file_integrity,</group>
+  </rule>
+
+  <!-- ── URL-based rules ─────────────────────────────────────── -->
+
+  <!-- Proxy / web log: access to malicious URL -->
+  <rule id="100230" level="10">
+    <if_sid>5700</if_sid>
+    <list field="url" lookup="address_match_key">etc/lists/socradar-url</list>
+    <description>SOCRadar TI: Access to malicious URL detected</description>
+    <group>threat_intel,socradar,web,</group>
+  </rule>
+
+</group>

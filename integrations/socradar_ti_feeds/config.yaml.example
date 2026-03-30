@@ -1,0 +1,58 @@
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  SOCRadar → Wazuh IOC Sync — Configuration                         ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+
+# ── SOCRadar API Settings ────────────────────────────────────────────
+socradar:
+  # Your SOCRadar platform API key
+  api_key: "YOUR_SOCRADAR_API_KEY"
+
+  # List of feed UUIDs to sync.
+  # You can add as many as you need — each will be fetched separately
+  # and IOCs merged + deduplicated before writing to Wazuh.
+  feed_uuids:
+    - "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    # - "another-uuid-here"
+    # - "yet-another-uuid"
+
+# ── Wazuh Settings ───────────────────────────────────────────────────
+wazuh:
+  # Directory where CDB list files will be written
+  list_dir: "/var/ossec/etc/lists"
+
+  # Automatically restart Wazuh manager after list update?
+  restart_on_update: true
+
+  # Command to restart Wazuh manager
+  # Use "systemctl restart wazuh-manager" for systemd-based installs
+  restart_command: "systemctl restart wazuh-manager"
+
+# ── IOC Type Toggles ─────────────────────────────────────────────────
+# Enable or disable syncing for each IOC type
+ioc_types:
+  ip: true
+  domain: true
+  url: true
+  hash: true
+
+# ── CDB List File Names ─────────────────────────────────────────────
+# File names (without path) for each CDB list inside wazuh.list_dir
+# These names must match your ossec.conf <list> entries.
+list_files:
+  ip: "socradar-ip"
+  domain: "socradar-domain"
+  url: "socradar-url"
+  hash: "socradar-hash"
+
+# ── Sync Behavior ────────────────────────────────────────────────────
+sync:
+  log_dir: "/var/log/socradar-wazuh-sync"
+  state_dir: "/var/lib/socradar-wazuh-sync"
+  request_timeout: 120     # seconds per HTTP request
+  verify_ssl: true         # set false only if behind an intercepting proxy
+
+  # TTL (Time-To-Live) in days.
+  # IOCs that are no longer present in SOCRadar feeds will be
+  # automatically removed after this many days.
+  # Set to 0 to keep IOCs forever (no expiry).
+  ttl_days: 30

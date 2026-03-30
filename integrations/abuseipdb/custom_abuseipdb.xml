@@ -1,0 +1,75 @@
+<!-- /var/ossec/etc/rules/local_rules.xml -->
+<group name="local,abuseipdb,sshd">
+  <!-- Default rule for AbuseIPDB events -->
+  <rule id="199801" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^custom-abuseipdb$</field>
+    <description>Default alert for custom AbuseIPDB integration</description>
+  </rule>
+
+  <!-- IP not found in database -->
+  <rule id="199802" level="3">
+    <if_sid>199801</if_sid>
+    <field name="abuseipdb.found">^0$</field>
+    <description>Source IP $(abuseipdb.source.ip) unknown per AbuseIPDB</description>
+  </rule>
+  
+  <!-- IP found in database -->
+  <rule id="199803" level="7">
+    <if_sid>199801</if_sid>
+    <field name="abuseipdb.found">^1$</field>
+    <description>Source IP $(abuseipdb.source.ip) found in AbuseIPDB database</description>
+  </rule>
+  
+  <!-- IP found in database with a <10% confidence score -->
+  <rule id="199804" level="8">
+    <if_sid>199803</if_sid>
+    <field name="abuseipdb.abuse_confidence_score">^\d$</field> <!-- adjust as needed, this is <10% -->
+    <description>Source IP $(abuseipdb.source.ip) flagged suspicious with a $(abuseipdb.abuse_confidence_score)% confidence score per AbuseIPDB</description>
+  </rule>
+  
+  <!-- IP found in database with a >=10% and <100% confidence score -->
+  <rule id="199805" level="10">
+    <if_sid>199803</if_sid>
+    <field name="abuseipdb.abuse_confidence_score">^\d\d$</field> <!-- adjust as needed. this is =>10% and <100% -->
+    <description>Source IP $(abuseipdb.source.ip) flagged suspicious with a $(abuseipdb.abuse_confidence_score)% confidence score per AbuseIPDB</description>
+    <group>abuseipdb_very_high,gpg13_4.12,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,pci_dss_11.4,tsc_CC6.1,tsc_CC6.8,tsc_CC7.2,tsc_CC7.3,</group>
+  </rule>
+
+  <!-- IP found in database with a 100% confidence score -->
+  <rule id="199806" level="13">
+    <if_sid>199803</if_sid>
+    <field name="abuseipdb.abuse_confidence_score">^100$</field>
+    <description>Source IP $(abuseipdb.source.ip) flagged malicious with a $(abuseipdb.abuse_confidence_score)% confidence score per AbuseIPDB</description>
+    <group>abuseipdb_critical,gpg13_4.12,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,pci_dss_11.4,tsc_CC6.1,tsc_CC6.8,tsc_CC7.2,tsc_CC7.3,</group>
+  </rule>
+  
+  <!-- Error codes -->
+  <rule id="199807" level="5">
+    <if_sid>199801</if_sid>
+    <field name="abuseipdb.error">^401$</field>
+    <description>Error in custom AbuseIPDB integration - $(abuseipdb.description)</description>
+    <group>abuseipdb_error,</group>
+  </rule>
+  
+  <rule id="199808" level="5">
+    <if_sid>199801</if_sid>
+    <field name="abuseipdb.error">^429$</field>
+    <description>Error in custom AbuseIPDB integration - $(abuseipdb.description)</description>
+    <group>abuseipdb_error,</group>
+  </rule>
+ 
+  <rule id="199809" level="5">
+    <if_sid>199801</if_sid>
+    <field name="abuseipdb.error">^422$</field>
+    <description>Error in custom AbuseIPDB integration - $(abuseipdb.description)</description>
+    <group>abuseipdb_error,</group>
+  </rule> 
+  
+  <rule id="199810" level="5">
+    <if_sid>199801</if_sid>
+    <field name="abuseipdb.error">\.+</field>
+    <description>Error in custom AbuseIPDB integration - $(abuseipdb.description)</description>
+    <group>abuseipdb_error,</group>
+  </rule> 
+</group>

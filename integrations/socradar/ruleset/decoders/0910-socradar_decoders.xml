@@ -1,0 +1,20 @@
+<!--
+  SOCRadar Decoder for Wazuh
+  ==========================
+  Decodes JSON output from the SOCRadar wodle command.
+  The wodle outputs lines like: {"socradar": {"source": "incident_api_v4", ...}}
+  
+  Two decoders to handle both formats:
+    1. Direct JSON (starts with {"socradar":)
+    2. Tagged JSON (socradar: prefix added by wodle command framework)
+-->
+
+<decoder name="socradar-incident">
+  <prematch>^{"socradar":</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="socradar-incident-tagged">
+  <prematch>{"socradar":</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>
