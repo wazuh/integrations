@@ -135,7 +135,7 @@ def send_email_notification():
         html += """
             </table>
             <br>
-            <p>Please verify the Errors and take actions/p>
+            <p>Please verify the Errors and take actions</p>
         </body>
         </html>
         """
