@@ -74,7 +74,7 @@ You can verify that the decoders and rules are working correctly by using the `w
 
 1.  Navigate to **Server Management** --\> **Ruleset Test** on the Dashboard.
 2.  Paste a raw log from Nessus into the prompt (e.g., `[Tue Mar 10 15:30:48 2026 +0100][3812.10295244] User usuario requested STOP for scan 8401d1a5-f575-7163-e4f6-b5991febdb0a962aa9dedcb5ad3`).
-3.  Verify that Phase 2 correctly identifies the `nessus_custom` decoder (and any child decoders like `nessus_custom_user_req`) and Phase 3 triggers the appropriate rule (e.g., Rule `100053` for a user stopping a scan, or `100052` for a started scan).
+3.  Verify that Phase 2 correctly identifies the `nessus_custom` decoder (and any child decoders like `nessus_custom_user_req`) and Phase 3 triggers the appropriate rule (e.g., Rule `110053` for a user stopping a scan, or `110052` for a started scan).
 
 #### Verify in Wazuh Dashboard
 
