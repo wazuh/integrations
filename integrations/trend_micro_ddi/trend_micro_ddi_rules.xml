@@ -1,0 +1,84 @@
+<group name="TrendMicro,">
+
+<rule id="100000" level="3">
+  <decoded_as>Deep_Discovery_Inspector</decoded_as>
+  <description>Trend Micro Deep Discovery Inspector: evento detectado</description>
+</rule>
+
+<rule id="100009" level="7">
+  <if_sid>100000</if_sid>
+  <field name="signature_name">Unregistered sender and recipient domains - Email</field>
+  <description>Deep Discovery Inspector: Tráfico de correo con dominios no registrados</description>
+  <group>ddi,email,suspicious_traffic,</group>
+</rule>
+
+<rule id="100010" level="10">
+  <if_sid>100000</if_sid>
+  <field name="signature_name">WebScript Injection \p HTTP</field>
+  <description>Deep Discovery Inspector: Intento de inyección de script en HTTP</description>
+  <group>ddi,web_attack,script_injection,lateral_movement,</group>
+</rule>
+
+<rule id="100011" level="10">
+  <if_sid>100000</if_sid>
+  <field name="signature_name">Possible Directory Traversal Exploit Attempted \p Messagebody \p HTTP</field>
+  <description>Deep Discovery Inspector: Intento de Directory Traversal</description>
+  <group>ddi,exploit,directory_traversal,</group>
+</rule>
+
+<rule id="100012" level="8">
+  <if_sid>100000</if_sid>
+  <field name="signature_name">Unsuccessful logon - RDP</field>
+  <description>Deep Discovery Inspector: Intento fallido de autenticación RDP</description>
+  <group>ddi,authentication,failed_login,rdp,lateral_movement,</group>
+</rule>
+
+<rule id="100013" level="10">
+  <if_sid>100000</if_sid>
+  <field name="signature_name">Possible Successful Logon Connection \p RDP</field>
+  <description>Deep Discovery Inspector: Posible autenticación exitosa vía RDP</description>
+  <group>ddi,authentication,successful_login,rdp,lateral_movement,</group>
+</rule>
+
+<rule id="100014" level="9">
+  <if_sid>100000</if_sid>
+  <field name="signature_name">Successful log on to MSSQL service</field>
+  <description>Deep Discovery Inspector: Autenticación exitosa en servicio MSSQL</description>
+  <group>ddi,authentication,successful_login,mssql,asset_discovery,</group>
+</rule>
+
+<rule id="100015" level="10">
+  <if_sid>100000</if_sid>
+  <field name="signature_name">CVE-2014-0224 - Possible CCS Injection - TLS</field>
+  <description>Deep Discovery Inspector: Intento de explotación asociado a CVE-2014-0224</description>
+  <group>ddi,exploit,cve,lateral_movement,</group>
+</rule>
+
+<rule id="100001" level="3">
+  <if_sid>100000</if_sid>
+  <field name="event_severity">^[0-3]$</field>
+  <description>Deep Discovery Inspector: evento informativo (severidad baja)</description>
+  <group>ddi,low_severity,</group>
+</rule>
+
+<rule id="100002" level="7">
+  <if_sid>100000</if_sid>
+  <field name="event_severity">^[4-5]$</field>
+  <description>Deep Discovery Inspector: evento sospechoso (severidad media)</description>
+  <group>ddi,medium_severity,</group>
+</rule>
+
+<rule id="100003" level="12">
+  <if_sid>100000</if_sid>
+  <field name="event_severity">^([6-9]|10)$</field>
+  <description>Deep Discovery Inspector: evento de ALTA severidad (posible intrusión)</description>
+  <group>ddi,high_severity,possible_intrusion,</group>
+</rule>
+
+<rule id="100004" level="10">
+  <if_sid>100000</if_sid>
+  <field name="event_action">^blocked</field>
+  <description>Deep Discovery Inspector: acción BLOQUEADA (ataque detenido)</description>
+  <group>ddi,blocked,</group>
+</rule>
+</group>
