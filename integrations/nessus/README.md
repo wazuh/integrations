@@ -32,7 +32,7 @@ Ensure the log collection is active so Wazuh can ingest the raw log lines and be
 The custom decoders instruct Wazuh on how to parse the standard Nessus log format. Copy the decoders file to the Wazuh Manager's custom decoders directory:
 
 ```bash
-cp content/ruleset/nessus/custom_nessus_decoders.xml /var/ossec/etc/decoders/
+cp integrations/nessus/custom_nessus_decoders.xml /var/ossec/etc/decoders/
 ```
 
 Or navigate to **Server Management** --\> **Decoders** --\> **Add new decoders file** --\> paste the content, save the file and reload the cluster.
@@ -42,7 +42,7 @@ Or navigate to **Server Management** --\> **Decoders** --\> **Add new decoders f
 The custom rules map the decoded fields to specific security and auditing alerts, such as alerting when a user starts, pauses, or stops a scan, or when a scan finishes. Copy the rules file to the Wazuh Manager's custom rules directory:
 
 ```bash
-cp content/ruleset/nessus/custom_nessus_rules.xml /var/ossec/etc/rules/
+cp integrations/nessus/custom_nessus_rules.xml /var/ossec/etc/rules/
 ```
 
 Or navigate to **Server Management** --\> **Rules** --\> **Add new rules file** --\> paste the content, save the file and reload the cluster.
