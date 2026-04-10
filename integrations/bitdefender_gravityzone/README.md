@@ -30,7 +30,7 @@ Access your Bitdefender GravityZone Control Center and navigate to the SIEM inte
 The custom decoders instruct Wazuh on how to parse the GravityZone CEF logs. Copy the decoders file to the Wazuh Manager's custom decoders directory:
 
 ```bash
-cp content/ruleset/bitdefender_gravityzone/bitdefender_gravityzone_decoders.xml /var/ossec/etc/decoders/
+cp integrations/bitdefender_gravityzone/bitdefender_gravityzone_decoders.xml /var/ossec/etc/decoders/
 ```
 
 Or navigate to **Server Management** --\> **Decoders** --\> **Add new decoders file** --\> paste the content, save the file and reload the cluster.
@@ -40,7 +40,7 @@ Or navigate to **Server Management** --\> **Decoders** --\> **Add new decoders f
 The custom rules map the decoded fields to specific security alerts, such as Critical alerts for unblocked malware or disabled security modules. Copy the rules file to the Wazuh Manager's custom rules directory:
 
 ```bash
-cp content/ruleset/bitdefender_gravityzone/bitdefender_gravityzone_rules.xml /var/ossec/etc/rules/
+cp integrations/bitdefender_gravityzone/bitdefender_gravityzone_rules.xml /var/ossec/etc/rules/
 ```
 
 Or navigate to **Server Management** --\> **Rules** --\> **Add new rules file** --\> paste the content, save the file and reload the cluster.
