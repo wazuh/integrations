@@ -1,0 +1,58 @@
+<decoder name="nessus_custom">
+  <prematch>^\[\w\w\w \w\w\w \d+ \d\d:\d\d:\d\d \d\d\d\d \p\d\d\d\d\]\[</prematch>
+</decoder>
+
+<decoder name="nessus_custom_start">
+  <parent>nessus_custom</parent>
+  <prematch>: starting with Target\(s\):</prematch>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)][user=(\.+)][name=(\.+)][scan=(\.+)][policy=(\.+)] : (\.+)$</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_user, nessus_name, nessus_scan_id, nessus_policy_id, nessus_message</order>
+</decoder>
+
+<decoder name="nessus_custom_user_req">
+  <parent>nessus_custom</parent>
+  <prematch>] User </prematch>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)] User (\S+) requested (\w+) for scan (\S+)</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_user, nessus_action, nessus_scan_id</order>
+</decoder>
+
+<decoder name="nessus_custom_finished">
+  <parent>nessus_custom</parent>
+  <prematch>][duration=</prematch>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)][scan=(\.+)][duration=(\.+)] : (\.+)$</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_scan_id, nessus_duration, nessus_message</order>
+</decoder>
+
+<decoder name="nessus_custom_config">
+  <parent>nessus_custom</parent>
+  <prematch>: max_hosts:</prematch>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)][scan(\.+)] : (\.+)$</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_scan_id, nessus_message</order>
+</decoder>
+
+<decoder name="nessus_custom_state_pausing">
+  <parent>nessus_custom</parent>
+  <prematch>: Pausing</prematch>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)][scan=(\.+)] : (\.+)$</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_scan_id, nessus_message</order>
+</decoder>
+
+<decoder name="nessus_custom_state_collecting">
+  <parent>nessus_custom</parent>
+  <prematch>: Collecting report info</prematch>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)][scan=(\.+)] : (\.+)$</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_scan_id, nessus_message</order>
+</decoder>
+
+<decoder name="nessus_custom_state_finishing">
+  <parent>nessus_custom</parent>
+  <prematch>: Finishing report</prematch>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)][scan=(\.+)] : (\.+)$</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_scan_id, nessus_message</order>
+</decoder>
+
+<decoder name="nessus_custom_generic">
+  <parent>nessus_custom</parent>
+  <regex>[(\.+) (\d\d:\d\d:\d\d) (\d\d\d\d) (\p\d\d\d\d)][(\.+)] (\.+)$</regex>
+  <order>nessus_date, nessus_time, nessus_year, nessus_timezone, nessus_thread_id, nessus_message</order>
+</decoder>
