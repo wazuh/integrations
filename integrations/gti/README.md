@@ -66,7 +66,7 @@ sudo WAZUH_HOME=/var/ossec
 3. Set `SCRIPT_DIR` to absolute path where you cloned the repository:
 
 ```bash
-sudo SCRIPT_DIR=/var/GTI
+sudo SCRIPT_DIR=/var/gti
 ```
 
 4. Execute the `install.sh`:
@@ -97,7 +97,7 @@ Then it automatically:
 4. **Place the [Ingestion files](wodles/) to the Wazuh wodles directory**:
     ```sh
     sudo mkdir -p /var/ossec/wodles/gti
-    sudo cp GTI/wodles/ /var/ossec/wodles/gti/
+    sudo cp gti/wodles/ /var/ossec/wodles/gti/
 
     # Set permissions
     chmod 750 /var/ossec/wodles/gti/
@@ -108,7 +108,7 @@ Then it automatically:
 
     ```bash
     # Copy the Python script and shell wrapper
-    cp GTI/integration/ /var/ossec/integrations/
+    cp gti/integration/ /var/ossec/integrations/
 
     # Set permissions
     chmod 750 /var/ossec/integrations/custom-gti*
@@ -118,7 +118,7 @@ Then it automatically:
 
     ```bash
     # Copy the rules file
-    cp GTI/ruleset/rules/1001-gti_rules.xml /var/ossec/etc/rules/
+    cp gti/ruleset/rules/1001-gti_rules.xml /var/ossec/etc/rules/
 
     # Set permissions
     chmod 750 /var/ossec/etc/rules/1001-gti_rules.xml
