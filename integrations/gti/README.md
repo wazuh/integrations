@@ -5,7 +5,7 @@
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Rule Reference](#Rule Reference)
+- [Rule Reference](#rule-reference)
 - [Monitoring](#monitoring)
 
 ## Introduction
