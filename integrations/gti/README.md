@@ -217,7 +217,7 @@ Add the following block to `/var/ossec/etc/ossec.conf`. The `<name>` must match 
 | 111113  |   6   | GTI event with vulnerability enrichment. |
 | 111114  |   6   | GTI event with error code during vulnerability enrichment. |
 | 111115  |   6   | GTI event with error description message during vulnerability enrichment.|
-| 111119  |   6   | GTI event with IOC enrichment.|
+| 111119  |   9   | GTI event with IOC enrichment.|
 
 ## Monitoring
 
