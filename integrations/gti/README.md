@@ -20,7 +20,7 @@ This integration can be broken down into the following steps:
   * Extracts the **IOCs** and/or **Vulnerability** from Wazuh alerts using flexible path detection.
   * Enrich the IOCs, if found within the JSON data structures.
   * If the **realtime** flag is enabled, queries the GTI's respective endpoint to fetch the GTI assessment of that IOC.
-  * For File Hashes, if the **file_mitre_attack** is enabled, it queries the file endpoint(`/api/v3/files/{id}/behaviour_mitre_trees`) for Mitre Attack Info associated with the File Hash.
+  * For File Hashes, if the **mitre_attack** is enabled, it queries the file endpoint(`/api/v3/files/{id}/behaviour_mitre_trees`) for Mitre Attack Info associated with the File Hash.
   * If vulnerability is detected, it queries the **GTI endpoint** (`/api/v3/collections/{id}`) to fetch the related information.
   * Enrichment data includes **GTI Threat Assessment**, **Mitre Attack info** and **Vulnerability information** depending on the alert 
   * Preserves original alert context within(`alert_info`) fields for correlation.
