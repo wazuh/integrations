@@ -7,7 +7,7 @@
 #
 # Requirements:
 #   - Wazuh Manager 4.x installed
-#   - Python 3.6+
+#   - Python 3.10+
 #   - GTI API Key
 #
 # The installer will:

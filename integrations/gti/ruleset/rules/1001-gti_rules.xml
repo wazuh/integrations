@@ -1,3 +1,6 @@
+<!--
+  Google Threat Intelligence rules ID: 111111 - 111119
+-->
 <group name="gtiintels,">
     <rule id="111111" level="0">
         <field name="integration">GTI</field>
