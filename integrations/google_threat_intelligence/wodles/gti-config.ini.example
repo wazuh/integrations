@@ -1,0 +1,39 @@
+[api]
+# Your VirusTotal/GTI API key (REQUIRED)
+# Keep this file secure with permissions 640 (root:wazuh)
+api_key = YOUR_API_KEY_HERE
+base_url = https://www.virustotal.com/api/v3
+
+# Comma-separated list of threat list IDs to fetch
+# Available: ransomware, malicious-network-infrastructure, malware, threat-actor, 
+#            trending, mobile, osx, linux, iot, cryptominer, phishing, 
+#            first-stage-delivery-vectors, vulnerability-weaponization, infostealer
+threat_list_ids = ransomware, malicious-network-infrastructure, malware, threat-actor, trending, mobile, osx, linux, iot, cryptominer, phishing, first-stage-delivery-vectors, vulnerability-weaponization, infostealer
+
+# Only fetch IOCs with threat score above this value (0-100)
+# Leave empty to fetch all IOCs regardless of score
+threat_score =
+
+[filters]
+# Only include IOCs with the following severity (leave blank for all)
+# Options: SEVERITY_NONE, SEVERITY_LOW, SEVERITY_MEDIUM, SEVERITY_HIGH, SEVERITY_UNKNOWN
+severity =
+
+# Only include IOCs with the following verdict (leave blank for all)
+# Options: VERDICT_BENIGN, VERDICT_UNDETECTED, VERDICT_SUSPICIOUS, VERDICT_MALICIOUS, VERDICT_UNKNOWN
+verdict =
+
+[runtime]
+# Lifetime of an IOC in days (after which it is removed from local JSON)
+# Recommended: 1-7 days for active threat hunting, 7-30 for historical analysis
+ioc_lifetime_days = 7
+
+# Log file location (relative to this directory)
+log_file = gti_sync.log
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = INFO
+
+[files]
+# Checkpoint file to store last execution timestamps per threat list
+checkpoint_file = checkpoint.json

@@ -1,0 +1,36 @@
+<!--
+  Google Threat Intelligence rules ID: 111111 - 111119
+-->
+<group name="gtiintels,">
+    <rule id="111111" level="0">
+        <field name="integration">GTI</field>
+        <description>GTI processed event.</description>
+    </rule>
+    <rule id="111112" level="0">
+        <if_sid>111111</if_sid>
+        <field name="gti_assessment" type="pcre2" negate="yes">.*</field>
+        <description>The alert didn't got enriched by the GTI.</description>
+    </rule>
+    <rule id="111114" level="6">
+        <if_sid>111111</if_sid>
+        <field name="gti_assessment.vulnerability_info.ioc_value" type="pcre2">.*</field>
+        <field name="gti_assessment.vulnerability_info.error.code" type="pcre2">.*</field>
+        <description>An error occurred with code $(gti_assessment.vulnerability_info.error.code) while enriching $(gti_assessment.vulnerability_info.ioc_value) from GTI.</description>
+    </rule>
+    <rule id="111115" level="6">
+        <if_sid>111111</if_sid>
+        <field name="gti_assessment.vulnerability_info.ioc_value" type="pcre2">.*</field>
+        <field name="gti_assessment.vulnerability_info.error.description" type="pcre2">.*</field>
+        <description>An error $(gti_assessment.vulnerability_info.error.description) while enriching $(gti_assessment.vulnerability_info.ioc_value) from GTI.</description>
+    </rule>
+    <rule id="111113" level="6">
+        <if_sid>111111</if_sid>
+        <field name="gti_assessment.vulnerability_info.cve_id" type="pcre2">.*</field>
+        <description>An alert with $(gti_assessment.vulnerability_info.cve_id) got enriched by the GTI.</description>
+    </rule>
+    <rule id="111119" level="9">
+        <if_sid>111111</if_sid>
+        <match type="pcre2">ioc_value</match>
+        <description>The alert got enriched by the GTI.</description>
+    </rule>
+</group>
