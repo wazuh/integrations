@@ -1,0 +1,238 @@
+<decoder name="gravityzone_soc">
+  <program_name>CEF</program_name>
+  <prematch>\d+\|Bitdefender\|GravityZone\|</prematch>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex>GravityZone\|(\S+)\|(\d+)\|(\.+)\|(\d+)\|</regex>
+  <order>GZVersion,SignatureId,EventName,Severity</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZModule=([^\s]+)</regex>
+  <order>BitdefenderModule</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZCompanyId=([^\s]+)</regex>
+  <order>CompanyId</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">dvchost=([^\s]+)</regex>
+  <order>DeviceHostName</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZComputerFQDN=([^\s]+)</regex>
+  <order>ComputerFQDN</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">\sdvc=([^\s]+)</regex>
+  <order>DeviceIP</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">deviceExternalId=([^\s]+)</regex>
+  <order>DeviceExternalId</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZIsContainerHost=([^\s]+)</regex>
+  <order>IsContainerHost</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZPreviousEventData=(.*?)\s+BitdefenderGZCompanyId=</regex>
+  <order>BitdefenderGZPreviousEventData</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZMalwareModuleStatus=([^\s]+)</regex>
+  <order>MalwareModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZAntiphishingModuleStatus=([^\s]+)</regex>
+  <order>AntiphishingModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZBehavioralScanAVCModuleStatus=([^\s]+)</regex>
+  <order>BehavioralScanAVCModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZWebAccessControlModuleStatus=([^\s]+)</regex>
+  <order>WebAccessControlModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZWebCategoryScanModuleStatus=([^\s]+)</regex>
+  <order>WebCategoryScanModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZUserControlApplicationFilteringModuleStatus=([^\s]+)</regex>
+  <order>UserControlApplicationFilteringModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZDataProtectionModuleStatus=([^\s]+)</regex>
+  <order>DataProtectionModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZFirewallModuleStatus=([^\s]+)</regex>
+  <order>FirewallModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZDataLossPreventionModuleStatus=([^\s]+)</regex>
+  <order>DataLossPreventionModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZNetworkMonitorModuleStatus=([^\s]+)</regex>
+  <order>NetworkMonitorModuleStatus</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZIncidentId=([^\s]+)</regex>
+  <order>IncidentId</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZIncidentNumber=(\d+)</regex>
+  <order>IncidentNumber</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZSeverityScore=(\d+)</regex>
+  <order>SeverityScore</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZAttackEntry=(\d+)</regex>
+  <order>AttackEntry</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZMainAction=([^\s]+)</regex>
+  <order>gravityzone_main_action</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZDetectionName=(.*?)\s+request=</regex>
+  <order>DetectionName</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">\srequest=(.*?)\s+spt=</regex>
+  <order>Request</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">spt=(\d+)</regex>
+  <order>SrcPort</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">\ssrc=([^\s]+)</regex>
+  <order>src</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">sproc=(.*?)\s+BitdefenderGZAttackTypes=</regex>
+  <order>sproc</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZAttackTypes=(\[[^\]]*\])</regex>
+  <order>BitdefenderGZAttackTypes</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZAttCkId=(\[[^\]]*\])</regex>
+  <order>BitdefenderGZAttCkId</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">start=([^\s]+)</regex>
+  <order>StartTime</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZEndpointId=([^\s]+)</regex>
+  <order>EndpointId</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZMalwareType=([^\s]+)</regex>
+  <order>MalwareType</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZMalwareName=(.*?)\s+BitdefenderGZMalwareHash=</regex>
+  <order>MalwareName</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZMalwareHash=([^\s]+)</regex>
+  <order>MalwareHash</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">\sact=(.*?)\s+filePath=</regex>
+  <order>gravityzone_action</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">filePath=(.*?)\s+BitdefenderGZDetectionTime=</regex>
+  <order>FilePath</order>
+</decoder>
+
+<decoder name="gravityzone_soc_fields">
+  <parent>gravityzone_soc</parent>
+  <regex type="pcre2">BitdefenderGZDetectionTime=([^\s]+)</regex>
+  <order>DetectionTime</order>
+</decoder>

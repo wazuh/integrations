@@ -1,0 +1,41 @@
+<group name="misp,threat-intel,">
+
+  <rule id="101806" level="0">
+    <decoded_as>json</decoded_as>
+    <description>MISP: IP check</description>
+    <field name="integration">misp_fortigate_ips</field>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101807" level="0">
+    <if_sid>101806</if_sid>
+    <field name="misp_fortigate_ips.found">0</field>
+    <description>MISP: IP not found</description>
+  </rule>
+
+  <rule id="101808" level="12">
+    <if_sid>101806</if_sid>
+    <field name="misp_fortigate_ips.found">1</field>
+    <description>MISP: IP matched</description>
+  </rule>
+
+  <rule id="101809" level="10">
+    <if_sid>101806</if_sid>
+    <field name="misp_fortigate_ips.error">403</field>
+    <description>MISP ERROR: Invalid MISP credentials, check api_key (AuthKey)</description>
+  </rule>
+
+  <rule id="101810" level="10">
+    <if_sid>101806</if_sid>
+    <field name="misp_fortigate_ips.error">429</field>
+    <description>MISP ERROR: Rate limit exceeded, too many requests</description>
+  </rule>
+
+  <rule id="101811" level="10">
+    <if_sid>101806</if_sid>
+    <field name="misp_fortigate_ips.error">500</field>
+    <description>MISP ERROR: $(misp_fortigate_ips.description)</description>
+  </rule>
+
+
+</group>

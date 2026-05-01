@@ -1,0 +1,22 @@
+#!/bin/sh
+# SOCRadar Custom Integration - Shell Launcher
+# Wazuh integratord calls this wrapper, which launches the Python script.
+# Must be named "custom-socradar" and placed in /var/ossec/integrations/
+
+WAZUH_HOME="${WAZUH_HOME:-/var/ossec}"
+
+SCRIPT_PATH_NAME="$0"
+DIR_NAME="$(cd "$(dirname "${SCRIPT_PATH_NAME}")"; pwd -P)"
+SCRIPT_NAME="$(basename "${SCRIPT_PATH_NAME}")"
+PYTHON_SCRIPT="${DIR_NAME}/${SCRIPT_NAME}.py"
+
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+elif [ -x "${WAZUH_HOME}/framework/python/bin/python3" ]; then
+    PYTHON_BIN="${WAZUH_HOME}/framework/python/bin/python3"
+else
+    echo "ERROR: python3 not found" >&2
+    exit 1
+fi
+
+${PYTHON_BIN} "${PYTHON_SCRIPT}" "$@"

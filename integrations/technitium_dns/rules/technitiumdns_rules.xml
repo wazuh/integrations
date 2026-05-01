@@ -1,0 +1,65 @@
+<!-- Catch-all for any Technitium DNS event not matched by more-specific rules -->
+<group name="technitium_dns, dns">
+    <rule id="100001" level="3"> <!-- Set this to level 3 to collect other logsfor debugging or troubleshooting. -->
+        <decoded_as>json</decoded_as>
+        <field name="dns.type">dns</field> <!-- This is just to ensure we are collecting the correct logs. -->
+        <description>Technitium DNS logs grouped.</description>
+    </rule>
+
+    <rule id="100002" level="3">
+        <if_sid>100001</if_sid>
+        <field name="dns.responseType" negate="yes">Blocked</field>
+        <description>Technitium DNS: Allowed</description>
+    </rule>
+
+    <rule id="100003" level="3">
+        <if_sid>100001</if_sid>
+        <field name="dns.responseType">Blocked</field>
+        <description>Technitium DNS: Blocked</description>
+    </rule>
+
+    <rule id="100004" level="12" frequency="10" timeframe="30">
+      <if_matched_sid>100003</if_matched_sid>
+      <same_field>dns.clientIp</same_field>
+      <!--<same_srcip/>-->
+      <description>Technitium DNS: Multiple DNS requests blocked from same IP.</description>
+    </rule>
+
+    <rule id="100005" level="12" frequency="5" timeframe="120">
+      <if_matched_sid>100002</if_matched_sid>
+      <same_field>dns.clientIp</same_field>
+      <!--<same_srcip/>-->
+      <field name="dns.question.questionName" type="pcre2">[\w\.]{30,}</field>
+      <description>Technitium DNS: Possible exfil (multiple long queries)</description>
+    </rule>
+
+    <rule id="100006" level="12" frequency="5" timeframe="120">
+      <if_matched_sid>100002</if_matched_sid>
+      <same_field>dns.clientIp</same_field>
+      <!--<same_srcip/>-->
+      <field name="dns.question.questionName" type="pcre2">^(?:[A-Za-z0-9+]{4})+(?:[A-Za-z0-9+]{2}==|[A-Za-z0-9+]{3}=)?$</field>
+      <description>Technitium DNS: Possible exfil (base64 encoded query)</description>
+    </rule>
+
+    <rule id="100007" level="12" frequency="5" timeframe="120">
+      <if_matched_sid>100002</if_matched_sid>
+      <same_field>dns.clientIp</same_field>
+      <!--<same_srcip/>-->
+      <field name="dns.question.questionName" type="pcre2">^(?:[A-Z2-7]{8})+(?:[A-Z2-7]{2}======|[A-Z2-7]{4}====|[A-Z2-7]{5}===|[A-Z2-7]{7}=)?$</field>
+      <description>Technitium DNS: Possible exfil (base32 encoded query)</description>
+    </rule>
+
+    <rule id="100008" level="15" frequency="5" timeframe="150" ignore="60">
+      <if_matched_sid>100004</if_matched_sid>
+      <same_field>dns.clientIp</same_field>
+      <!--<same_srcip/>-->
+      <description>Technitium DNS: Multiple DNS requests blocked from same IP.</description>
+      <description>The events are too high, therefore to be ignored 60 seconds to prevent issues</description>
+    </rule>
+
+    <rule id="100009" level="12">
+        <if_sid>100002</if_sid>
+        <list field="dns.question.questionName" lookup="match_key">etc/lists/warning_list</list>
+        <description>Technitium DNS: Malicious domain is allowed. Check blocking configuration.</description>
+    </rule>
+</group>

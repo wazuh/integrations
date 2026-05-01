@@ -1,0 +1,38 @@
+<group name="custom_nessus,">
+
+  <rule id="110050" level="3">
+    <decoded_as>nessus_custom</decoded_as>
+    <description>nessus: General event recorded.</description>
+  </rule>
+
+  <rule id="110051" level="3">
+    <if_sid>110050</if_sid>
+    <field name="nessus_message">service is running|Nessus is ready</field>
+    <description>nessus: The scanning service is online and ready.</description>
+  </rule>
+
+  <rule id="110052" level="5">
+    <if_sid>110050</if_sid>
+    <field name="nessus_message">^starting with Target</field>
+    <description>nessus: User '$(nessus_user)' started scan '$(nessus_name)' (ID: $(nessus_scan_id)).</description>
+  </rule>
+
+  <rule id="110053" level="7">
+    <if_sid>110050</if_sid>
+    <field name="nessus_action">^PAUSE$|^STOP$</field>
+    <description>nessus: User '$(nessus_user)' requested $(nessus_action) for scan $(nessus_scan_id).</description>
+  </rule>
+
+  <rule id="110054" level="5">
+    <if_sid>110050</if_sid>
+    <field name="nessus_message">^Finished:</field>
+    <description>nessus: Scan $(nessus_scan_id) completed in $(nessus_duration) seconds. Details: $(nessus_message)</description>
+  </rule>
+
+  <rule id="110055" level="3">
+    <if_sid>110050</if_sid>
+    <field name="nessus_message">max_hosts:|Pausing|Collecting report info|Finishing report</field>
+    <description>nessus: Scan $(nessus_scan_id) status update - $(nessus_message)</description>
+  </rule>
+
+</group>

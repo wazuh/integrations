@@ -1,0 +1,17 @@
+[Thu Mar 19 22:24:38 2026 +0100][123.0] WebServer service is running (pid=1024)
+[Thu Mar 19 22:24:52 2026 +0100][123.1] Nessus is ready
+[Wed Mar 25 09:04:50 2026 +0100][123.123][scan-a1b2c3d4-e5f6-7890-abcd-1234567890ab] : max_hosts: 30, max_checks: 1
+[Mar 12 17:33:17 2026 +0100][1234.123213] User sys_admin requested PAUSE for scan b9f8e7d6-c5a4-3210-fedc-ba9876543210
+[Thu Mar 12 17:33:17 2026 +0100][1232.123123][scan=b9f8e7d6-c5a4-3210-fedc-ba9876543210] : Pausing
+[Wed Apr 01 18:28:30 2026 +0200][123.0][scan=234123-1324-1234-1234-1234abcd123abb] : Collecting report info
+[Wed Apr 01 18:28:30 2026 +0200][123.0][scan=234123-1324-1234-1234-1234abcd123abb] : Finishing report
+[Wed Mar 04 11:02:20 2026 +0100][3812.78][user=svc_account][name=Internal_Audit_01][scan=d290f1ee-6c54-4b01-90e6-d701748f0851][policy=234123-1324-1234-1234-1234abcd123abb] : starting with Target(s): app-test.internal.net, api.test-env.io, backup.local
+[Mon Mar 09 09:47:08 2026 +0100][3812.5323850][user=svc_account][name=DMZ_Scan_Alpha][scan=e8b9c0a1-d2f3-4e56-b789-0123456789ab][policy=234123-1324-1234-1234-1234abcd123abb] : starting with Target(s): 192.168.50.12, 10.0.0.45
+[Tue Mar 10 09:51:33 2026 +0100][3812.10295235][user=svc_account][name=Compliance_Check_Weekly][scan=b9f8e7d6-c5a4-3210-fedc-ba9876543210][policy=234123-1324-1234-1234-1234abcd123abb] : starting with Target(s): dev-test.net, ops-test.io, 172.16.25.10-20, 172.16.30.5-15
+[Tue Mar 10 15:29:53 2026 +0100][3812.10295234][user=svc_account][name=Endpoint_Verify][scan=c1d2e3f4-a5b6-c7d8-e9f0-1234567890ab][policy=234123-1324-1234-1234-1234abcd123abb] : starting with Target(s): 10.10.10.1, 10.10.10.2, 10.10.10.3, https://api.cloud-dummy.com/v2
+[Tue Mar 10 15:30:48 2026 +0100][3812.10295244] User sys_admin requested STOP for scan c1d2e3f4-a5b6-c7d8-e9f0-1234567890ab
+[Tue Mar 10 15:31:37 2026 +0100][3812.10295235][user=svc_account][name=Legacy_Systems_Scan][scan=234123-1324-1234-1234-1234abcd123abb][policy=234123-1324-1234-1234-1234abcd123abb] : starting with Target(s): 10.10.10.1, 10.10.10.2, 10.10.10.3, https://test.com/, https://test.net/, https://test.com/
+[Tue Mar 10 15:39:45 2026 +0100][3812.10295234][user=svc_account][name=External_Web_Audit][scan=234123-1324-1234-1234-1234abcd123abb][policy=234123-1324-1234-1234-1234abcd123abb] : starting with Target(s): www.example-mock-site.com
+[Wed Apr 01 18:28:30 2026 +0200][123.0][scan=234123-1324-1234-1234-1234abcd123abb] : Collecting report info
+[Wed Apr 01 18:28:30 2026 +0200][123.0][scan=234123-1324-1234-1234-1234abcd123abb] : Finishing report
+[Wed Apr 01 18:28:33 2026 +0200][123.0][scan=234123-1324-1234-1234-1234abcd123abb][duration=13088.00] : Finished: 87 of 240 hosts up, 0 unscanned, 0 rejected, 153 dead,

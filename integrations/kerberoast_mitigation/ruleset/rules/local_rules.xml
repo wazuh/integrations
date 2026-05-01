@@ -1,0 +1,16 @@
+<group name="kerberoast_detection">
+
+  <!-- Kerberoasting: Service ticket requested using RC4 encryption (0x17) -->
+  <!-- RC4 is legacy and only used by attacker tools like Impacket by default -->
+  <!-- Legitimate modern requests use AES (0x11 or 0x12) -->
+  <rule id="100002" level="12">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^4769$</field>
+    <field name="win.eventdata.ticketEncryptionType">^0x17$</field>
+    <description>Kerberoasting Attack: RC4 service ticket request detected (T1558.003)</description>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+  </rule>
+
+</group>
