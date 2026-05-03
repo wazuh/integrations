@@ -346,7 +346,7 @@ def main(args):
             if len(args) > RETRIES_INDEX:
                 retries = int(args[RETRIES_INDEX])
         else:
-            logger.debug('# Error: Exiting, bad arguments. Inputted: %s' % args)
+            logger.error('# Error: Exiting, bad arguments. Inputted: %s' % args)
             sys.exit(ERR_BAD_ARGUMENTS)
 
         logger.debug(
@@ -372,14 +372,14 @@ def process_args() -> None:
     # Load alert. Parse JSON object.
     json_alert = get_json_alert(alert_file_location)
 
-    logger.info(f"# Opening alert file at '{alert_file_location}' with '{json_alert}'")
+    logger.debug(f"# Opening alert file at '{alert_file_location}' with '{json_alert}'")
 
     if 'integration' in json_alert.get('data', {}):
         logger.debug(f"# Alert generated from integration {json_alert.get('data', {}).get('integration', '')}")
         sys.exit(0)
 
     #  Requesting GTI enriched info
-    msg: any = request_gti_info(json_alert)
+    msg = request_gti_info(json_alert)
 
     if not msg:
         logger.debug('# Error: Empty message')
@@ -476,9 +476,9 @@ def extract_ioc_values(data, fields_to_check, ioc_type):
                         if ioc_type == "vulnerability":
                             temp_results[target_key].append("vulnerability--" + value.lower())
                         elif ioc_type == "ip":
-                                m = IPV4_RE.search(value) or IPV6_RE.search(value)
-                                if m:
-                                    temp_results[target_key].append(m.group(0))
+                            m = IPV4_RE.search(value) or IPV6_RE.search(value)
+                            if m:
+                                temp_results[target_key].append(m.group(0))
                         else:
                             temp_results[target_key].append(value)
             

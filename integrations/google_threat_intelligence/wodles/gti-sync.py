@@ -29,7 +29,7 @@ IOC_FIELDS = {
     "lad": "last_analysis_date",
     "md5": "md5",
     "sha256": "sha256",
-    "meaningful_name": "meaningful_name"
+    "mn": "meaningful_name"
 }
 THREAT_LIST_IDS = [
     "ransomware",
@@ -67,7 +67,7 @@ def load_config(path: str) -> Dict[str, Any]:
         return [v.strip() for v in value.split(",") if v.strip()]
 
     api_params = {"limit": API_LIMIT}
-    threat_score_raw = parser.get("api", "threat_score").strip()
+    threat_score_raw = parser.get("api", "threat_score", fallback="").strip()
     threat_score_warning: Optional[str] = None
     threat_score: Optional[int] = None
     if threat_score_raw:
@@ -94,7 +94,7 @@ def load_config(path: str) -> Dict[str, Any]:
         "verdict": set(get_list("filters", "verdict")),
         "ioc_lifetime": parser.getint("runtime", "ioc_lifetime_days", fallback=7),
         "max_concurrent": DEFAULT_MAX_CONCURRENT,
-        "log_file": f"{pwd}/{parser.get('runtime', 'log_file', fallback='gti_sync.log')}",
+        "log_file": f"{pwd}/{parser.get("runtime", "log_file", fallback="gti_sync.log")}",
         "log_level": parser.get("runtime", "log_level", fallback="INFO"),
         "files": {
             "ip": os.path.join(WAZUH_HOME, "integrations", "gti_iocs", "malicious_ips.json"),
@@ -102,7 +102,7 @@ def load_config(path: str) -> Dict[str, Any]:
             "url": os.path.join(WAZUH_HOME, "integrations", "gti_iocs", "malicious_urls.json"),
             "file": os.path.join(WAZUH_HOME, "integrations", "gti_iocs", "malicious_filehashes.json"),
         },
-        "checkpoint_file": f"{pwd}/{parser.get('files', 'checkpoint_file')}",
+        "checkpoint_file": f"{pwd}/{parser.get("files", "checkpoint_file", fallback="checkpoint.json")}",
     }
 
 
@@ -286,32 +286,43 @@ def remove_expired(store: Dict[str, Dict[str, Any]]) -> int:
     return removed
 
 
+
+# Create a thread-local storage object
+thread_data = threading.local()
+
+def get_thread_session():
+    """Returns a session unique to the current thread, creating it if necessary."""
+    if not hasattr(thread_data, "session"):
+        thread_data.session = requests.Session()
+        # You can still mount adapters here for specific thread-level tuning if needed
+    return thread_data.session
+
 # ================= HTTP =================
-def fetch(session: requests.Session, api_object: Dict[str, Any], semaphore: threading.Semaphore, verify: object) -> \
-        List[
-            Dict[str, Any]]:
-    with semaphore:
-        resp = session.get(
-            api_object["url"],
-            headers={"x-apikey": api_object["key"]},
-            params=api_object["params"],
-            timeout=60,
-            verify=verify,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        iocs = data.get("iocs", [])
-        logging.debug(f"Fetched {api_object['url']}, received {len(iocs)} IOCs")
-        return iocs
+def fetch(api_object: Dict[str, Any], verify: object) -> List[Dict[str, Any]]:
+    # Get the session specific to this worker thread
+    session = get_thread_session()
+
+    resp = session.get(
+        api_object["url"],
+        headers={"x-apikey": api_object["key"]},
+        params=api_object["params"],
+        timeout=60,
+        verify=verify,
+    )
+
+    resp.raise_for_status()
+    data = resp.json()
+    iocs = data.get("iocs", [])
+    logging.info(f"Fetched {api_object['url']}, received {len(iocs)} IOCs")
+    return iocs
 
 
-def process_threat_list(tl_id, session, cfg, store, checkpoint, semaphore, verify: object, update_lock: threading.Lock):
-    # logging.info(f"Processing threat list {tl_id}")
+def process_threat_list(tl_id, cfg, store, checkpoint, verify: object, update_lock: threading.Lock):
     api_object = {"key": cfg["api_key"], "params": cfg["api_params"]}
+
     if tl_id not in checkpoint:
-        # First run → latest
         api_object["url"] = f"{cfg['base_url']}/threat_lists/{tl_id}/latest"
-        resp = fetch(session, api_object, semaphore, verify)
+        resp = fetch(api_object, verify)
         with update_lock:
             upsert(store, resp, cfg, tl_id)
             checkpoint[tl_id] = t2_hour_utc()
@@ -323,13 +334,14 @@ def process_threat_list(tl_id, session, cfg, store, checkpoint, semaphore, verif
     if len(timestamps) > MAX_BACKLOG_HOURS:
         skipped = len(timestamps) - MAX_BACKLOG_HOURS
         logging.warning(
-            f"{tl_id} backlog capped: skipping {skipped} hours (processing most recent {MAX_BACKLOG_HOURS} hours)")
+            f"{tl_id} backlog capped: skipping {skipped} hours (processing most recent {MAX_BACKLOG_HOURS} hours)"
+        )
         timestamps = timestamps[-MAX_BACKLOG_HOURS:]
     counter = 0
     for ts in timestamps:
         try:
             api_object["url"] = f"{cfg['base_url']}/threat_lists/{tl_id}/{ts}"
-            resp = fetch(session, api_object, semaphore, verify)
+            resp = fetch(api_object, verify)
             with update_lock:
                 upsert(store, resp, cfg, tl_id)
                 # update checkpoint ONLY after success
@@ -346,28 +358,28 @@ def run(cfg: Dict[str, Any]) -> None:
     # Load once
     store = {k: load_json(v, {}) for k, v in cfg["files"].items()}
     checkpoint = load_json(cfg["checkpoint_file"], {})
-    semaphore = threading.Semaphore(cfg["max_concurrent"])
     verify = build_requests_verify()
     update_lock = threading.Lock()
     try:
-        with requests.Session() as session:
-            with ThreadPoolExecutor(max_workers=cfg["max_concurrent"]) as executor:
-                futures = [
-                    executor.submit(
-                        process_threat_list,
-                        tl_id,
-                        session,
-                        cfg,
-                        store,
-                        checkpoint,
-                        semaphore,
-                        verify,
-                        update_lock,
-                    )
-                    for tl_id in cfg["threat_list_ids"]
-                ]
-                for fut in as_completed(futures):
-                    fut.result()
+        with ThreadPoolExecutor(max_workers=cfg["max_concurrent"]) as executor:
+            futures_map = {
+                executor.submit(
+                    process_threat_list,
+                    tl_id,
+                    cfg,
+                    store,
+                    checkpoint,
+                    verify,
+                    update_lock,
+                ): tl_id for tl_id in cfg["threat_list_ids"]
+            }
+            for fut in as_completed(futures_map):
+                tl_id = futures_map[fut]
+                try:
+                    fut.result() # This will only throw for the specific thread being checked
+                except Exception as e:
+                    # Log the specific thread failure but allow the loop to continue to the next future
+                    logging.error(f"Thread for {tl_id} encountered an error: {e}")
     except Exception as e:
         logging.error(f"Fatal error during execution : {e}")
     finally:

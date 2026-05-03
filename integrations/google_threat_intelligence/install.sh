@@ -76,7 +76,7 @@ if [ -z "$API_KEY" ]; then
 fi
 
 read -p "Fetch interval in minutes (default: 60): " INTERVAL
-INTERVAL="${INTERVAL:60}"
+INTERVAL="${INTERVAL:-60}"
 
 if ! [[ "${INTERVAL}" =~ ^[0-9]+$ ]]; then
   echo -e "${YELLOW}  ⚠ Invalid interval '${INTERVAL}', using 60 minute${NC}"
@@ -101,7 +101,7 @@ else
 fi
 
 cp "$SCRIPT_DIR/wodles/gti-sync.py" "$WAZUH_HOME/wodles/gti/gti-sync.py"
-chmod 750 "$WAZUH_HOME/wodles/gti/gti-config.ini"
+chmod 640 "$WAZUH_HOME/wodles/gti/gti-config.ini"
 chmod 750 "$WAZUH_HOME/wodles/gti/gti-sync.py"
 chown root:$WAZUH_GROUP "$WAZUH_HOME/wodles/gti/gti-config.ini"
 chown root:$WAZUH_GROUP "$WAZUH_HOME/wodles/gti/gti-sync.py"
@@ -152,7 +152,7 @@ else
   <wodle name=\"command\">\\
     <disabled>no</disabled>\\
     <tag>gti-sync</tag>\\
-    <command>/var/ossec/framework/python/bin/python3.10 ${WAZUH_HOME}/wodles/gti/gti-sync.py</command>\\
+    <command>${WAZUH_HOME}/framework/python/bin/python3.10 ${WAZUH_HOME}/wodles/gti/gti-sync.py</command>\\
     <interval>${INTERVAL}m</interval>\\
     <ignore_output>no</ignore_output>\\
     <run_on_start>yes</run_on_start>\\

@@ -149,24 +149,20 @@ Then it automatically:
         - Possible value: number between 0 and 100
     - Example:
         ```ini
-        [gti]
+        [api]
         api_key = your_gti_api_key_here
         base_url = https://www.virustotal.com/api/v3
-        checkpoint_file = gti-checkpoint.json
-        [filters]
         threat_list_ids = comma(,) separated list of Threat List IDs
-        severities = comma(,) separated list of IOC Severity levels
-        verdicts =comma(,) separated list of IOC Verdict levels
         threat_score = threat score between 0 and 100
-        [WAZUH]
-        json_dir = /var/ossec/integrations/gti
-        [OUTPUT]
-        ip_list = malicious_ips
-        domain_list = malicious_domains
-        url_list = malicious_urls
-        hash_list = malicious_hashes
-        [LOGGING]
-        log_file = gti_ioc_fetcher.log
+        [filters]
+        severity = comma(,) separated list of IOC Severity levels
+        verdict =comma(,) separated list of IOC Verdict levels
+        [runtime]
+        ioc_lifetime_days = days between 1 - 30
+        log_file = gti_sync.log
+        log_level = log level from  [DEBUG, INFO, WARNING, ERROR, CRITICAL]
+        [files]
+        checkpoint_file = gti-checkpoint.json
         ```
 
 2. **Wodle Configuration** :
@@ -176,7 +172,7 @@ Then it automatically:
     <wodle name="command">  
         <disabled>no</disabled>
         <tag>gti-sync</tag>
-        <command>/var/ossec/framework/python/bin/python3.10 /var/ossec/wodles/gti/gti_sync.py</command>
+        <command>/var/ossec/framework/python/bin/python3.10 /var/ossec/wodles/gti/gti-sync.py</command>
         <interval>1h</interval>
         <run_on_start>yes</run_on_start>
         <timeout>300</timeout>
@@ -223,7 +219,7 @@ Add the following block to `/var/ossec/etc/ossec.conf`. The `<name>` must match 
 
 ```bash
 # Ingestion script logs
-tail -f /var/ossec/wodles/gti/gti-sync.log
+tail -f /var/ossec/wodles/gti/gti_sync.log
 
 # Integration logs
 tail -f /var/ossec/logs/gti-integration.log
