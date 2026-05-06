@@ -3,7 +3,7 @@ import os, time, shutil, sqlite3, requests, datetime as dt, ipaddress, socket, g
 from io import BytesIO
 import bisect
 import concurrent.futures
-from urllib.parse import urlparse
+
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -15,7 +15,12 @@ if os.path.exists(env_path):
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 k, v = line.split('=', 1)
-                os.environ.setdefault(k.strip(), v.strip())
+                k = k.strip()
+                v = v.strip()
+                # Strip matching surrounding single/double quotes so .env values like KEY="val" work as expected
+                if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+                    v = v[1:-1]
+                os.environ.setdefault(k, v)
 
 # ===================== Config via ENV =====================
 MISP_URL      = os.getenv("MISP_URL")
@@ -25,10 +30,10 @@ LAST_DAYS     = os.getenv("LAST_DAYS", "30")
 TO_IDS        = os.getenv("TO_IDS", "true").lower() == "true"
 
 IOC_DIR       = os.getenv("IOC_DIR", "/var/ossec/integrations/ioc")
-MAX_PER_SET   = int(os.getenv("MAX_PER_SET", "1000000")) 
+
 PAGE_LIMIT    = int(os.getenv("PAGE_LIMIT", "0"))   
 REG_ROOT_ONLY = os.getenv("REGISTRABLE_ONLY", "false").lower() == "true"   
-SKIP_URL_IP   = os.getenv("SKIP_URLS_WITH_IP_HOST", "false").lower() == "true"
+
 FULL_RESET    = os.getenv("FULL_RESET", "true").lower() == "true"   
 BACKUP_BEFORE_RESET = os.getenv("BACKUP_BEFORE_RESET", "true").lower() == "true"
 # ==========================================================
@@ -197,7 +202,12 @@ def init_dbs_full_reset():
     );""")
 
     # Views explicitly pick up specific variables and extra properties
-    sql(IPS_DB, "CREATE VIEW ips AS SELECT ip AS indicator, source, updated_at, event_id, event_info, comment, category, tags, country FROM ips_exact;")
+    sql(IPS_DB, """
+    CREATE VIEW ips AS
+    SELECT ip AS indicator, source, updated_at, event_id, event_info, comment, category, tags, country FROM ips_exact
+    UNION ALL
+    SELECT cidr AS indicator, source, updated_at, event_id, event_info, comment, category, tags, country FROM ips_range;
+    """)
     sql(HASHES_DB, "CREATE VIEW hashes AS SELECT hash AS indicator, LOWER(algo) AS type, source, updated_at, event_id, event_info, comment, category, tags FROM hashes_exact;")
     sql(DOMAINS_DB,"CREATE VIEW domains AS SELECT domain AS indicator, source, updated_at, event_id, event_info, comment, category, tags, resolved_ip, country FROM domains_exact;")
     sql(URLS_DB,   "CREATE VIEW urls AS SELECT url AS indicator, source, updated_at, event_id, event_info, comment, category, tags FROM urls_exact;")
@@ -268,7 +278,7 @@ TYPE_URL       = {"url"}
 TYPE_HASH_MD5  = {"md5", "filename|md5"}
 TYPE_HASH_SHA1 = {"sha1", "filename|sha1"}
 TYPE_HASH_S256 = {"sha256", "filename|sha256"}
-TYPE_CIDR      = {"ip-src|port", "ip-dst|port"}
+
 
 def extract_ioc_value(t, raw):
     if "|" in t:

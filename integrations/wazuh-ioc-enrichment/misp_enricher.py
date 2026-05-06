@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, json, sqlite3, datetime, logging, traceback
+import os, json, sqlite3, datetime, logging, traceback, ipaddress, hmac
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, abort
 import requests
@@ -17,10 +17,8 @@ HASHES_DB_PATH  = os.getenv("HASHES_DB_PATH", "/var/ossec/integrations/ioc/hashe
 DOMAINS_DB_PATH = os.getenv("DOMAINS_DB_PATH", "/var/ossec/integrations/ioc/domains.db")
 URLS_DB_PATH    = os.getenv("URLS_DB_PATH", "/var/ossec/integrations/ioc/urls.db")
 
-IOC_DB_PATH     = os.getenv("IOC_DB_PATH", "/var/ioc/ioc.db")
-LEGACY_FALLBACK = os.getenv("ENRICHER_LEGACY_FALLBACK", "true").lower() == "true"
 ENRICHER_PORT   = int(os.getenv("ENRICHER_PORT", "3000"))
-STRIP_EMPTY     = os.getenv("ENRICHER_STRIP_EMPTY", "true").lower() == "true"
+REG_ROOT_ONLY   = os.getenv("REGISTRABLE_ONLY", "false").lower() == "true"
 
 LOG_ENABLED     = os.getenv("ENRICHER_LOG_ENABLED", "true").lower() == "true"
 LOG_LEVEL_NAME  = os.getenv("ENRICHER_LOG_LEVEL", "INFO").upper()
@@ -111,6 +109,15 @@ def _flat_file_rows(path: str) -> List[List[str]]:
             rows.append(line.split("|"))
     return rows
 
+def registrable_suffix(domain: str) -> str:
+    d = (domain or "").strip().lower().rstrip(".")
+    parts = d.split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else d
+
+def norm_domain(d: str) -> str:
+    d = (d or "").strip().lower().rstrip(".")
+    return registrable_suffix(d) if REG_ROOT_ONLY else d
+
 def format_enrichment_dict(row: dict) -> dict:
     return {k: v for k, v in row.items() if v}
 
@@ -121,12 +128,31 @@ def lookup_ip(ip: str, c: Optional[sqlite3.Connection]) -> Optional[Dict[str, st
     if c:
         rows = _sqlite_fetch_all(c, "SELECT indicator, source, updated_at as last_seen, event_id, event_info, comment, category, tags, country FROM ips WHERE indicator=?", (ip,), True)
         if rows: return format_enrichment_dict(rows[0])
+        
+        try:
+            ip_int = int(ipaddress.IPv4Address(ip))
+            range_query = "SELECT cidr as indicator, source, updated_at as last_seen, event_id, event_info, comment, category, tags, country FROM ips_range WHERE CAST(start_int AS INTEGER) <= ? AND CAST(end_int AS INTEGER) >= ? LIMIT 1"
+            rows = _sqlite_fetch_all(c, range_query, (ip_int,), True)
+            if rows: return format_enrichment_dict(rows[0])
+        except Exception:
+            pass
+            
         rows = _sqlite_fetch_all(c, "SELECT indicator, source, updated_at FROM ips WHERE indicator=?", (ip,), True)
         if rows:
             res = format_enrichment_dict(rows[0])
             res['last_seen'] = res.pop('updated_at', None)
             return res
             
+        try:
+            range_query_fallback = "SELECT cidr as indicator, source, updated_at FROM ips_range WHERE CAST(start_int AS INTEGER) <= ? AND CAST(end_int AS INTEGER) >= ? LIMIT 1"
+            rows = _sqlite_fetch_all(c, range_query_fallback, (ip_int,), True)
+            if rows:
+                res = format_enrichment_dict(rows[0])
+                res['last_seen'] = res.pop('updated_at', None)
+                return res
+        except Exception:
+            pass
+
     if not c and os.path.exists(IPS_DB_PATH):
         for parts in _flat_file_rows(IPS_DB_PATH):
             if len(parts) >= 3 and parts[0].strip() == ip:
@@ -154,7 +180,7 @@ def lookup_hash(h: str, htype: str, c: Optional[sqlite3.Connection]) -> Optional
     return None
 
 def lookup_domain(d: str, c: Optional[sqlite3.Connection]) -> Optional[Dict[str, str]]:
-    d = (d or "").strip().lower()
+    d = norm_domain(d)
     if not d: return None
 
     if c:
@@ -206,8 +232,11 @@ def _collect_values(doc: Dict[str, Any], keys: List[str]) -> List[Tuple[str, str
 
 def update_doc(index, _id, enrichment):
     url = f"{OS_URL}/{index}/_update/{_id}"
-    body = {"doc": enrichment, "doc_as_upsert": True}
+    body = {"doc": enrichment}
     r = requests.post(url, json=body, auth=(OS_USER, OS_PASS), verify=OS_VERIFY_SSL, timeout=15)
+    if r.status_code == 404:
+        logging.warning("Update skipped for missing document %s/%s: %s", index, _id, r.text)
+        return
     if not r.ok: raise RuntimeError(f"Update failed: {r.status_code} {r.text}")
 
 def _is_sqlite_db(path):
@@ -224,7 +253,8 @@ def enrich():
     try: payload = request.get_json(force=True)
     except Exception: abort(400, "Invalid JSON")
 
-    if payload.get("secret") != WEBHOOK_SECRET:
+    req_secret = str(payload.get("secret", ""))
+    if not hmac.compare_digest(req_secret, WEBHOOK_SECRET):
         log_event("auth_failed", reason="bad_secret", level="WARNING")
         abort(403, "Forbidden")
 
@@ -298,13 +328,13 @@ def enrich():
                     dynamic_type_tags = [f"ioc:{t}" for t in types_present]
 
                     collected_tags = [t.strip() for v in hits_out.values() for t in v.get("tags", "").split(",") if t.strip()]
-                    unique_tags = list(set(["threatintel", "ioc:hit"] + dynamic_type_tags + collected_tags))
+                    unique_tags = sorted(set(["threatintel", "ioc:hit"] + dynamic_type_tags + collected_tags))
 
                     enrichment = {
                         "ioc_check_status": True,
                         "ioc_updated_at": now_iso(),
                         "ioc_hits": hits_out,
-                        "ioc_sources": list(sorted({v.get("source", "OTX") for v in hits_out.values()})) or ["OTX"],
+                        "ioc_sources": list(sorted({v.get("source", "MISP") for v in hits_out.values()})) or ["MISP"],
                         "ioc_warning": f"{total_hits} indicator(s) matched local IOC databases. Treat as malicious.",
                         "enrichment": {"tags": unique_tags, "confidence": "high"}
                     }

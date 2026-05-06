@@ -4,8 +4,13 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=wazuh
+Group=wazuh
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateTmp=yes
+ReadWritePaths=/var/ossec/integrations/ioc
+ReadWritePaths=/var/wazuh-ioc
 WorkingDirectory=/var/ossec/integrations
 ExecStart=/usr/bin/env python3 /var/ossec/integrations/misp_enricher.py
 Restart=always

@@ -5,13 +5,14 @@
 ## Table of Contents
 - [Tested Version](#tested-version)
 - [Overview](#overview)
-- [Integration Steps](#integration-steps)
-  - [Step 1: Obtain a MISP API Key](#step-1-obtain-a-misp-api-key)
-  - [Step 2: Configure Notification Channel](#step-2-configure-notification-channel)
-  - [Step 3: Create a Monitor](#step-3-create-a-monitor)
-  - [Step 4: Install Required Packages](#step-4-install-required-packages)
-  - [Step 5: Add Custom Scripts](#step-5-add-custom-scripts)
-  - [Step 6: Configure as a Service](#step-6-configure-as-a-service)
+  - [Enriched Alert Example](#enriched-alert-example)
+  - [Prerequisite](#prerequisite)
+- [Step 1: Obtain a MISP API Key](#step-1-obtain-a-misp-api-key)
+- [Step 2: Configure Notification Channel](#step-2-configure-notification-channel)
+- [Step 3: Create a Monitor](#step-3-create-a-monitor)
+- [Step 4: Install Required Packages](#step-4-install-required-packages)
+- [Step 5: Add Custom Scripts](#step-5-add-custom-scripts)
+- [Step 6: Configure as a Service](#step-6-configure-as-a-service)
 - [Testing](#testing)
 - [Conclusion](#conclusion)
 - [Reference](#reference)
@@ -22,11 +23,11 @@
 | 4.14.4 | Wazuh Indexer | OVA | Amazon Linux |
 
 ## Overview
-This guide explains how to integrate Wazuh with MISP Threat Intelligence to automatically enrich the same alerts with IOCs (Indicators of Compromise) matching against IPs, Hashes, Domains, and URLs directly inside the **same alert**.
+This guide explains how to integrate Wazuh with MISP Threat Intelligence to automatically enrich alerts with IOCs (Indicators of Compromise) matching against IPs, Hashes, Domains, and URLs directly inside the **same alert**.
 
 In this integration, a Wazuh Monitor runs every minute to check for alerts triggered within the last ten minutes that match specific rule IDs indicating potential security anomalies. These alerts are pushed to a Python Flask enrichment service via a webhook configured in the Wazuh Notification Channel. 
 
-Simultaneously, a scheduled fetcher permanently synchronizes current MISP malicious indicators (Domains, IPs) directly to lightweight SQLite databases locally on the server. When a Wazuh alert matches a local IOC inside these `.db` files, the Flask API immediately updates and tags the exact OpenSearch document with context.
+Simultaneously, a scheduled fetcher permanently synchronizes current MISP malicious indicators (Domains, IPs) directly to lightweight SQLite databases locally on the server, mapping offline Geolocation contexts completely natively without external IP rate limits. When a Wazuh alert matches a local IOC inside these `.db` files, the Flask API immediately updates and tags the exact OpenSearch document with context.
 
 ### Enriched Alert Example
 <img width="1175" height="1847" alt="image" src="https://github.com/user-attachments/assets/48af461a-1b0d-4dee-afc7-911f212cee09" />
@@ -143,7 +144,7 @@ curl -k -u admin:admin -X POST "https://<indexer-IP>:9200/_plugins/_alerting/mon
             "name": "webhook-ioc-enrich",
             "destination_id": "IOC-enrich-webhook-3000-enrich",
             "message_template": {
-              "source": "{\"secret\":\"replace-with-a-shared-secret\",\"hits\":{{#toJson}}ctx.results.0.hits.hits{{/toJson}}}"
+              "source": "{\"secret\":\"<YOUR_WEBHOOK_SECRET>\",\"hits\":{{#toJson}}ctx.results.0.hits.hits{{/toJson}}}"
             },
             "throttle_enabled": false
           }
@@ -152,6 +153,8 @@ curl -k -u admin:admin -X POST "https://<indexer-IP>:9200/_plugins/_alerting/mon
     ]
   }'
 ```
+
+> **Important:** You MUST replace `<YOUR_WEBHOOK_SECRET>` in the `message_template` source above with a secure, random string of your choice.
 
 You can update the above command by adding more rule id or can modify the query section to check other alerts also based on your requirement.
 
@@ -186,20 +189,22 @@ Copy and paste the `misp_ioc_fetcher.py` & `misp_enricher.py` into `/var/ossec/i
 ```bash
 sudo nano /var/ossec/integrations/.env
 ```
-Populate the environment configuration mapping directly to your MISP instance:
+Populate the environment configuration mapping directly to your MISP instance. **Important:** Ensure `WEBHOOK_SECRET` matches the secret defined in the Monitor payload (Step 3).
 ```bash
-MISP_URL="https://your-misp-server"
-MISP_AUTH_KEY="<YOUR_REAL_KEY>"
-MISP_VERIFYCERT="false"
-IOC_DIR="/var/ossec/integrations/ioc"
-LAST_DAYS="30"
+MISP_URL=https://your-misp-server
+MISP_AUTH_KEY=<YOUR_REAL_KEY>
+WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
+MISP_VERIFYCERT=false
+IOC_DIR=/var/ossec/integrations/ioc
+LAST_DAYS=30
 ```
 
 3. Set permissions exactly for execution:
 ```bash
 chmod +x /var/ossec/integrations/misp_*.py
-chmod 600 /var/ossec/integrations/.env
+chmod 644 /var/ossec/integrations/.env
 ```
+> **Note:** The `.env` file must be readable (644) so the `wazuh` system user can access the webhook secret and API keys when the service starts!
 
 ### Step 6: Configure as a Service
 We have bundled 3 highly-tuned Linux `systemd` Daemons to handle this automation.
@@ -224,7 +229,7 @@ sudo systemctl enable --now misp-fetcher.timer
 ```bash
 sudo systemctl status misp-enricher.service
 sudo systemctl status misp-fetcher.timer
-sudo ds -tlnp | grep 3000
+sudo ss -tlnp | grep 3000
 ```
 > Note: If you want to force an immediate MISP IOC pull, execute: `sudo systemctl start misp-fetcher.service`
 
