@@ -17,11 +17,11 @@ threat_score =
 [filters]
 # Only include IOCs with the following severity (leave blank for all)
 # Options: SEVERITY_NONE, SEVERITY_LOW, SEVERITY_MEDIUM, SEVERITY_HIGH, SEVERITY_UNKNOWN
-severity =
+severity = SEVERITY_HIGH
 
 # Only include IOCs with the following verdict (leave blank for all)
 # Options: VERDICT_BENIGN, VERDICT_UNDETECTED, VERDICT_SUSPICIOUS, VERDICT_MALICIOUS, VERDICT_UNKNOWN
-verdict =
+verdict = VERDICT_SUSPICIOUS,VERDICT_MALICIOUS
 
 [runtime]
 # Lifetime of an IOC in days (after which it is removed from local JSON)
