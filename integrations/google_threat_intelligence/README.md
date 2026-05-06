@@ -51,10 +51,12 @@ This integration can be broken down into the following steps:
 
 
 1. **Clone the repository**:
+
 ```sh
 sudo git clone https://github.com/wazuh/integrations.git
 cd integrations/integrations/google_threat_intelligence
 ```
+
 2. Set `WAZUH_HOME` to (`/var/ossec`)
 
 ```bash
@@ -66,7 +68,7 @@ WAZUH_HOME=/var/ossec
 3. Set `SCRIPT_DIR` to absolute path where you cloned the repository:
 
 ```bash
-SCRIPT_DIR=/var/google_threat_intelligence
+SCRIPT_DIR=/var/integrations/integrations/google_threat_intelligence
 ```
 
 4. Execute the `install.sh`:
