@@ -421,9 +421,13 @@ def save_state(state_dir: str, state: dict) -> None:
 # Wazuh CDB List Writer
 # ──────────────────────────────────────────────────────────────────────
 def write_cdb_list(list_dir: str, list_name: str, iocs: Set[str]) -> Path:
-    """Write IOCs to a Wazuh CDB list file. Format: <ioc>:malicious"""
+    """Write IOCs to a Wazuh CDB list file. Format: "<ioc>":malicious
+
+    Keys are wrapped in double quotes so that IOCs containing colons
+    (IPv6 addresses, URLs) are treated as a single key by Wazuh.
+    """
     path = Path(list_dir) / list_name
-    lines = sorted(f"{ioc}:malicious" for ioc in iocs)
+    lines = sorted(f'"{ioc}":malicious' for ioc in iocs)
 
     with open(path, "w") as f:
         f.write("\n".join(lines))

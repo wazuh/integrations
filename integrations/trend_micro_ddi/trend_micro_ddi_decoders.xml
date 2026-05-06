@@ -1,0 +1,117 @@
+<decoder name="Deep_Discovery_Inspector">
+  <prematch>Trend Micro\|Deep Discovery Inspector</prematch>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">CEF - - - (\d+)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|([^\|]+)\|</regex>
+  <order>cef_version, observer_vendor, observer_product, observer_version, event_code, signature_name, event_severity</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">rt=(.+?)\s+app=</regex>
+  <order>event_start</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">app=(\S+)</regex>
+  <order>network_protocol</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">src=(\S+)\s+spt=(\d+)</regex>
+  <order>source_ip, source_port</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">dst=(\S+)\s+dpt=(\d+)</regex>
+  <order>destination_ip, destination_port</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">shost=(\S+)</regex>
+  <order>source_host</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">dhost=(\S+)</regex>
+  <order>destination_host</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex>act=(\.+) cn3</regex>
+  <order>event_action</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">cat=(\S+)</regex>
+  <order>event_category</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">cnt=(\d+)</regex>
+  <order>event_count</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">cn3=(\S+)</regex>
+  <order>threat_type</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex>cs6Label=(\S+)\s+cs6=(\.+) \w+=</regex>
+  <order>attack_phase_label, attack_phase</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">suser=(\S+)</regex>
+  <order>source_user</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">duser=(\S+)</regex>
+  <order>destination_user</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">suid=(\S+)</regex>
+  <order>source_user_id</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">request=(\S+)</regex>
+  <order>url_original</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">fileHash=(\S+)</regex>
+  <order>file_hash</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex>cs1Label=(\S+)\s+cs1=(\.+) \w+=</regex>
+  <order>email_subject_label, email_subject</order>
+</decoder>
+
+<decoder name="Deep_Discovery_Inspector_child">
+  <parent>Deep_Discovery_Inspector</parent>
+  <regex type="pcre2">deviceDirection=(\S+)</regex>
+  <order>network_direction</order>
+</decoder>

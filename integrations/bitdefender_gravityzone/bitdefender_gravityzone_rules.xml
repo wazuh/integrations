@@ -1,0 +1,67 @@
+<group name="gravityzone, bitdefender, soc,">
+
+  <rule id="110000" level="3">
+    <decoded_as>gravityzone_soc</decoded_as>
+    <description>Bitdefender GravityZone: $(EventName) event received.</description>
+  </rule>
+
+  <rule id="110001" level="5">
+    <if_sid>110000</if_sid>
+    <field name="EventName">^AntiMalware$</field>
+    <description>Bitdefender GravityZone: AntiMalware event reported on $(DeviceHostName).</description>
+  </rule>
+
+  <rule id="110002" level="7">
+    <if_sid>110001</if_sid>
+    <field name="gravityzone_action">^deleted$|^blocked$|^quarantined$</field>
+    <description>Bitdefender GravityZone: Malware "$(MalwareName)" was $(gravityzone_action) on $(DeviceHostName).</description>
+  </rule>
+
+  <rule id="110003" level="12">
+    <if_sid>110001</if_sid>
+    <field name="gravityzone_action">^still present$|^ignored$|^failed$</field>
+    <description>CRITICAL: Bitdefender GravityZone: Malware "$(MalwareName)" is $(gravityzone_action) on $(DeviceHostName)! File: $(FilePath)</description>
+  </rule>
+
+  <rule id="110004" level="10">
+    <if_sid>110000</if_sid>
+    <field name="EventName">^New Incident$</field>
+    <description>Bitdefender GravityZone: New Incident detected on $(DeviceHostName) - $(DetectionName).</description>
+  </rule>
+
+  <rule id="110005" level="8">
+    <if_sid>110004</if_sid>
+    <field name="gravityzone_main_action">^blocked$</field>
+    <description>Bitdefender GravityZone: Incident "$(DetectionName)" was blocked on $(DeviceHostName). Process: $(sproc)</description>
+  </rule>
+
+  <rule id="110006" level="12">
+    <if_sid>110004</if_sid>
+    <field name="gravityzone_main_action" negate="yes">^blocked$</field>
+    <description>CRITICAL: Bitdefender GravityZone: Incident "$(DetectionName)" was NOT blocked (Action: $(gravityzone_main_action)) on $(DeviceHostName).</description>
+  </rule>
+
+  <rule id="110007" level="3">
+    <if_sid>110000</if_sid>
+    <field name="EventName">^Product Modules Status$</field>
+    <description>Bitdefender GravityZone: Endpoint $(DeviceHostName) reported module status.</description>
+  </rule>
+
+  <rule id="110008" level="8">
+    <if_sid>110007</if_sid>
+    <field name="MalwareModuleStatus">^disabled$</field>
+    <description>WARNING: Bitdefender GravityZone: A critical security module is DISABLED on $(DeviceHostName).</description>
+  </rule>
+
+  <rule id="110009" level="8">
+    <if_sid>110007</if_sid>
+    <field name="AntiphishingModuleStatus">^disabled$</field>
+    <description>WARNING: Bitdefender GravityZone: A critical security module is DISABLED on $(DeviceHostName).</description>
+  </rule>
+
+  <rule id="110010" level="8">
+    <if_sid>110007</if_sid>
+    <field name="BehavioralScanAVCModuleStatus">^disabled$</field>
+    <description>WARNING: Bitdefender GravityZone: A critical security module is DISABLED on $(DeviceHostName).</description>
+  </rule>
+</group>
