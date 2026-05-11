@@ -1,0 +1,17 @@
+[Unit]
+Description=MISP IOC Fetcher Sync (Twice a Day)
+After=network.target
+
+[Service]
+Type=oneshot
+User=wazuh-ioc
+Group=wazuh-ioc
+WorkingDirectory=/var/ossec/integrations
+ExecStart=/usr/bin/env python3 /var/ossec/integrations/misp_ioc_fetcher.py
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateTmp=yes
+ProtectHome=yes
+ReadWritePaths=/var/ossec/integrations/ioc
