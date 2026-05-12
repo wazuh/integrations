@@ -19,9 +19,9 @@
 
 ### Introduction
 
-A real-time chatbot for Wazuh environment management and alert analysis. Ask natural-language questions to investigate threats (Threat Hunting & DQL), perform IT Hygiene checks, retrieve SCA and Vulnerability details, manage agents (restart, remove, group assignment), automatically generate Custom Dashboards, and create downloadable PDF Reports.
+A real-time chatbot for Wazuh environment management and alert analysis. Ask natural-language questions to investigate threats (Threat Hunting & DQL), perform IT Hygiene checks, retrieve SCA and Vulnerability details, manage agents (restart, remove, group assignment), automatically generate Custom Dashboards, and create downloadable PDF Reports and send via email.
 
-The AI Assistant runs queries against Wazuh indices (e.g., `wazuh-alerts`, `wazuh-states-vulnerabilities`, `wazuh-states-syscollector`) through an MCP Server and a Gateway, translating natural-language requests into structured OpenSearch queries or API actions, and returning concise, actionable insights directly within the Wazuh Dashboard.
+The AI Assistant runs queries against Wazuh indices (e.g., `wazuh-alerts`, `wazuh-states-vulnerabilities`, `wazuh-states-inventory-*`) through an MCP Server and a Gateway, translating natural-language requests into structured OpenSearch queries or API actions, and returning concise, actionable insights directly within the Wazuh Dashboard.
 
 ---
 
@@ -133,7 +133,7 @@ deactivate
 Copy the sample environment file:
 
 ```bash
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-server/mcp-server.env /etc/mcp-server/
+sudo cp /opt/AI_assistant/mcp-server/mcp-server.env /etc/mcp-server/
 sudo chown root:root /etc/mcp-server/mcp-server.env
 sudo chmod 640 /etc/mcp-server/mcp-server.env
 ```
@@ -272,10 +272,10 @@ deactivate
 Copy the `mcp_llm_gateway.py` script to `/opt/mcp_llm_gateway-env/`.
 
 ```bash
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp_llm_gateway.py /opt/mcp_llm_gateway-env/
+sudo cp /opt/AI_assistant/mcp-llm-gateway/mcp_llm_gateway.py /opt/mcp_llm_gateway-env/
 sudo chown root:root /opt/mcp_llm_gateway-env/mcp_llm_gateway.py
 sudo chmod 644 /opt/mcp_llm_gateway-env/mcp_llm_gateway.py
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp_gateway/* /opt/mcp_llm_gateway-env/mcp_gateway/
+sudo cp /opt/AI_assistant/mcp-llm-gateway/mcp_gateway/* /opt/mcp_llm_gateway-env/mcp_gateway/
 sudo chown root:root /opt/mcp_llm_gateway-env/mcp_gateway/*
 sudo chmod 644 /opt/mcp_llm_gateway-env/mcp_gateway/*
 ```
@@ -285,7 +285,7 @@ sudo chmod 644 /opt/mcp_llm_gateway-env/mcp_gateway/*
 Copy the sample environment file:
 
 ```bash
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp-llm-gateway.env /etc/mcp-llm-gateway/
+sudo cp /opt/AI_assistant/mcp-llm-gateway/mcp-llm-gateway.env /etc/mcp-llm-gateway/
 sudo chown root:mcpgateway /etc/mcp-llm-gateway/mcp-llm-gateway.env
 sudo chmod 640 /etc/mcp-llm-gateway/mcp-llm-gateway.env
 ```
@@ -298,10 +298,10 @@ Enable the prompt files:
 
 ```bash
 # Copy your prompt files to /etc/mcp-llm-gateway/
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp-llm-gateway.prompt /etc/mcp-llm-gateway/
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/decoder-builder.prompt /etc/mcp-llm-gateway/
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/dql-builder.prompt /etc/mcp-llm-gateway/
-sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/report-generator.prompt /etc/mcp-llm-gateway/
+sudo cp /opt/AI_assistant/mcp-llm-gateway/mcp-llm-gateway.prompt /etc/mcp-llm-gateway/
+sudo cp /opt/AI_assistant/mcp-llm-gateway/decoder-builder.prompt /etc/mcp-llm-gateway/
+sudo cp /opt/AI_assistant/mcp-llm-gateway/dql-builder.prompt /etc/mcp-llm-gateway/
+sudo cp /opt/AI_assistant/mcp-llm-gateway/report-generator.prompt /etc/mcp-llm-gateway/
 ```
 
 ### 3.8 Create Systemd Service
