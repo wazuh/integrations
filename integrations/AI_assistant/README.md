@@ -86,7 +86,11 @@ sudo dnf install -y python3.11 python3.11-devel python3.11-pip git tar acl gcc f
 
 # Clone the repository to get the files
 cd /opt
-sudo git clone https://github.com/bonyjohn05/wazuh-ai-analyst.git
+curl -L -o wazuh-integrations-main.zip \
+"https://github.com/wazuh/integrations/archive/refs/heads/main.zip"
+unzip wazuh-integrations-main.zip
+cp -r integrations-main/integrations/AI_assistant /opt/AI_assistant
+rm -rf integrations-main wazuh-integrations-main.zip
 ```
 
 ---
