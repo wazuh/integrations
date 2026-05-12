@@ -5,11 +5,12 @@
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
 * [Architecture](#architecture)
-* [Installation and Configuration](#installation-and-configuration)
-    * [OpenSearch MCP Server](#opensearch-mcp-server)
-    * [MCP-LLM Gateway](#mcp-llm-gateway)
-    * [Wazuh environment](#wazuh-environment)
+* [Installation and Configuration](#1-system-preparation)
+    * [OpenSearch MCP Server](#2-opensearch-mcp-server-setup)
+    * [MCP-LLM Gateway](#3-mcp-llm-gateway-setup)
+    * [Wazuh environment](#4-wazuh--opensearch-plugin-installation)
 * [Samples questions](#samples-questions)
+* [Action Commands](#action-commands)
 * [Recommendations & next steps](#recommendations--next-steps)
 * [Important notes](#important-notes)
 * [Sources](#sources)
@@ -18,34 +19,33 @@
 
 ### Introduction
 
-A real-time chatbot for alert analysis on Wazuh. Ask natural-language questions to investigate threats, explain alerts, and get security recommendations.
+A real-time chatbot for Wazuh environment management and alert analysis. Ask natural-language questions to investigate threats (Threat Hunting & DQL), perform IT Hygiene checks, retrieve SCA and Vulnerability details, manage agents (restart, remove, group assignment), automatically generate Custom Dashboards, and create downloadable PDF Reports.
 
-The AI Assistant runs queries against Wazuh indices (e.g., `wazuh-alerts`, `wazuh-states-vulnerabilities`) through an MCP Server and a Gateway, which translate natural-language questions into OpenSearch queries and return concise, actionable insights. Results are displayed in the Wazuh Dashboard.
+The AI Assistant runs queries against Wazuh indices (e.g., `wazuh-alerts`, `wazuh-states-vulnerabilities`, `wazuh-states-syscollector`) through an MCP Server and a Gateway, translating natural-language requests into structured OpenSearch queries or API actions, and returning concise, actionable insights directly within the Wazuh Dashboard.
 
 ---
 
 ### Architecture
 
-
-<img src="./images/wazuh-mcpserver.png" alt="Wazuh MCP Server" width="1200">
+![alt text](images/Architecture-1.png)
 
 The integration uses OpenSearch ML Commons with an external MCP server. Instead of calling a traditional ML model endpoint, the ML Commons HTTP Connector points to the MCP-LLM Gateway. The Gateway orchestrates the LLM, applies the system prompt, and proxies tool calls to the MCP server.
 
 #### Components
-* **Wazuh environment (4.13, built on OpenSearch 2.9.2)**: Includes OpenSearch Dashboards with Dashboard Assistant, ML Commons (HTTP connector) is configured in the same environment. The environment collects, analyzes and stores normalized security data in Wazuh indices (e.g., wazuh-alerts, wazuh-states-vulnerabilities). ML Commons forwards Assistant requests to the Gateway
-* **MCP-LLM Gateway (FastAPI + LangChain)**: Runs the agent logic (Claude on Bedrock or OpenAI), applies the system prompt, and proxies tool calls as the MCP client.
-* **OpenSearch MCP server**: Hosts MCP tools that query Wazuh indices.
+* **Wazuh environment (4.14.3, built on OpenSearch 2.19.4)**: Includes OpenSearch Dashboards with Dashboard Assistant. ML Commons (HTTP connector) forwards Assistant requests to the Gateway. The environment collects, analyzes, and stores normalized security data.
+* **MCP-LLM Gateway (FastAPI + LangChain)**: Runs the agent logic (Claude on Bedrock, OpenAI, or Gemini), evaluates intent for data querying, agent management, dashboard creation, or PDF report generation, and proxies tool calls as the MCP client.
+* **OpenSearch MCP server**: Hosts MCP tools that securely query Wazuh indices.
 
 
 #### Connection flow
 1. The user asks a natural-language question in OpenSearch Dashboards (Assistant UI).
 2. ML Commons (HTTP connector) forwards the request to the MCP-LLM Gateway (`/analyze`).
-3. The Gateway (FastAPI + LangChain) runs the agent logic, applies the system prompt, performs the LLM call (Claude on Bedrock or OpenAI), and selects which tools to invoke.
-4. The Gateway serves as the MCP client and proxies tool requests to the OpenSearch MCP server.
-5. The MCP server executes the tool(s) and queries the Wazuh indices (wazuh-alerts-*, wazuh-states-vulnerabilities-*).
-6. The MCP server returns structured results to the Gateway.
-7. The Gateway agent analyzes the tool outputs, generates a concise summary, and formats the final answer (including total_hits, summary, key findings, and recommendations).
-8. The Gateway returns the final answer to ML Commons, which relays it to the Assistant UI in OpenSearch Dashboards for the user to view.
+3. The Gateway (FastAPI + LangChain) evaluates the user's intent:
+    * **Analysis/DQL/Hygiene Intent:** If requesting data analysis (Threat Hunting, SCA, Vulnerabilities, IT Hygiene), the Gateway selects and proxies MCP tool calls to the OpenSearch server.
+    * **Action/Dashboard/Report Intent:** If requesting agent management (restart/remove/groups), a custom dashboard, or an email PDF report, the Gateway triggers the specific operational workflow directly.
+4. The MCP server executes any proxied tool(s) against the Wazuh indices and returns structured results.
+5. The Gateway evaluates tool outputs, generates a concise summary, or returns a `Pending Action` awaiting user `CONFIRM` (e.g., executing agent removal, group assignment, or OpenSearch dashboard publishing).
+6. The Gateway returns the final answer to ML Commons, detailing insights, downloadable PDF report links, direct Dashboard links, or execution logs to the Assistant UI for the analyst to view.
 
 ---
 
@@ -54,10 +54,10 @@ The integration uses OpenSearch ML Commons with an external MCP server. Instead 
 - Wazuh v4.13 (built on OpenSearch 2.9.2)
 - Deployment: single-host or distributed setup. The MCP-LLM Gateway and MCP Server can run on the same host or on separate hosts.
 - Resources: minimum 2 vCPU / 4 GB RAM, recommended 4 vCPU / 16 GB RAM.
-- Active subscription to an external LLM service (OpenAI or AWS Bedrock)
+- Active subscription to an external LLM service (OpenAI or AWS Bedrock or GeminiAI)
 - Network connectivity between all components (see **Required Ports**)
 
-> **Tested on Ubuntu 24.04 LTS**
+> **Tested on Amazon Linux 2023**
 
 #### Required Ports
 The following table lists the default ports required for this proof of concept. You can change these values if needed, but the ports must remain open between the listed components for the system to work.
@@ -67,6 +67,7 @@ The following table lists the default ports required for this proof of concept. 
 | MCP-LLM Gateway   | 9912 | TCP       | Receives HTTP requests from ML Commons (/analyze), runs agent logic, communicates with the LLM and the MCP server |
 | MCP Server        | 9900 | TCP       | Exposes the MCP Server. It receives tool calls from the Gateway. The MCP server performs the corresponding queries against the Wazuh Indexer, and returns structured results back to the Gateway. |
 | Wazuh Indexer     | 9200 | TCP       | Wazuh Indexer REST API |
+| Wazuh Manager     | 55000 | TCP       | Wazuh Manager API |
 
 
 
@@ -75,44 +76,40 @@ The following table lists the default ports required for this proof of concept. 
 ### Installation and Configuration
 ---
 
-### OpenSearch MCP Server
+## 1. System Preparation
 
-<details>
-  <summary><b>1. Create the directory structure</b></summary>
+Update the system and install necessary dependencies.
 
+```bash
+sudo dnf update -y
+sudo dnf install -y python3.11 python3.11-devel python3.11-pip git tar acl gcc freetype-devel libpng-devel qpdf
 
-  ```bash
+# Clone the repository to get the files
+cd /opt
+sudo git clone https://github.com/bonyjohn05/wazuh-ai-analyst.git
+```
+
+---
+
+## 2. OpenSearch MCP Server Setup
+
+### 2.1 Create Directory Structure
+
+```bash
 sudo mkdir -p /opt/mcp_server-env
 sudo mkdir -p /var/log/mcp_server
 sudo mkdir -p /etc/mcp-server
 ```
 
-MCP Server will use the following directories:
+### 2.2 Create Service Account
 
-- `/opt/mcp_server-env/` — Python virtual environment and packages
-- `/etc/mcp-server/` — Configuration files (environment/credentials)
-- `/var/log/mcp_server/` — Log files
-
-The config directory `/etc/mcp-server/` will contain `mcp-server.env`, which defines the connection to the Wazuh Indexer.
-
-</details> 
-
-<details>
-  <summary><b>2. Create a dedicated service account</b></summary>
-   
-Create a dedicated system user so that the service runs with minimal privileges:
-
-  ```bash
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin mcpserver || true
+```bash
+sudo useradd --system --no-create-home --shell /sbin/nologin mcpserver || true
 ```
-</details> 
 
-<details>
-  <summary><b>3. Set ownership and permissions</b></summary>
-   
-Apply ownership and permissions to the configuration `/etc/mcp-server/` and log directories `/var/log/mcp_server/`. 
+### 2.3 Set Permissions
 
-  ```bash
+```bash
 sudo chown -R root:root /etc/mcp-server
 sudo chmod 750 /etc/mcp-server
 sudo touch /etc/mcp-server/mcp-server.env
@@ -121,303 +118,208 @@ sudo chown -R mcpserver:mcpserver /var/log/mcp_server
 sudo chmod 750 /var/log/mcp_server
 ```
 
-This also creates an empty `/etc/mcp-server/mcp-server.env` file. You will edit it later to define the Wazuh Indexer connection.
+### 2.4 Setup Python Virtual Environment
 
-</details> 
-
-<details>
-  <summary><b>4. Set up the Python virtual environment</b></summary>
-
-  ```bash
-sudo apt-get update
-sudo apt-get install -y python3-venv
-python3 -m venv /opt/mcp_server-env
+```bash
+python3.11 -m venv /opt/mcp_server-env
 source /opt/mcp_server-env/bin/activate
 pip install --upgrade pip
-
-```
-
-This isolates MCP Server dependencies from the system Python.
-
-</details> 
-
-</details> 
-
-<details>
-  <summary><b>5. Install the MCP Server package</b></summary>
-
-
-  ```bash
 pip install opensearch-mcp-server-py
+deactivate
 ```
 
-Install the MCP Server package inside the virtual environment at  `/opt/mcp_server-env/`
+### 2.5 Configure Environment Variables
 
-</details> 
+Copy the sample environment file:
 
-<details>
-  <summary><b>6. Create the systemd service unit</b></summary>
-
-Create the service file:
-
-  ```bash
-sudo nano /etc/systemd/system/mcp-server.service
-
+```bash
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-server/mcp-server.env /etc/mcp-server/
+sudo chown root:root /etc/mcp-server/mcp-server.env
+sudo chmod 640 /etc/mcp-server/mcp-server.env
 ```
 
-mcp-server.service:
+Edit `/etc/mcp-server/mcp-server.env`:
 
-  ```bash
+```bash
+sudo nano /etc/mcp-server/mcp-server.env
+```
+
+Add the following content (adjust values for your environment):
+
+```bash
+OPENSEARCH_URL="https://<WAZUH_INDEXER_IP>:9200"
+OPENSEARCH_USERNAME="<WAZUH_INDEXER_USERNAME>"
+OPENSEARCH_PASSWORD="<WAZUH_INDEXER_PASSWORD>"
+OPENSEARCH_SSL_VERIFY="false"
+```
+
+### 2.6 Create Systemd Service
+
+Create `/etc/systemd/system/mcp-server.service`:
+
+```ini
 [Unit]
 Description=OpenSearch MCP Server
 After=network.target
-
 
 [Service]
 User=mcpserver
 Group=mcpserver
 WorkingDirectory=/opt/mcp_server-env
 EnvironmentFile=/etc/mcp-server/mcp-server.env
-ExecStart=/opt/mcp_server-env/bin/python -m mcp_server_opensearch --transport stream --host 0.0.0.0 --port 9900
+ExecStart=/opt/mcp_server-env/bin/python3.11 -m mcp_server_opensearch --transport stream --host 0.0.0.0 --port 9900
 Restart=always
 RestartSec=10
 TimeoutStopSec=15
 StandardOutput=append:/var/log/mcp_server/mcp-server.log
 StandardError=append:/var/log/mcp_server/mcp-server.log
 
-
 [Install]
 WantedBy=multi-user.target
 ```
 
-Reload systemd and enable the service:
+Enable and start the service:
 
-  ```bash
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable mcp-server
-
-```
-
-</details> 
-
-
-<details>
-  <summary><b>7. Configure environment variables</b></summary>
-   
-Open `/etc/mcp-server/mcp-server.env` and add the connection details for the Wazuh Indexer:
-
-  ```bash
-sudo nano /etc/mcp-server/mcp-server.env
-
-```
-
-Copy and paste the contents of the [`mcp-server.env`](config/mcp-server/mcp-server.env) file.
-
-</details> 
-
-
-<details>
-  <summary><b>8. Start the service</b></summary>
-
-  ```bash
 sudo systemctl start mcp-server
+sudo systemctl status mcp-server
 ```
-
-Check status:
-
-  ```bash
-systemctl status mcp-server
-```
-
-</details> 
-
-<details>
-  <summary><b>9. View logs</b></summary
-
-Log files:
-
-  ```bash
-tail -f /var/log/mcp_server/mcp-server.log
-```
-
-</details> 
-
-
-<details>
-  <summary><b>10. Apply future changes</b></summary
-
-To apply future changes, whenever you edit `/etc/mcp-server/mcp-server.env`, restart:
-
-  ```bash
-To apply future changes, whenever you edit `/etc/mcp-server/mcp-server.env`, restart:
-```
-
-</details> 
 
 ---
-### MCP-LLM Gateway
 
+## 3. MCP-LLM Gateway Setup
 
-<details>
-  <summary><b>1. Create the directory structure</b></summary>
+### 3.1 Create Directory Structure
 
-
-  ```bash
+```bash
 sudo mkdir -p /opt/mcp_llm_gateway-env
+sudo mkdir -p /opt/mcp_llm_gateway-env/mcp_gateway
 sudo mkdir -p /var/log/mcp_llm_gateway
 sudo mkdir -p /etc/mcp-llm-gateway
 ```
 
-MCP-LLM Gateway will use the following directories:
+### 3.2 Create Service Account
 
-- `/opt/mcp_server-env/` — Python virtual environment and packages
-- `/etc/mcp-llm-gateway/` — Configuration files (.env and .prompt)
-- `/var/log/mcp_llm_gateway/` — Log files
-
-</details> 
-
-
-<details>
-  <summary><b>2. Create a dedicated service account</b></summary>
-
-Create a dedicated system user so that the service runs with minimal privileges:
-
-  ```bash
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin mcpgateway || true
+```bash
+sudo useradd --system --no-create-home --shell /sbin/nologin mcpgateway || true
 ```
 
-</details> 
+### 3.3 Set Permissions
 
-<details>
-  <summary><b>3. Set ownership and permissions</b></summary>
-
-Apply ownership and permissions to the configuration `/etc/mcp-llm-gateway/` and log directories `/var/log/mcp_llm_gateway/`. 
-
-  ```bash
+```bash
 sudo chown root:mcpgateway /etc/mcp-llm-gateway
 sudo chmod 750 /etc/mcp-llm-gateway
+sudo chmod 750 /etc/mcp-llm-gateway/mcp_gateway
 sudo touch /etc/mcp-llm-gateway/mcp-llm-gateway.env
 sudo touch /etc/mcp-llm-gateway/mcp-llm-gateway.prompt
+sudo touch /etc/mcp-llm-gateway/decoder-builder.prompt
+sudo touch /etc/mcp-llm-gateway/dql-builder.prompt
+sudo touch /etc/mcp-llm-gateway/report-generator.prompt
+
 sudo chown root:mcpgateway /etc/mcp-llm-gateway/mcp-llm-gateway.env
 sudo chown root:mcpgateway /etc/mcp-llm-gateway/mcp-llm-gateway.prompt
+sudo chown root:mcpgateway /etc/mcp-llm-gateway/decoder-builder.prompt
+sudo chown root:mcpgateway /etc/mcp-llm-gateway/dql-builder.prompt
+sudo chown root:mcpgateway /etc/mcp-llm-gateway/report-generator.prompt
+
 sudo chmod 640 /etc/mcp-llm-gateway/mcp-llm-gateway.env
 sudo chmod 640 /etc/mcp-llm-gateway/mcp-llm-gateway.prompt
+sudo chmod 640 /etc/mcp-llm-gateway/decoder-builder.prompt
+sudo chmod 640 /etc/mcp-llm-gateway/dql-builder.prompt
+sudo chmod 640 /etc/mcp-llm-gateway/report-generator.prompt
+
 sudo chown -R mcpgateway:mcpgateway /var/log/mcp_llm_gateway
 sudo chmod 750 /var/log/mcp_llm_gateway
-
 ```
 
-This also creates empty `.env` and  `.prompt` files. You will edit them later to define the Wazuh Indexer connection and the system prompt used by the LLM.
+### 3.4 Setup Python Virtual Environment and Dependencies
 
-</details> 
-
-<details>
-  <summary><b>4. Set up the Python virtual environment</b></summary>
-
-  ```bash
-sudo apt-get update
-sudo apt-get install -y python3-venv
-python3 -m venv /opt/mcp_llm_gateway-env
+```bash
+python3.11 -m venv /opt/mcp_llm_gateway-env
 source /opt/mcp_llm_gateway-env/bin/activate
 pip install --upgrade pip
+
+# Step 1: Install Core (to avoid resolution conflicts)
+pip install "langchain==0.3.17" "langchain-core==0.3.33"
+
+# Step 2: Install Providers (pinned to avoid auto-upgrade to 1.x)
+pip install "langchain-openai<0.3.0" \
+            "langchain-anthropic<0.3.0" \
+            "langchain-google-genai>=2.0.0" \
+            "langchain-aws>=0.2.0" \
+            "langchain-mcp-adapters==0.1.0"
+
+# Step 3: Install Web & Utils
+pip install "fastapi>=0.110.0" \
+            "uvicorn[standard]>=0.30.0" \
+            "pydantic>=2.7.0" \
+            "boto3>=1.34.0" \
+            "httpx>=0.27.0"
+
+# Step 4: Install PDF Reporting & Data Visualization
+pip install "reportlab>=4.0.0" \
+            "matplotlib>=3.8.0" \
+            "pandas>=2.1.0" \
+            "scipy>=1.11.0"
+
+deactivate
 ```
 
-This isolates MCP-LLM Gateway dependencies from the system Python.
+### 3.5 Deploy Gateway Script
 
-</details> 
+Copy the `mcp_llm_gateway.py` script to `/opt/mcp_llm_gateway-env/`.
 
-
-<details>
-  <summary><b>5. Install dependencies</b></summary>
-
-  ```bash
-python -m pip install --upgrade \
-  "fastapi==0.128.0" \
-  "uvicorn[standard]==0.40.0" \
-  "pydantic==2.12.5" \
-  "langchain==0.3.27" \
-  "langchain-core==0.3.79" \
-  "langchain-openai==0.3.35" \
-  "langchain-anthropic==0.3.22" \
-  "langchain-mcp-adapters==0.1.9" \
-  "langchain-aws==0.2.35" \
-  "boto3==1.42.30" \
-  "httpx==0.28.1"
-
+```bash
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp_llm_gateway.py /opt/mcp_llm_gateway-env/
+sudo chown root:root /opt/mcp_llm_gateway-env/mcp_llm_gateway.py
+sudo chmod 644 /opt/mcp_llm_gateway-env/mcp_llm_gateway.py
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp_gateway/* /opt/mcp_llm_gateway-env/mcp_gateway/
+sudo chown root:root /opt/mcp_llm_gateway-env/mcp_gateway/*
+sudo chmod 644 /opt/mcp_llm_gateway-env/mcp_gateway/*
 ```
 
-</details> 
+### 3.6 Configure Environment Variables
 
-<details>
-  <summary><b>6. Create the gateway script</b></summary>
+Copy the sample environment file:
 
-  Create the MCP script inside the virtual environment at  `/opt/mcp_llm_gateway-env/`
-
-  ```bash
-sudo nano /opt/mcp_llm_gateway-env/mcp_llm_gateway.py
+```bash
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp-llm-gateway.env /etc/mcp-llm-gateway/
+sudo chown root:mcpgateway /etc/mcp-llm-gateway/mcp-llm-gateway.env
+sudo chmod 640 /etc/mcp-llm-gateway/mcp-llm-gateway.env
 ```
 
-Copy and paste the contents of the [`mcp_llm_gateway.py`](config/mcp-llm-gateway/mcp_llm_gateway.py) file.
+Edit `/etc/mcp-llm-gateway/mcp-llm-gateway.env` and add your configuration (API keys, Wazuh Manager IP, etc.).
 
-</details> 
+### 3.7 Configure Prompts
 
-<details>
-  <summary><b>7. Configure environment variables</b></summary>
+Enable the prompt files:
 
-Edit `/etc/mcp-llm-gateway/mcp-llm-gateway.env`:
-
-  ```bash
-sudo nano /etc/mcp-llm-gateway/mcp-llm-gateway.env
+```bash
+# Copy your prompt files to /etc/mcp-llm-gateway/
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/mcp-llm-gateway.prompt /etc/mcp-llm-gateway/
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/decoder-builder.prompt /etc/mcp-llm-gateway/
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/dql-builder.prompt /etc/mcp-llm-gateway/
+sudo cp /opt/wazuh-ai-analyst/Integration/mcp-llm-gateway/report-generator.prompt /etc/mcp-llm-gateway/
 ```
 
-Copy and paste the contents of the [`mcp-llm-gateway.env`](config/mcp-llm-gateway/mcp-llm-gateway.env) file.
+### 3.8 Create Systemd Service
 
-Note: Only one LLM provider can be active at a time. To use Claude (Bedrock), keep the AWS variables and leave the OpenAI section commented. To use OpenAI, comment the AWS variables and uncomment the OpenAI section.
+Create `/etc/systemd/system/mcp-llm-gateway.service`:
 
-</details> 
-
-<details>
-  <summary><b>8. Configure the system prompt</b></summary>
-
-   This file defines the behavioral rules and policies that guide how the LLM responds to user queries.
-
-If you need to adjust how the assistant interprets security questions or interacts with Wazuh data, you can edit this file.
-
-Edit the prompt configuration file `/etc/mcp-llm-gateway/mcp-llm-gateway.prompt`:
-
-  ```bash
-sudo nano /etc/mcp-llm-gateway/mcp-llm-gateway.prompt
-```
-Starter content (you can refine later):
-
-Copy and paste the contents of the [`mcp-llm-gateway.prompt`](config/mcp-llm-gateway/mcp-llm-gateway.prompt) file.
-
-</details> 
-
-
-<details>
-  <summary><b>9. Create the systemd service unit</b></summary>
-
-Create the service file:
-
-  ```bash
-sudo nano /etc/systemd/system/mcp-llm-gateway.service
-```
-
-`mcp-llm-gateway.service`:
-
-  ```bash
+```ini
 [Unit]
 Description=MCP LLM Gateway
 After=network.target
-
 
 [Service]
 User=mcpgateway
 Group=mcpgateway
 WorkingDirectory=/opt/mcp_llm_gateway-env
 EnvironmentFile=/etc/mcp-llm-gateway/mcp-llm-gateway.env
-ExecStart=/opt/mcp_llm_gateway-env/bin/python /opt/mcp_llm_gateway-env/mcp_llm_gateway.py
+# Ensure the path matches where you put the script
+ExecStart=/opt/mcp_llm_gateway-env/bin/python3.11 /opt/mcp_llm_gateway-env/mcp_llm_gateway.py
 ReadOnlyPaths=
 ReadWritePaths=/etc/mcp-llm-gateway /var/log/mcp_llm_gateway
 Restart=always
@@ -426,246 +328,77 @@ TimeoutStopSec=15
 StandardOutput=append:/var/log/mcp_llm_gateway/mcp-llm-gateway.log
 StandardError=append:/var/log/mcp_llm_gateway/mcp-llm-gateway.log
 
-
 [Install]
 WantedBy=multi-user.target
 ```
-Reload systemd and enable the service:
 
-  ```bash
+Enable and start:
+
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable mcp-llm-gateway
-```
-
-</details> 
-
-
-<details>
-  <summary><b>10. Start the service</b></summary>
-
-  ```bash
 sudo systemctl start mcp-llm-gateway
-
+sudo systemctl status mcp-llm-gateway
 ```
 
-Check status:
-  ```bash
-systemctl status mcp-llm-gateway
-```
-</details> 
+## 4. Wazuh / OpenSearch Plugin Installation
 
-<details>
-  <summary><b>11. Run a health check</b></summary>
+Perform these steps on the **Wazuh Dashboard** server.
 
-Verify Gateway, LLM, and MCP connectivity. 
+### 4.1 Install Plugin (OpenSearch 2.19.4)
 
-Run the following command to confirm all components are operational:
-
-  
-
-  ```bash
-curl -s http://<MCP_LLM_GATEWAY_HOST-IP>:9912/health | jq
-
-```
-
-If everything is working properly, you will see a response similar to the following:
-  ```bash
-{
-  "summary": "All components operational.",
-  "status": {
-    "gateway": "ok",
-    "llm": "ok",
-    "mcp": "ok"
-  },
-  "details": {
-    "mcp_tools_count": 8
-  },
-  "provider": "claude_bedrock",
-  "model": "anthropic.claude-3-sonnet-20240229-v1:0",
-  "mcp_url": "http://10.128.0.27:9900/sse"
-}
-
-```
-</details> 
-
-
-<details>
-  <summary><b>12. View logs</b></summary>
-
-Log files:
-
-Run the following command to confirm all components are operational:
-
-  
-
-  ```bash
-tail -f /var/log/mcp_llm_gateway/mcp-llm-gateway.log
-```
-</details> 
-
-
-<details>
-  <summary><b>13. Apply future changes</b></summary>
-
-To apply future changes, whenever you edit `mcp-llm-gateway.prompt` or `mcp_llm_gateway.py`, restart:
-
-
-  ```bash
-sudo systemctl restart  mcp-llm-gateway
-```
-</details> 
-
----
-### Wazuh environment
-
-
-<details>
-  <summary><b>1. Install the OpenSearch Dashboards plugin in the Wazuh Dashboard</b></summary>
-
-
-
-  ```bash
-curl https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.19.2/opensearch-dashboards-2.19.2-linux-x64.tar.gz -o opensearch-dashboards.tar.gz
+```bash
+# Download OpenSearch Dashboards 2.19.4 linux-x64
+curl https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.19.4/opensearch-dashboards-2.19.4-linux-x64.tar.gz -o opensearch-dashboards.tar.gz
 
 tar -xvzf opensearch-dashboards.tar.gz
 
-cp -r opensearch-dashboards-2.19.2/plugins/assistantDashboards/ /usr/share/wazuh-dashboard/plugins/
+# Copy plugins
+sudo cp -r opensearch-dashboards-2.19.4/plugins/assistantDashboards/ /usr/share/wazuh-dashboard/plugins/
+sudo cp -r opensearch-dashboards-2.19.4/plugins/mlCommonsDashboards/ /usr/share/wazuh-dashboard/plugins/
 
-cp -r opensearch-dashboards-2.19.2/plugins/mlCommonsDashboards/ /usr/share/wazuh-dashboard/plugins/
-chown -R wazuh-dashboard:wazuh-dashboard /usr/share/wazuh-dashboard/plugins/mlCommonsDashboards/
+# Set Permissions
+sudo chown -R wazuh-dashboard:wazuh-dashboard /usr/share/wazuh-dashboard/plugins/mlCommonsDashboards/
+sudo chown -R wazuh-dashboard:wazuh-dashboard /usr/share/wazuh-dashboard/plugins/assistantDashboards/
+sudo chmod -R 750 /usr/share/wazuh-dashboard/plugins/mlCommonsDashboards/
+sudo chmod -R 750 /usr/share/wazuh-dashboard/plugins/assistantDashboards/
 
-chown -R wazuh-dashboard:wazuh-dashboard /usr/share/wazuh-dashboard/plugins/assistantDashboards/
-chmod -R 750 /usr/share/wazuh-dashboard/plugins/mlCommonsDashboards/
-chmod -R 750 /usr/share/wazuh-dashboard/plugins/assistantDashboards/
+# Enable Chat
+echo "assistant.chat.enabled: true" | sudo tee -a /etc/wazuh-dashboard/opensearch_dashboards.yml
 
-ls -la /usr/share/wazuh-dashboard/plugins/ | grep -E "(assistant|ml)"
-echo "assistant.chat.enabled: true" >> /etc/wazuh-dashboard/opensearch_dashboards.yml
-
-systemctl restart wazuh-dashboard
-systemctl status wazuh-dashboard
-
+# Restart Dashboard
+sudo systemctl restart wazuh-dashboard
 ```
-</details> 
 
-<details>
-  <summary><b>2. Cluster settings</b></summary>
-   
-In the Wazuh Dashboard go `☰` > `Indexer management` > `Dev tools`
+### 4.2 Cluster Settings
 
+In Wazuh Dashboard > Dev Tools, run:
 
-  ```json
+```json
 PUT /_cluster/settings
 {
   "persistent": {
-    "plugins.ml_commons.agent_framework_enabled": true
+    "plugins.ml_commons.agent_framework_enabled": true,
+    "plugins.ml_commons.only_run_on_ml_node": false,
+    "plugins.ml_commons.connector.private_ip_enabled": true,
+    "plugins.ml_commons.trusted_connector_endpoints_regex": [
+      "^https://runtime\\.sagemaker\\..*[a-z0-9-]\\.amazonaws\\.com/.*$",
+      "^https://api\\.openai\\.com/.*$",
+      "^https://api\\.cohere\\.ai/.*$",
+      "^https://bedrock-runtime\\..*[a-z0-9-]\\.amazonaws\\.com/.*$",
+      "^http://10\\.128\\.0\\.10:9912/.*$"  // Replace with your Gateway IP
+    ]
   }
 }
 ```
 
-Output:
-  ```json
-{
-  "acknowledged": true,
-  "persistent": {
-    "plugins": {
-      "ml_commons": {
-        "agent_framework_enabled": "true"
-      }
-    }
-  },
-  "transient": {}
-}
+### 4.3 Register Remote Model
 
-```
+In Wazuh Dashboard > Dev Tools, run the following to register the gateway as a model:
 
+**Note**: Replace `http://<MCP_LLM_GATEWAY_HOST-IP>:9912` with your actual Gateway IP/Port.
 
-  ```json
-PUT /_cluster/settings
-{
-  "persistent" : {
-    "plugins.ml_commons.only_run_on_ml_node":"false"
-  }
-}
-
-```
-
-Output:
-  ```json
-{
-  "acknowledged": true,
-  "persistent": {
-    "plugins": {
-      "ml_commons": {
-        "only_run_on_ml_node": "false"
-      }
-    }
-  },
-  "transient": {}
-}
-
-```
-
-Replace with the IP of the MCP-LLM Gateway:
-
-  ```json
-PUT /_cluster/settings
-{
-    "persistent": {
-        "plugins.ml_commons.connector.private_ip_enabled": true,
-        "plugins.ml_commons.trusted_connector_endpoints_regex": [
-          "^https://runtime\\.sagemaker\\..*[a-z0-9-]\\.amazonaws\\.com/.*$",
-          "^https://api\\.openai\\.com/.*$",
-          "^https://api\\.cohere\\.ai/.*$",
-          "^https://bedrock-runtime\\..*[a-z0-9-]\\.amazonaws\\.com/.*$",
-         "^http://10\\.128\\.0\\.10:9912/.*$"
-        ]
-    }
-}
-
-
-```
-
-Output:
-  ```json
-{
-  "acknowledged": true,
-  "persistent": {
-    "plugins": {
-      "ml_commons": {
-        "connector": {
-          "private_ip_enabled": "true"
-        },
-        "trusted_connector_endpoints_regex": [
-          """^https://runtime\.sagemaker\..*[a-z0-9-]\.amazonaws\.com/.*$""",
-          """^https://api\.openai\.com/.*$""",
-          """^https://api\.cohere\.ai/.*$""",
-          """^https://bedrock-runtime\..*[a-z0-9-]\.amazonaws\.com/.*$""",
-          """^http://10\.128\.0\.10:9912/.*$"""
-        ]
-      }
-    }
-  },
-  "transient": {}
-}
-
-
-```
-
-</details> 
-
-
-<details>
-  <summary><b>3. Register remote model</b></summary>
-   
-Replace:
--  `<MCP_LLM_GATEWAY_HOST-IP>` with the IP where your MCP-LLM Gateway listens (default port `9912`).
--  `<GATEWAY_API_KEY>` with the value of `GATEWAY_API_KEY` you set in `/etc/mcp-llm-gateway/mcp-llm-gateway.env` (default value is `secret`).
-
-Notes:
--  If your gateway uses TLS, change the endpoint to `https://<MCP_LLM_GATEWAY_HOST-IP>:9912/analyze` and make sure the certificate is trusted by the Indexer.
--  You can adjust request_timeout if your LLM calls need more time.
-
-  ```json
+```json
 POST _plugins/_ml/models/_register
 {
   "name": "mcp-llm-gateway-model",
@@ -696,55 +429,29 @@ POST _plugins/_ml/models/_register
     ]
   }
 }
-
 ```
-Output:
- ```json
-{
-  "task_id": "LA-ZL5kBGGL3sSynHOI9",
-  "status": "CREATED",
-  "model_id": "LQ-ZL5kBGGL3sSynHeLw"
-}
 
-```
-</details> 
+Copy the `model_id` from the response.
 
+### 4.4 Deploy the Model
 
+Replace `<model_id>` with the ID you received.
 
-<details>
-  <summary><b>4. Deploy the model</b></summary>
-
-Replace `<model_id>` with the `model_id` you obtained in the previous step
-
-  ```json
+```json
 POST _plugins/_ml/models/<model_id>/_deploy
 ```
 
-Output:
- ```json
+### 4.5 Register the Agent
 
-{
-  "task_id": "MA-ZL5kBGGL3sSynx-LT",
-  "task_type": "DEPLOY_MODEL",
-  "status": "COMPLETED"
-}
+Replace `<model_id>` with your deployed model ID.
 
-```
-</details> 
-
-
-<details>
-  <summary><b>5. Create an agent</b></summary>
-
-Replace `<model_id>` with the  `model_id`
-
-  ```json
+```json
 POST _plugins/_ml/agents/_register
 {
   "name": "mcp-os-agent",
   "type": "conversational",
   "app_type": "os_chat",
-  "description": "Conversational agent that delegates to MCP+LLM gateway; MCP tool-calls happen in the gateway.",
+  "description": "Conversational agent that delegates to MCP+LLM gateway",
   "llm": {
    "model_id": "<model_id>",
     "parameters": {
@@ -760,167 +467,94 @@ POST _plugins/_ml/agents/_register
     { "type": "SearchIndexTool", "name": "placeholder_noop" }
   ]
 }
-
 ```
 
-Output:
- ```json
-{
- "agent_id": "Mg-bL5kBGGL3sSynxOIj"
-}
-```
-</details> 
+Copy the `agent_id` from the response.
 
+### 4.6 Set Agent as Root
 
+This connects the UI chat interface to your new Agent.
 
-<details>
-  <summary><b>6. Set agent as root</b></summary>
+**Note**: This command must be run from the **command line** of the Wazuh Indexer server (or a machine with curl access/certs to it), because the `_plugins/_ml/config` endpoint often requires admin certificate authentication or super-admin privileges.
 
-Configure the agent id  used by OpenSearch Assistant.
+Replace `<WAZUH_INDEXER_IP>` and `<agent_id>`.
 
-If you run a multi-node Wazuh Indexer cluster, execute this once against any healthy node. Run the request with super-admin privileges.
-
-Replace `<WAZUH_INDEXER_IP>` with the IP or hostname of your Wazuh Indexer node, and replace `<agent_id>` with the `agent_id` obtained in the previous step.
-
-In the Wazuh Indexer, run:
-
-  ```bash
+```bash
+# On the Wazuh Indexer node
 DIR="/etc/wazuh-indexer/certs"
-
-
-curl --cacert $DIR/root-ca.pem --cert $DIR/admin.pem --key $DIR/admin-key.pem -XPUT https://WAZUH_INDEXER_IP:9200/.plugins-ml-config/_doc/os_chat -H 'Content-Type: application/json' -d '{"type": "os_chat_root_agent","configuration": {"agent_id": "<agent_id>"}}'
+curl -k --cacert $DIR/root-ca.pem --cert $DIR/admin.pem --key $DIR/admin-key.pem -XPUT https://<WAZUH_INDEXER_IP>:9200/.plugins-ml-config/_doc/os_chat -H 'Content-Type: application/json' -d '{"type": "os_chat_root_agent","configuration": {"agent_id": "<agent_id>"}}'
 ```
-
-Output:
- ```json
-[root@ip-10-0-0-165 bin]# DIR="/etc/wazuh-indexer/certs"
-[root@ip-10-0-0-165 bin]# curl --cacert $DIR/root-ca.pem --cert $DIR/admin.pem --key $DIR/admin-key.pem \
-> -XPUT https://10.0.0.165:9200/.plugins-ml-config/_doc/os_chat -H 'Content-Type: application/json' -d '{
->   "type": "os_chat_root_agent",
->   "configuration": {
->     "agent_id": "Mg-bL5kBGGL3sSynxOIj"
->   }
-> }'
-{"_index":".plugins-ml-config","_id":"os_chat","_version":4,"result":"updated","_shards":{"total":4,"successful":4,"failed":0},"_seq_no":4,"_primary_term":2}[root@ip-10-0-0-165 bin]#
-
-```
-</details> 
-
-
-
-<details>
-  <summary><b>7. Test the agent</b></summary>
-
-Replace `<agent_id>` with the `agent_id`.
-
-  ```json
-POST /_plugins/_ml/agents/<agent_id>/_execute
-{
-  "parameters": {
-"question": "Hello",
-    "verbose": true
-  }
-}
-```
-
-Output:
- ```json
-{
-  "inference_results": [
-    {
-      "output": [
-        {
-          "name": "memory_id",
-          "result": "SKH8wZkBtkHUMBWIV4XL"
-        },
-        {
-          "name": "parent_interaction_id",
-          "result": "SaH8wZkBtkHUMBWIV4Xk"
-        },
-        {
-          "name": "response",
-          "result": """Hello! I can help with cybersecurity questions and analyze alerts and vulnerabilities from your Wazuh environment.
-Examples of queries:
-- Analyze the most important alerts in my environment
-- Analyze the alerts from the last X minutes
-- Analyze brute force attack alerts
-- Please analyze the alert with the rule ID X
-- Which endpoints are affected by this CVE-XXXX-XXXXX
-- List critical CVEs"""
-        }
-      ]
-    }
-  ]
-}
-```
-</details> 
-
-
-<details>
-  <summary><b>8. Personalize the Dashboard Assistant UI</b></summary>
-
-To hide any reference to the OpenSearch Assistant chat interface and display a custom Dashboard Assistant, create a small script. 
-
-Install the brotli utility. If it not already installed on your system
-
-  ```bash
-sudo apt-get update
-sudo apt-get install -y brotli
-```
-
-Create a script file:
- ```bash
-sudo nano dashboard-assistant-ui.sh
-```
-
-Copy and paste the contents of the [`dashboard-assistant-ui.sh`](config/dashboard/dashboard-assistant-ui.sh) file.
-
-Make the script executable:
-
- ```bash
-sudo chmod +x dashboard-assistant-ui.sh
-```
-
-Run the script:
-
- ```bash
-sudo bash ./dashboard-assistant-ui.sh
-```
-
-Restart the Wazuh Dashboard service:
-
- ```bash
-sudo systemctl restart wazuh-dashboard
-```
-
-After restart, the UI will display Dashboard Assistant instead of OpenSearch Assistant.
-
-To launch the Dashboard Assistant, click the chat icon  in the top-right corner of the Wazuh Dashboard interface.
-
-If the change is not visible, try signing out and logging in again to the Wazuh Dashboard.
-
-<img src="./images/Dashboard-assistant.png" alt="Wazuh Dashboard Assistant overview" width="1200">
-
-<img src="./images/dashboard-assistant-zoom.png" alt="Dashboard Assistant chat panel (zoomed)" width="1200">
-
-</details> 
 
 ---
-### Samples questions
+
+## 5. Verification
+
+1.  Open **Wazuh Dashboard**.
+2.  Click the **Assistant** icon (bottom right).
+3.  Ask: "Hi".
+4.  Monitor logs on the gateway server: `tail -f /var/log/mcp_llm_gateway/mcp-llm-gateway.log`. 
+
+---
+### Samples questions & Actions
 
 Use these to validate end-to-end behavior and the reporting format:
--  Analyze the most important alerts in my environment
--  Analyze brute force attack alerts
--  List critical CVEs from the vulnerabilities index
--  Please analyze the alerts: "sshd: brute force trying to get access to the system. Non existent user."
--  Please analyze the alert with the rule ID XXX
 
+**Threat Hunting:**
+- Show me the alerts summary of agent 002 for the last 30 min
+- Give me a summary of the critical alerts from the last 30 min
+- Analyze the most important alerts in my environment
+- Analyze brute force attack alerts from last 1 hour
+![alt text](images/image-5.png)
 
-<img src="./images/2-Analyze%20brute%20force%20attack%20alerts.png" alt="Analyze brute-force attack alerts" width="1200">
+**DQL:**
+- Filter alerts from office365 that are from outside spain in last 2 hours
+- filter all the critical virustotal alerts from agent 002 in last three hours
+![alt text](images/image-4.png)
 
-<img src="./images/5-Which%20endpoints%20are%20affected%20by%20this%20CVE-2023-47038%20.png" alt="Endpoints affected by CVE-2023-47038" width="1200">
+**Agent Management:**
+*(Administrative actions generate a `Pending Action` block. You must reply directly with `CONFIRM` or `NO`)*
+- Please restart the agent 007
+- Remove agent 005
+- show agent groups
+- Remove all disconnected agent from last 10 minutes
+- add agent ID 001 to the agent group windows
+![alt text](images/image-6.png)
 
-<img src="./images/4-Please%20analyze%20the%20alert%20with%20the%20rule%20ID%20553.png" alt="Analysis of alert with rule ID 553" width="1200">
+**Dashboard:**
+*(Dashboard creations generate a `Pending Action` block. You must reply directly with `CONFIRM` or `NO`)*
+- create custom dashboard
+- I need a dashboard for brute force attack alerts with geo location
+- create dashboard with a pie chart top 10 rule id triggered
+![alt text](images/image-3.png)
+
+**IT Hygiene:**
+- What is the OS and OS version of agent 002
+- How many agents have edge software installed?
+- Can you check if the agent 001 has Valorant software installed?
+![alt text](images/image-2.png)
+
+**SCA:**
+- Share the SCA score of agent 002
+- Share recent SCA Alerts.
+
+**Vulnerability:**
+- Are we affected by CVE-2025-61985?
+- How many critical vulnerability endpoint 001 have?
+- Which endpoint is affected by CVE-2025-61985?
+- Make a summary of critical vulnerabilities.
+- How to resolve this vulnerability CVE-2015-0287?
+- Break down the critical vulnerability and affected packages for agent 001
+![alt text](images/image.png)
+
+**Generate PDF reports and send it via Email:**
+- send a email report for endpoints brute force attack alert via mail with detailed visualizations
+- send a email report for agents vulnerabilities via mail with detailed visualizations
+![alt text](images/image-7.png)
+
+![alt text](images/image-8.png)
+
+![alt text](images/image-9.png)
+
 
 ---
 
