@@ -821,18 +821,37 @@ def escape_agent_string(value: str) -> str:
 
 
 def send_event(msg: Dict[str, Any], agent: Optional[Dict[str, Any]] = None) -> None:
-    if not agent or agent.get("id") == "000":
-        line = f"1:alienvault_otx:{json.dumps(msg)}"
-    else:
-        agent_str = f"[{agent['id']}] ({agent.get('name', '?')}) {agent.get('ip', 'any')}"
-        agent_str = escape_agent_string(agent_str)
-        line = f"1:{agent_str}->alienvault_otx:{json.dumps(msg)}"
+    # Helper to build the Wazuh queue socket string
+    def _format_line(payload: Dict[str, Any]) -> str:
+        if not agent or agent.get("id") == "000":
+            return f"1:alienvault_otx:{json.dumps(payload)}"
+        else:
+            agent_str = f"[{agent['id']}] ({agent.get('name', '?')}) {agent.get('ip', 'any')}"
+            agent_str = escape_agent_string(agent_str)
+            return f"1:{agent_str}->alienvault_otx:{json.dumps(payload)}"
 
-    logger.debug(f"Sending event to queue ({len(line)} bytes)")
+    line = _format_line(msg)
+    line_bytes = line.encode('utf-8')
+
+    # Check if payload is over 60KB (60 * 1024 bytes)
+    if len(line_bytes) > 61440:
+        logger.warning(f"Payload exceeded 60KB limit ({len(line_bytes)} bytes). Sending error_otx alert instead.")
+        
+        # Build the error message to trigger rule 100018
+        error_msg = {
+            "integration": "alienvault_otx",
+            "error_otx": "payload_too_large",
+            "input_alert": msg.get("input_alert") # Retain the original alert ID for traceability
+        }
+        
+        line = _format_line(error_msg)
+        line_bytes = line.encode('utf-8')
+
+    logger.debug(f"Sending event to queue ({len(line_bytes)} bytes)")
     try:
         sock = socket(AF_UNIX, SOCK_DGRAM)
         sock.connect(SOCKET_ADDR)
-        sock.send(line.encode())
+        sock.send(line_bytes)
         sock.close()
     except OSError as e:
         logger.error(f"Failed to send event to Wazuh queue socket: {e}")
