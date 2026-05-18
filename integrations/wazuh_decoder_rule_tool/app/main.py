@@ -557,8 +557,14 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             # Fallback if prefix_text is somehow completely empty or too short
             if len(prefix_text.strip()) < 2:
                 prefix_text = target_text[max(0, start - 4):start]
+                
+            if re.search(r'\d+[.:]\d+', prefix_text):
+                prefix_escaped = re.escape(prefix_text)
+                prefix_escaped = re.sub(r'\d+', r'\\d+', prefix_escaped)
+            else:
+                prefix_escaped = re.escape(prefix_text)
 
-            results.append((f"\\.+{re.escape(prefix_text)}{capture_group}", [key]))
+            results.append((f"\\.+{prefix_escaped}{capture_group}", [key]))
             
     return results
 
