@@ -828,11 +828,9 @@ def build_log_based_regex(
     auto_fields = extract_relevant_fields(first_log)
     is_cef = re.match(r'^CEF:\d+\|', first_log.strip()) is not None
 
-    # CEF logs always use split-decoder mode — key=value extension fields
-    # map 1-to-1 to child decoders; a single-regex approach cannot
-    # reliably capture all requested fields.
-    if is_cef:
-        split_decoders = True
+    # Always use split-decoder mode for all log types (CEF, Syslog, etc)
+    # as requested, because child decoders are far more reliable than a single regex.
+    split_decoders = True
 
     chosen_fields, field_order, missing_fields = choose_log_driven_fields(logs, requested_fields, ml_order=ml_order)
 
@@ -840,7 +838,13 @@ def build_log_based_regex(
     if is_cef and "_cef_field_map" in auto_fields:
         chosen_fields["_cef_field_map"] = auto_fields["_cef_field_map"]  # type: ignore[assignment]
 
-    # Skip bracketed/java-dash detectors for CEF logs — they don't apply
+    # Generate one child decoder per field (split mode)
+    if split_decoders:
+        split_results = build_split_regexes_from_fields(first_log, chosen_fields)
+        if split_results:
+            return split_results, field_order, missing_fields
+
+    # If split mode somehow yielded no results, fallback to legacy detectors
     if not is_cef:
         bracketed_requested_fields = requested_fields or []
         bracketed_regex, bracketed_order = infer_bracketed_log_regex(first_log, bracketed_requested_fields, auto_fields)
@@ -850,12 +854,6 @@ def build_log_based_regex(
         java_dash_regex, java_dash_order = infer_java_dash_log_regex(first_log, bracketed_requested_fields, auto_fields)
         if java_dash_regex and java_dash_order:
             return [(java_dash_regex, java_dash_order)], field_order, missing_fields
-
-    # Generate one child decoder per field (split mode) or a single combined one
-    if split_decoders:
-        split_results = build_split_regexes_from_fields(first_log, chosen_fields)
-        if split_results:
-            return split_results, field_order, missing_fields
 
     dynamic_regex, dynamic_order = build_dynamic_regex_from_fields(first_log, chosen_fields)
     if dynamic_regex and dynamic_order:
