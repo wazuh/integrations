@@ -1,0 +1,55 @@
+# Sample logs for validating the AlienVault OTX integration end-to-end.
+#
+# Append these to a Wazuh-monitored log (or pipe them through `wazuh-logtest`)
+# to generate alerts containing indicators known to be in OTX pulses. Because
+# OTX pulse contents change daily, verify pulse_count > 0 for any indicator
+# you rely on:
+#
+#     curl -s -H "X-OTX-API-KEY: $OTX_KEY" \
+#       "https://otx.alienvault.com/api/v1/indicators/IPv4/<IP>/general" \
+#       | jq '.pulse_info.count'
+#
+# Replace the placeholder IPs/domains below with current OTX-known indicators
+# pulled from your subscribed pulses:
+#
+#     curl -s -H "X-OTX-API-KEY: $OTX_KEY" \
+#       "https://otx.alienvault.com/api/v1/pulses/subscribed?limit=20" \
+#       | jq -r '[.results[] | .indicators[]? | select(.type=="IPv4") | .indicator] | unique | .[0:10][]'
+
+# ---------------------------------------------------------------------------
+# 1. SSH brute-force from a known-malicious IP
+# ---------------------------------------------------------------------------
+
+Apr 30 10:00:00 webserver sshd[12345]: Failed password for invalid user admin from 45.153.34.132 port 56712 ssh2
+Apr 30 10:00:01 webserver sshd[12346]: Failed password for invalid user admin from 45.153.34.132 port 56713 ssh2
+Apr 30 10:00:02 webserver sshd[12347]: Failed password for invalid user root from 45.153.34.132 port 56714 ssh2
+Apr 30 10:00:03 webserver sshd[12348]: Failed password for invalid user root from 45.153.34.132 port 56715 ssh2
+Apr 30 10:00:04 webserver sshd[12349]: Failed password for invalid user oracle from 45.153.34.132 port 56716 ssh2
+Apr 30 10:00:05 webserver sshd[12350]: Failed password for invalid user postgres from 45.153.34.132 port 56717 ssh2
+
+# ---------------------------------------------------------------------------
+# 2. Successful SSH login from a known-malicious IP (post-brute-force)
+# ---------------------------------------------------------------------------
+
+Apr 30 10:00:30 webserver sshd[12360]: Accepted password for ubuntu from 45.153.34.132 port 56720 ssh2
+
+# ---------------------------------------------------------------------------
+# 3. Web scanner activity from a known-malicious IP
+# ---------------------------------------------------------------------------
+
+45.153.34.132 - - [30/Apr/2026:10:05:00 +0000] "GET /.env HTTP/1.1" 404 162 "-" "curl/7.74"
+45.153.34.132 - - [30/Apr/2026:10:05:01 +0000] "GET /admin/.env HTTP/1.1" 404 162 "-" "Mozilla/5.0"
+45.153.34.132 - - [30/Apr/2026:10:05:02 +0000] "GET /wp-admin/setup-config.php HTTP/1.1" 404 162 "-" "Mozilla/5.0"
+45.153.34.132 - - [30/Apr/2026:10:05:03 +0000] "GET /phpmyadmin/index.php HTTP/1.1" 404 162 "-" "sqlmap/1.5.2"
+
+# ---------------------------------------------------------------------------
+# 4. Private-IP source - should be FILTERED, not sent to OTX
+# ---------------------------------------------------------------------------
+
+Apr 30 10:10:00 webserver sshd[13000]: Failed password for invalid user test from 192.168.1.100 port 33333 ssh2
+
+# ---------------------------------------------------------------------------
+# 5. Mixed: malicious src_ip + private dst_ip
+# ---------------------------------------------------------------------------
+
+Apr 30 10:15:00 firewall conn: src_ip=45.153.34.132 dst_ip=10.0.0.50 proto=tcp dport=445 action=allow
