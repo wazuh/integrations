@@ -189,9 +189,12 @@ def extract_program_from_log(logs: List[str]) -> Optional[str]:
 
 def choose_prematch(logs: List[str], program_name: str, predecoded_program: Optional[str] = None) -> str:
     first_log = first_non_empty(logs)
-    
+
     if predecoded_program:
         return predecoded_program
+    # CEF log: starts with CEF:<version>|  → generic prematch
+    if re.match(r'^CEF:\d+\|', first_log):
+        return r"^CEF\p\d+\p"
     if first_log.startswith('['):
         return r"\p\d+-\d+-\S+:\d+:\d+,\d+\p"
     if any("failed login" in line.lower() for line in logs):
@@ -395,7 +398,8 @@ def build_dynamic_regex_from_fields(log_line: str, fields: Dict[str, str]) -> tu
     excluded = {"program"}
     matches: List[Tuple[int, int, str]] = []
     for key, value in fields.items():
-        if key in excluded or not value:
+        # Skip internal metadata keys and any non-string values (e.g. _cef_field_map)
+        if key in excluded or key.startswith("_") or not value or not isinstance(value, str):
             continue
         found = re.search(re.escape(value), target_text)
         if not found:
@@ -453,42 +457,70 @@ def build_dynamic_regex_from_fields(log_line: str, fields: Dict[str, str]) -> tu
 
 def build_split_regexes_from_fields(log_line: str, fields: Dict[str, str]) -> List[Tuple[str, List[str]]]:
     """
-    Generates multiple regexes, each focused on one or more related fields.
-    Useful for creating split child decoders.
+    Generates one child decoder per field.
+    For CEF key=value extension logs uses .+cef_key=(capture) patterns.
+    Only emits decoders for fields present in `fields` as plain strings
+    (i.e. user-requested fields actually found in the log).
     """
     predecoded = parse_phase1_predecode(log_line)
     target_text = (predecoded.get("body") or log_line or "").strip()
     if not target_text:
         return []
 
-    results: List[Tuple[str, List[str]]] = []
-    
+    # ── CEF key=value extension handling ──────────────────────────────────
+    if re.match(r'^CEF:\d+\|', log_line.strip()):
+        cef_field_map: Dict[str, str] = fields.get("_cef_field_map", {})  # type: ignore[assignment]
+        results: List[Tuple[str, List[str]]] = []
+        for key, value in fields.items():
+            if key.startswith("_") or not value or not isinstance(value, str):
+                continue
+                
+            # Find the actual CEF extension key for this user-requested field
+            cef_key = None
+            canonical_name = canonicalize_field_name(key)
+            aliases = FIELD_ALIASES.get(canonical_name, (canonical_name,))
+            for alias in aliases:
+                canonical_alias = canonicalize_field_name(alias)
+                for wazuh_field, ck in cef_field_map.items():
+                    if canonicalize_field_name(wazuh_field) == canonical_alias:
+                        cef_key = ck
+                        break
+                if cef_key:
+                    break
+                    
+            if not cef_key:
+                continue
+
+            if cef_key == "msg":
+                # msg values may contain spaces — greedy capture
+                results.append((rf"\.+{re.escape(cef_key)}=(\.+)", [key]))
+            elif cef_key in ("spt", "dpt", "end", "start", "cnt", "in", "out"):
+                results.append((rf"\.+{re.escape(cef_key)}=(\d+)", [key]))
+            elif re.fullmatch(r'(?:\d{1,3}\.){3}\d{1,3}', value):
+                results.append((rf"\.+{re.escape(cef_key)}=(\d+\.\d+\.\d+\.\d+)", [key]))
+            else:
+                results.append((rf"\.+{re.escape(cef_key)}=(\S+)", [key]))
+        if results:
+            return results
+
+    # ── Generic key=value / free-form split ───────────────────────────────
+    results = []
     for key, value in fields.items():
-        if key == "message" or key.startswith("_kv_") or not value:
+        if key in ("message", "_cef_field_map") or key.startswith("_") or not value or not isinstance(value, str):
             continue
-            
-        # Try to find if this field has a KV context
         kv_str = fields.get(f"_kv_{key}")
         if kv_str:
-            # We have something like 'action==vault_open'
-            # We want regex like '.+action==(\\S+)'
-            # But let's generalize the prefix slightly
             sep_match = re.search(rf"({re.escape(key)}\s*[=:]+\s*){re.escape(value)}", target_text)
             if sep_match:
                 prefix = sep_match.group(1)
-                # Use \.+ (user's preferred style) or .+ 
                 results.append((f"\\.+{re.escape(prefix)}(\\S+)", [key]))
                 continue
-        
-        # Fallback for non-KV fields: use a localized match
         found = re.search(re.escape(value), target_text)
         if found:
-            # Create a localized regex for this specific field
             start = found.start()
             prefix_len = min(start, 5)
-            prefix_text = target_text[start-prefix_len:start]
+            prefix_text = target_text[start - prefix_len:start]
             results.append((f"\\.+{re.escape(prefix_text)}(\\S+)", [key]))
-            
     return results
 
 
@@ -508,7 +540,17 @@ FIELD_ALIASES: Dict[str, Tuple[str, ...]] = {
     "token": ("token",),
     "alldrawn": ("allDrawn", "alldrawn"),
     "startingdisplayed": ("startingDisplayed", "startingdisplayed"),
-    "message": ("message",),
+    "message": ("message", "msg"),
+    # CEF extension field aliases (user-facing → internal Wazuh field names)
+    "sourceip": ("srcip", "sourceip", "src"),
+    "srcip": ("srcip", "sourceip", "src"),
+    "destinationip": ("dstip", "destinationip", "dst"),
+    "dstip": ("dstip", "destinationip", "dst"),
+    "sourceport": ("sourceport", "srcport", "spt"),
+    "srcport": ("sourceport", "srcport", "spt"),
+    "destinationport": ("destinationport", "dstport", "dpt"),
+    "dstport": ("destinationport", "dstport", "dpt"),
+    "dvchost": ("dvchost",),
 }
 
 
@@ -551,8 +593,17 @@ def select_requested_fields(
 
 
 def fields_excluding_noise(fields: Dict[str, str]) -> Dict[str, str]:
+    # Exclude noisy/internal keys from field selection
     excluded = {"program", "message"}
-    return {key: value for key, value in fields.items() if key not in excluded and value}
+    internal_prefixes = ("_kv_", "_cef_")
+    return {
+        key: value
+        for key, value in fields.items()
+        if key not in excluded
+        and not any(key.startswith(p) for p in internal_prefixes)
+        and value
+        and not isinstance(value, dict)
+    }
 
 
 def merge_field_names(*field_lists: List[str]) -> List[str]:
@@ -581,7 +632,11 @@ def infer_fields_from_all_logs(logs: List[str]) -> Dict[str, str]:
         common_keys &= set(fields.keys())
 
     ordered_common_keys = [key for key in base.keys() if key in common_keys]
-    return {key: base[key] for key in ordered_common_keys if base.get(key)}
+    return {
+        key: base[key]
+        for key in ordered_common_keys
+        if base.get(key) and not key.startswith("_") and isinstance(base.get(key), str)
+    }
 
 
 TIMESTAMP_SYNTH_PATTERNS: List[re.Pattern] = [
@@ -723,7 +778,7 @@ def choose_log_driven_fields(
     ml_order: Optional[List[str]] = None,
 ) -> tuple[Dict[str, str], List[str], List[str]]:
     common_fields = infer_fields_from_all_logs(logs)
-    auto_fields = extract_relevant_fields(first_non_empty(logs))
+    auto_fields = safe_auto_fields(first_non_empty(logs))
     if not common_fields:
         common_fields = auto_fields
 
@@ -771,18 +826,32 @@ def build_log_based_regex(
 ) -> tuple[List[Tuple[str, List[str]]], List[str], List[str]]:
     first_log = first_non_empty(logs)
     auto_fields = extract_relevant_fields(first_log)
+    is_cef = re.match(r'^CEF:\d+\|', first_log.strip()) is not None
+
+    # CEF logs always use split-decoder mode — key=value extension fields
+    # map 1-to-1 to child decoders; a single-regex approach cannot
+    # reliably capture all requested fields.
+    if is_cef:
+        split_decoders = True
+
     chosen_fields, field_order, missing_fields = choose_log_driven_fields(logs, requested_fields, ml_order=ml_order)
 
-    bracketed_requested_fields = requested_fields or []
-    bracketed_regex, bracketed_order = infer_bracketed_log_regex(first_log, bracketed_requested_fields, auto_fields)
-    if bracketed_regex and bracketed_order:
-        return [(bracketed_regex, bracketed_order)], field_order, missing_fields
+    # For CEF logs inject the _cef_field_map so the split builder can use it
+    if is_cef and "_cef_field_map" in auto_fields:
+        chosen_fields["_cef_field_map"] = auto_fields["_cef_field_map"]  # type: ignore[assignment]
 
-    java_dash_regex, java_dash_order = infer_java_dash_log_regex(first_log, bracketed_requested_fields, auto_fields)
-    if java_dash_regex and java_dash_order:
-        return [(java_dash_regex, java_dash_order)], field_order, missing_fields
+    # Skip bracketed/java-dash detectors for CEF logs — they don't apply
+    if not is_cef:
+        bracketed_requested_fields = requested_fields or []
+        bracketed_regex, bracketed_order = infer_bracketed_log_regex(first_log, bracketed_requested_fields, auto_fields)
+        if bracketed_regex and bracketed_order:
+            return [(bracketed_regex, bracketed_order)], field_order, missing_fields
 
-    # If split decoders requested, generate multiple regexes
+        java_dash_regex, java_dash_order = infer_java_dash_log_regex(first_log, bracketed_requested_fields, auto_fields)
+        if java_dash_regex and java_dash_order:
+            return [(java_dash_regex, java_dash_order)], field_order, missing_fields
+
+    # Generate one child decoder per field (split mode) or a single combined one
     if split_decoders:
         split_results = build_split_regexes_from_fields(first_log, chosen_fields)
         if split_results:
@@ -1130,6 +1199,96 @@ def derive_unique_token(after_predecoded: str) -> str:
     return tokens[0] if tokens else ""
 
 
+# ── CEF (Common Event Format) support ────────────────────────────────────────
+# Maps CEF extension key names → Wazuh decoder field names.
+# Extend this table to support more CEF fields.
+CEF_FIELD_MAP: Dict[str, str] = {
+    "src":     "srcip",
+    "dst":     "dstip",
+    "spt":     "sourceport",
+    "dpt":     "destinationport",
+    "dvchost": "dvchost",
+    "dvc":     "dvchost",
+    "msg":     "message",
+    "act":     "action",
+    "outcome": "action",
+    "suser":   "srcuser",
+    "duser":   "dstuser",
+    "shost":   "srchost",
+    "dhost":   "dsthost",
+    "proto":   "protocol",
+    "app":     "protocol",
+    "cat":     "category",
+    "severity":"severity",
+    "end":     "end_time",
+    "start":   "start_time",
+    "cn1":     "id",
+    "fname":   "filename",
+    "filePath":"filepath",
+    "fileHash":"filehash",
+    "url":     "url",
+    "request": "url",
+    "cs1":     "cs1",
+    "cs2":     "cs2",
+}
+
+
+def safe_auto_fields(log_line: str) -> Dict[str, str]:
+    """Return extracted fields safe for JSON serialisation.
+
+    Strips internal metadata entries (keys starting with '_') and any values
+    that are not plain strings (e.g. the _cef_field_map nested dict).
+    """
+    raw = extract_relevant_fields(log_line)
+    return {
+        k: v
+        for k, v in raw.items()
+        if not k.startswith("_") and isinstance(v, str)
+    }
+
+
+def extract_cef_fields(log_line: str) -> Optional[Dict[str, str]]:
+    """
+    Parses a CEF log line and returns extracted fields mapped to Wazuh names.
+    Returns None if the log is not CEF format.
+
+    CEF format: CEF:Version|Vendor|Product|Version|SignatureID|Name|Severity|Extension
+    """
+    cef_match = re.match(
+        r'^CEF:(\d+)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|(.*)$',
+        log_line.strip(),
+    )
+    if not cef_match:
+        return None
+
+    fields: Dict[str, str] = {}
+    fields["cef_version"]    = cef_match.group(1)
+    fields["vendor"]         = cef_match.group(2)
+    fields["product"]        = cef_match.group(3)
+    fields["device_version"] = cef_match.group(4)
+    fields["signature_id"]   = cef_match.group(5)
+    fields["event_name"]     = cef_match.group(6)
+    fields["severity"]       = cef_match.group(7)
+    extension                = cef_match.group(8)
+
+    # Parse extension: key=value pairs (values may be quoted or space-delimited)
+    # CEF spec: keys are alphanumeric, values end at the next known key or EOS
+    # Simple greedy parse: split on <key>= boundaries
+    ext_tokens = re.findall(r'([\w]+)=((?:(?!\s+\w+=).)+)', extension)
+    cef_field_map_used: Dict[str, str] = {}  # wazuh_field → cef_key
+    for cef_key, raw_value in ext_tokens:
+        value = raw_value.strip()
+        wazuh_field = CEF_FIELD_MAP.get(cef_key, cef_key)  # fall back to raw key
+        fields.setdefault(wazuh_field, value)
+        # Also store original CEF key name for regex building
+        fields.setdefault(f"_kv_{wazuh_field}", f"{cef_key}={value}")
+        cef_field_map_used[wazuh_field] = cef_key
+
+    # Store the reverse map so split decoder builder knows which CEF key to use
+    fields["_cef_field_map"] = cef_field_map_used  # type: ignore[assignment]
+    return fields
+
+
 def extract_relevant_fields(log_line: str) -> Dict[str, str]:
     fields: Dict[str, str] = {}
     text = (log_line or "").strip()
@@ -1147,6 +1306,16 @@ def extract_relevant_fields(log_line: str) -> Dict[str, str]:
                 return fields
     except Exception:
         pass
+
+    # CEF logs — detect and parse before generic key=value
+    cef_fields = extract_cef_fields(text)
+    if cef_fields is not None:
+        fields.update(cef_fields)
+        # Still run IP fallback below, but skip generic kv scan
+        ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', text)
+        if ip_match:
+            fields.setdefault("srcip", ip_match.group(0))
+        return fields
 
     # key=value, key==value, key:value, key::value pairs
     kv_pattern = r"(\b[\w\.-]+)\s*([=:]+)\s*('(?:[^']|\\')*'|\"(?:[^\"]|\\\")*\"|[^\s,;]+)"
@@ -1640,7 +1809,7 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
         "prematch": prematch,
         "unique_after_predecoded": unique_after_predecoded,
         "token_source": token_source,
-        "auto_fields": extract_relevant_fields(first_non_empty(raw_logs)),
+        "auto_fields": safe_auto_fields(first_non_empty(raw_logs)),
         "requested_extract_fields": request.extract_fields,
         "missing_extract_fields": missing_extract_fields,
         "regex": first_regex,
@@ -2203,7 +2372,7 @@ def evaluate_test_result(sample: LogSample, logtest_output: Dict[str, Any], cand
         "score": min(score, 100),
         "reasons": reasons,
         "pass": score >= 60 and logtest_output["available"],
-        "auto_fields": auto_fields,
+        "auto_fields": safe_auto_fields(sample.raw_log),
     }
 
 
@@ -2238,7 +2407,7 @@ def test_candidate(request: TestRequest):
                 "raw_log": sample.raw_log,
                 "logtest": output,
                 "evaluation": evaluate_test_result(sample, output, candidate),
-                "auto_fields": extract_relevant_fields(sample.raw_log),
+                "auto_fields": safe_auto_fields(sample.raw_log),
                 "parsed": parse_logtest_output(combined_logtest_output(output)) if output["available"] else {},
             }
         )
