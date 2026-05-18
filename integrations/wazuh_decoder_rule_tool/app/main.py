@@ -508,6 +508,8 @@ def build_split_regexes_from_fields(log_line: str, fields: Dict[str, str]) -> Li
     for key, value in fields.items():
         if key in ("message", "_cef_field_map") or key.startswith("_") or not value or not isinstance(value, str):
             continue
+            
+        # 1. Try to find if this field has a KV context stored from extractors
         kv_str = fields.get(f"_kv_{key}")
         if kv_str:
             sep_match = re.search(rf"({re.escape(key)}\s*[=:]+\s*){re.escape(value)}", target_text)
@@ -515,12 +517,32 @@ def build_split_regexes_from_fields(log_line: str, fields: Dict[str, str]) -> Li
                 prefix = sep_match.group(1)
                 results.append((f"\\.+{re.escape(prefix)}(\\S+)", [key]))
                 continue
+                
+        # 2. Try a robust regex to dynamically find "key=value" or "key: value"
+        # without hardcoding prefix length
+        match = re.search(r'\b(\w+\s*[=:]\s*[\'"]?)' + re.escape(value) + r'(?:[\'"]?)(?:\b|$)', target_text)
+        if match:
+            prefix = match.group(1).strip()
+            results.append((f"\\.+{re.escape(prefix)}(\\S+)", [key]))
+            continue
+
+        # 3. Fallback for completely free-form fields without key=
         found = re.search(re.escape(value), target_text)
         if found:
             start = found.start()
-            prefix_len = min(start, 5)
+            # Extract up to 15 chars back, stopping at the last space
+            prefix_len = min(start, 15)
             prefix_text = target_text[start - prefix_len:start]
+            last_space = prefix_text.rfind(' ')
+            if last_space != -1:
+                prefix_text = prefix_text[last_space+1:]
+            
+            # If the prefix became empty due to leading spaces, grab at least 3 non-space chars
+            if not prefix_text.strip():
+                prefix_text = target_text[max(0, start - 3):start]
+
             results.append((f"\\.+{re.escape(prefix_text)}(\\S+)", [key]))
+            
     return results
 
 
