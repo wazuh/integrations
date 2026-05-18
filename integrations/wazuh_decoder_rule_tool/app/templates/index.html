@@ -108,9 +108,12 @@
         </div>
         <div class="form-row form-row-2 mt-12">
           <div class="form-group">
-            <label for="logsInput">Log Samples</label>
-            <textarea id="logsInput" rows="8" placeholder="Paste one log per line…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
-Apr 07 09:11:12 MyHost payment-api[7788]: txn_id=TX12345 user=bob srcip=10.10.10.5 action=denied</textarea>
+            <label for="logsInput">Log Source Samples</label>
+            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
+              Paste single or multiple logs from <strong>one log source</strong>. The engine will learn the log patterns from your input to automatically create accurate decoders.
+            </p>
+            <textarea id="logsInput" rows="7" placeholder="Paste one log per line from the same source…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
+Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</textarea>
           </div>
           <div class="form-group">
             <label for="extractFields">Fields to Extract</label>
