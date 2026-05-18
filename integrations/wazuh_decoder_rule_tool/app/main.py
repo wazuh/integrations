@@ -455,20 +455,29 @@ def build_dynamic_regex_from_fields(log_line: str, fields: Dict[str, str]) -> tu
     return (regex or None), order
 
 
-def build_split_regexes_from_fields(log_line: str, fields: Dict[str, str]) -> List[Tuple[str, List[str]]]:
+def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> List[Tuple[str, List[str]]]:
     """
     Generates one child decoder per field.
     For CEF key=value extension logs uses .+cef_key=(capture) patterns.
     Only emits decoders for fields present in `fields` as plain strings
     (i.e. user-requested fields actually found in the log).
     """
-    predecoded = parse_phase1_predecode(log_line)
-    target_text = (predecoded.get("body") or log_line or "").strip()
+    target_texts = []
+    is_cef = False
+    for log_line in logs:
+        if re.match(r'^CEF:\d+\|', log_line.strip()):
+            is_cef = True
+        predecoded = parse_phase1_predecode(log_line)
+        body = (predecoded.get("body") or log_line or "").strip()
+        if body:
+            target_texts.append(body)
+            
+    target_text = "\n".join(target_texts)
     if not target_text:
         return []
 
     # ── CEF key=value extension handling ──────────────────────────────────
-    if re.match(r'^CEF:\d+\|', log_line.strip()):
+    if is_cef:
         cef_field_map: Dict[str, str] = fields.get("_cef_field_map", {})  # type: ignore[assignment]
         results: List[Tuple[str, List[str]]] = []
         for key, value in fields.items():
@@ -648,17 +657,18 @@ def infer_fields_from_all_logs(logs: List[str]) -> Dict[str, str]:
     if not extracted_sets:
         return {}
 
-    base = extracted_sets[0]
-    common_keys = set(base.keys())
-    for fields in extracted_sets[1:]:
-        common_keys &= set(fields.keys())
+    union_fields: Dict[str, str] = {}
+    for fields in extracted_sets:
+        for key, value in fields.items():
+            if key not in union_fields and value and not key.startswith("_") and isinstance(value, str):
+                union_fields[key] = value
+                
+            # Also preserve internal keys like _cef_field_map and _kv_ prefixes
+            # so the split decoder can use them later
+            if key.startswith("_") and key not in union_fields and value:
+                union_fields[key] = value
 
-    ordered_common_keys = [key for key in base.keys() if key in common_keys]
-    return {
-        key: base[key]
-        for key in ordered_common_keys
-        if base.get(key) and not key.startswith("_") and isinstance(base.get(key), str)
-    }
+    return union_fields
 
 
 TIMESTAMP_SYNTH_PATTERNS: List[re.Pattern] = [
@@ -862,7 +872,7 @@ def build_log_based_regex(
 
     # Generate one child decoder per field (split mode)
     if split_decoders:
-        split_results = build_split_regexes_from_fields(first_log, chosen_fields)
+        split_results = build_split_regexes_from_fields(logs, chosen_fields)
         if split_results:
             return split_results, field_order, missing_fields
 
@@ -1998,7 +2008,22 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         regex_order_pairs = [(regex, order)]
 
     # Use <program_name> only when Phase 1 pre-decoding explicitly produced program_name.
-    parent_program_name = predecoded_program
+    # If there are multiple parsed entries with DIFFERENT program names, build a regex.
+    parsed_entries = analysis.get("logtest_scan", {}).get("parsed_entries", [])
+    programs = []
+    for entry in parsed_entries:
+        p = entry.get("program_name")
+        if p and p not in programs:
+            programs.append(p)
+            
+    if programs:
+        if len(programs) > 1:
+            parent_program_name = "^" + "$|^".join(programs) + "$"
+        else:
+            parent_program_name = programs[0]
+    else:
+        parent_program_name = predecoded_program
+
     parent_prematch = None
     if not parent_program_name:
         token_source = analysis.get("token_source")
