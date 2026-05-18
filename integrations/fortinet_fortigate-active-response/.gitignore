@@ -1,0 +1,26 @@
+# Live config contains API token — never commit it
+fortigate-ar.conf
+
+# Local override configs
+*.local.conf
+.env
+*.token
+
+# Logs / runtime artifacts
+*.log
+*.tmp
+debug-output/
+
+# Editor / OS artifacts
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
