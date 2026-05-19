@@ -117,8 +117,12 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
           </div>
           <div class="form-group">
             <label for="extractFields">Fields to Extract</label>
-            <textarea id="extractFields" rows="4" placeholder="timestamp, status, logger, message&#10;(one per line or comma-separated)"></textarea>
-            <label for="regexPreview" style="margin-top:12px">Live Regex Preview</label>
+            <textarea id="extractFields" rows="2" placeholder="timestamp, status, logger, message&#10;(one per line or comma-separated)"></textarea>
+
+            <label for="fieldHints" style="margin-top:10px">Field Value Mapping Hints (User Thoughts)</label>
+            <textarea id="fieldHints" rows="2" placeholder="e.g. protocol: POST&#10;(one mapping per line, format: field: value)"></textarea>
+
+            <label for="regexPreview" style="margin-top:10px">Live Regex Preview</label>
             <div class="regex-preview" id="regexPreview"><span style="color:var(--text-muted)">Run Analyze to see preview…</span></div>
           </div>
         </div>

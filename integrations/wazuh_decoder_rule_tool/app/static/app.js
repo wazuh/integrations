@@ -75,6 +75,23 @@ function readPayload() {
   try { logs = JSON.parse(rawInput); } catch (_) {
     logs = rawInput.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => ({ raw_log: l }));
   }
+
+  // Parse field hints
+  const fieldHintsInput = document.getElementById('fieldHints')?.value.trim() || '';
+  const field_hints = {};
+  if (fieldHintsInput) {
+    fieldHintsInput.split(/\r?\n/).forEach(line => {
+      const parts = line.split(':');
+      if (parts.length >= 2) {
+        const key = parts[0].trim();
+        const value = parts.slice(1).join(':').trim();
+        if (key && value) {
+          field_hints[key] = value;
+        }
+      }
+    });
+  }
+
   return {
     app_name: document.getElementById('appName').value,
     logs,
@@ -82,6 +99,7 @@ function readPayload() {
     level: Number(document.getElementById('level').value),
     rule_requirement: document.getElementById('ruleRequirement').value.trim(),
     extract_fields: extractFields,
+    field_hints: field_hints,
     install_mode: document.getElementById('installMode').value,
     split_decoders: document.getElementById('splitDecoders').checked,
   };

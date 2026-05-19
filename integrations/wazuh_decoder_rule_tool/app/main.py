@@ -93,6 +93,7 @@ class AnalyzeRequest(BaseModel):
     app_name: str = Field(default="customapp")
     rule_requirement: Optional[str] = None
     extract_fields: List[str] = Field(default_factory=list)
+    field_hints: Dict[str, str] = Field(default_factory=dict)
     split_decoders: bool = Field(default=False)
 
 
@@ -103,6 +104,7 @@ class CandidateRequest(BaseModel):
     rule_id: int = Field(default=100500, ge=100000)
     rule_requirement: Optional[str] = None
     extract_fields: List[str] = Field(default_factory=list)
+    field_hints: Dict[str, str] = Field(default_factory=dict)
     split_decoders: bool = Field(default=False)
 
 
@@ -129,6 +131,7 @@ class FeedbackRequest(BaseModel):
     app_name: str = Field(default="customapp")
     log: str = Field(..., min_length=1)
     extract_fields: List[str] = Field(default_factory=list)
+    field_hints: Dict[str, str] = Field(default_factory=dict)
     decoder: Optional[FeedbackDecoderInput] = None
     notes: Optional[str] = None
 
@@ -219,6 +222,53 @@ def prematch_from_current_logs(logs: List[str], *candidates: Optional[str]) -> O
     return None
 
 
+def generalize_prefix_literal(prefix: str) -> str:
+    # Check for bracketed timestamp at start
+    # [2026-05-19 05:52:24 +0200] or [2026/05/19 05:52:24 +0200]
+    m1 = re.match(r'^(\[\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2}\s+[-+]\d{4}\])(.*)$', prefix)
+    if m1:
+        ts_part = r'\p\d+\p\d+\p\d+ \d+\p\d+\p\d+ \S+]'
+        rest = m1.group(2)
+        return ts_part + generalize_regex_literal(rest)
+
+    # [2026-05-19 05:52:24]
+    m2 = re.match(r'^(\[\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2}\])(.*)$', prefix)
+    if m2:
+        ts_part = r'\p\d+\p\d+\p\d+ \d+\p\d+\p\d+]'
+        rest = m2.group(2)
+        return ts_part + generalize_regex_literal(rest)
+
+    # [2026-05-19T05:52:24.123Z]
+    m3 = re.match(r'^(\[\d{4}[-/]\d{2}[-/]\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\])(.*)$', prefix)
+    if m3:
+        ts_part = r'\p\d+\p\d+\p\d+T\d+\p\d+\p\d+\S+]'
+        rest = m3.group(2)
+        return ts_part + generalize_regex_literal(rest)
+
+    # 2026-05-19 05:52:24 +0200
+    m4 = re.match(r'^(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2}\s+[-+]\d{4})(.*)$', prefix)
+    if m4:
+        ts_part = r'\d+\p\d+\p\d+ \d+\p\d+\p\d+ \S+'
+        rest = m4.group(2)
+        return ts_part + generalize_regex_literal(rest)
+
+    # 2026-05-19 05:52:24
+    m5 = re.match(r'^(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2})(.*)$', prefix)
+    if m5:
+        ts_part = r'\d+\p\d+\p\d+ \d+\p\d+\p\d+'
+        rest = m5.group(2)
+        return ts_part + generalize_regex_literal(rest)
+
+    # Dec 25 20:45:02
+    m6 = re.match(r'^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})(.*)$', prefix)
+    if m6:
+        ts_part = r'\S+ \d+ \d+\p\d+\p\d+'
+        rest = m6.group(2)
+        return ts_part + generalize_regex_literal(rest)
+
+    return generalize_regex_literal(prefix)
+
+
 def prematch_osregex_from_current_logs(logs: List[str], *candidates: Optional[str]) -> Optional[str]:
     matched = prematch_from_current_logs(logs, *candidates)
     if not matched:
@@ -229,8 +279,12 @@ def prematch_osregex_from_current_logs(logs: List[str], *candidates: Optional[st
     first_log = first_non_empty(logs)
     idx = first_log.find(matched)
     if idx >= 0:
-        prefix = first_log[:idx + len(matched)]
-        generalized_prefix = generalize_regex_literal(prefix)
+        end_idx = idx + len(matched)
+        punc_set = "()*+,-.:;<=>?[]!\"'#$%&|{}"
+        while end_idx < len(first_log) and first_log[end_idx] in punc_set:
+            end_idx += 1
+        prefix = first_log[:end_idx]
+        generalized_prefix = generalize_prefix_literal(prefix)
         if generalized_prefix:
             return f"^{generalized_prefix}"
 
@@ -455,6 +509,50 @@ def build_dynamic_regex_from_fields(log_line: str, fields: Dict[str, str]) -> tu
     return (regex or None), order
 
 
+def generalize_prefix_text(prefix_text: str, fields: Dict[str, str], current_key: str) -> str:
+    # 1. Replace other fields' exact values with placeholders
+    placeholders = {}
+    for other_key, other_val in fields.items():
+        if other_key == current_key or other_key.startswith("_") or not other_val or not isinstance(other_val, str):
+            continue
+        # Only replace if the value is reasonably long or distinct (e.g. not a single char/digit)
+        if len(other_val) >= 2:
+            placeholder = f"__FIELD_PLACEHOLDER_{other_key}__"
+            if other_val in prefix_text:
+                prefix_text = prefix_text.replace(other_val, placeholder)
+                # Determine appropriate pattern
+                if other_key in ("srcip", "dstip") or re.fullmatch(r'(?:\d{1,3}\.){3}\d{1,3}', other_val):
+                    pat = r"\d+.\d+.\d+.\d+"
+                elif other_val.isdigit():
+                    pat = r"\d+"
+                else:
+                    pat = r"\S+"
+                placeholders[placeholder] = pat
+
+    # 2. Escape special characters
+    def osregex_escape(text: str) -> str:
+        return re.sub(r'([$()\\|<])', r'\\\1', text)
+    
+    prefix_escaped = osregex_escape(prefix_text)
+
+    # 3. Replace standard dynamic patterns (like IP, MAC, numbers) that are not fields
+    # MAC Address (e.g., 00:11:22:33:44:55 or 00-11-22-33-44-55)
+    prefix_escaped = re.sub(r'\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\b', r'\\S+', prefix_escaped)
+    prefix_escaped = re.sub(r'\b[0-9a-fA-F]{2}(?:-[0-9a-fA-F]{2}){5}\b', r'\\S+', prefix_escaped)
+    
+    # IP Address
+    prefix_escaped = re.sub(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', r'\\d+.\\d+.\\d+.\\d+', prefix_escaped)
+    
+    # Any other digits (like PIDs or ports or duration numbers)
+    prefix_escaped = re.sub(r'\b\d+\b', r'\\d+', prefix_escaped)
+
+    # 4. Restore the field placeholders with their generic patterns
+    for placeholder, pat in placeholders.items():
+        prefix_escaped = prefix_escaped.replace(placeholder, pat)
+        
+    return prefix_escaped
+
+
 def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> List[Tuple[str, List[str]]]:
     """
     Generates one child decoder per field.
@@ -510,7 +608,13 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             else:
                 results.append((rf"\.+{re.escape(cef_key)}=(\S+)", [key]))
         if results:
-            return results
+            unique_results = []
+            seen_regexes = set()
+            for r, k in results:
+                if r not in seen_regexes:
+                    unique_results.append((r, k))
+                    seen_regexes.add(r)
+            return unique_results
 
     # ── Generic key=value / free-form split ───────────────────────────────
     results = []
@@ -522,6 +626,7 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
     for key, value in fields.items():
         if key in ("_cef_field_map",) or key.startswith("_") or not value or not isinstance(value, str):
             continue
+        value = value.strip()
             
         # 1. Try to find if this field has a KV context stored from extractors
         kv_str = fields.get(f"_kv_{key}")
@@ -570,8 +675,11 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                     capture_group = r"(\d+)"
                 
             prefix_candidate = target_text[:start]
-            # Try to grab the preceding word and any attached punctuation
-            m_prefix = re.search(r'([A-Za-z0-9_-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
+            # Try to grab the last two preceding words/tokens and any attached punctuation for high specificity
+            m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*[A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
+            if not m_prefix:
+                # Fall back to a single word/token if there aren't two
+                m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
             if m_prefix:
                 prefix_text = m_prefix.group(1)
             else:
@@ -584,11 +692,7 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                 if len(prefix_text.strip()) < 2:
                     prefix_text = target_text[max(0, start - 4):start]
                 
-            if re.search(r'\d+[.:]\d+', prefix_text):
-                prefix_escaped = osregex_escape(prefix_text)
-                prefix_escaped = re.sub(r'\d+', r'\\d+', prefix_escaped)
-            else:
-                prefix_escaped = osregex_escape(prefix_text)
+            prefix_escaped = generalize_prefix_text(prefix_text, fields, key)
 
             value_end = start + len(value)
             suffix_char = target_text[value_end:value_end+1] if value_end < len(target_text) else ""
@@ -598,8 +702,14 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                 capture_suffix = ""
 
             results.append((f"\\.+{prefix_escaped}{capture_group}{capture_suffix}", [key]))
+    unique_results = []
+    seen_regexes = set()
+    for regex, keys in results:
+        if regex not in seen_regexes:
+            unique_results.append((regex, keys))
+            seen_regexes.add(regex)
             
-    return results
+    return unique_results
 
 
 FIELD_ALIASES: Dict[str, Tuple[str, ...]] = {
@@ -855,11 +965,17 @@ def choose_log_driven_fields(
     logs: List[str],
     requested_fields: List[str],
     ml_order: Optional[List[str]] = None,
+    field_hints: Optional[Dict[str, str]] = None,
 ) -> tuple[Dict[str, str], List[str], List[str]]:
     common_fields = infer_fields_from_all_logs(logs)
     auto_fields = safe_auto_fields(first_non_empty(logs))
     if not common_fields:
         common_fields = auto_fields
+
+    if field_hints:
+        for key, val in field_hints.items():
+            if val:
+                common_fields[key] = val
 
     if requested_fields:
         first_log = first_non_empty(logs)
@@ -902,6 +1018,7 @@ def build_log_based_regex(
     requested_fields: List[str],
     ml_order: Optional[List[str]] = None,
     split_decoders: bool = False,
+    field_hints: Optional[Dict[str, str]] = None,
 ) -> tuple[List[Tuple[str, List[str]]], List[str], List[str]]:
     first_log = first_non_empty(logs)
     auto_fields = extract_relevant_fields(first_log)
@@ -911,7 +1028,15 @@ def build_log_based_regex(
     # as requested, because child decoders are far more reliable than a single regex.
     split_decoders = True
 
-    chosen_fields, field_order, missing_fields = choose_log_driven_fields(logs, requested_fields, ml_order=ml_order)
+    if field_hints:
+        requested_fields = list(requested_fields)
+        for hint_key in field_hints.keys():
+            if hint_key not in requested_fields:
+                requested_fields.append(hint_key)
+
+    chosen_fields, field_order, missing_fields = choose_log_driven_fields(
+        logs, requested_fields, ml_order=ml_order, field_hints=field_hints
+    )
 
     # For CEF logs inject the _cef_field_map so the split builder can use it
     if is_cef and "_cef_field_map" in auto_fields:
@@ -1870,6 +1995,7 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
         request.extract_fields,
         ml_order=(ml_selected or {}).get("order"),
         split_decoders=request.split_decoders,
+        field_hints=getattr(request, 'field_hints', None),
     )
     
     # For compatibility with single-regex logic in analysis results
@@ -2027,6 +2153,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
             rule_requirement=request.rule_requirement,
             extract_fields=request.extract_fields,
             split_decoders=request.split_decoders,
+            field_hints=getattr(request, 'field_hints', {}),
         )
     )
     app_name = analysis["app_name"]
@@ -2569,6 +2696,7 @@ class AIGenerateRequest(BaseModel):
     level: int = Field(default=5, ge=0, le=16)
     rule_requirement: Optional[str] = None
     extract_fields: List[str] = Field(default_factory=list)
+    field_hints: Dict[str, str] = Field(default_factory=dict)
     model: str = Field(default="anthropic/claude-sonnet-4-5")
     temperature: float = Field(default=0.2, ge=0.0, le=1.0)
     extra_context: str = Field(default="")
@@ -2582,6 +2710,16 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
     order = ", ".join(analysis.get("order") or [])
     prematch = analysis.get("prematch") or ""
     program = analysis.get("predecoded_program_name") or analysis.get("program_name") or request.app_name
+
+    # Add field hints context if available
+    hints_block = ""
+    field_hints = getattr(request, 'field_hints', {})
+    if field_hints:
+        hints_block = "User-provided additional field mappings/hints:\n"
+        for key, val in field_hints.items():
+            if val:
+                hints_block += f"  - Extract value '{val}' as field '{key}'\n"
+        hints_block += "\n"
 
     # Few-shot examples from ML suggestions
     few_shot = ""
@@ -2613,6 +2751,8 @@ Heuristic analysis hints (you may refine these):
   prematch: {prematch}
   regex: {regex}
   order: {order}
+
+{hints_block}
 
 {few_shot}Instructions:
 1. Output a parent decoder and a child decoder that captures the fields.
@@ -2675,6 +2815,7 @@ async def ai_generate(request: AIGenerateRequest):
             app_name=request.app_name,
             rule_requirement=request.rule_requirement,
             extract_fields=request.extract_fields,
+            field_hints=getattr(request, 'field_hints', {}),
         )
     )
     prompt = _build_ai_prompt(request, analysis)
