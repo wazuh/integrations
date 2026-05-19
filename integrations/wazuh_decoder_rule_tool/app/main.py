@@ -506,7 +506,7 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             elif cef_key in ("spt", "dpt", "end", "start", "cnt", "in", "out"):
                 results.append((rf"\.+{re.escape(cef_key)}=(\d+)", [key]))
             elif re.fullmatch(r'(?:\d{1,3}\.){3}\d{1,3}', value):
-                results.append((rf"\.+{re.escape(cef_key)}=(\d+\.\d+\.\d+\.\d+)", [key]))
+                results.append((rf"\.+{re.escape(cef_key)}=(\d+.\d+.\d+.\d+)", [key]))
             else:
                 results.append((rf"\.+{re.escape(cef_key)}=(\S+)", [key]))
         if results:
@@ -514,8 +514,13 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
 
     # ── Generic key=value / free-form split ───────────────────────────────
     results = []
+    
+    def osregex_escape(text: str) -> str:
+        # User requested: only escape specific characters: $ ( ) \ | <
+        return re.sub(r'([$()\\|<])', r'\\\1', text)
+
     for key, value in fields.items():
-        if key in ("message", "_cef_field_map") or key.startswith("_") or not value or not isinstance(value, str):
+        if key in ("_cef_field_map",) or key.startswith("_") or not value or not isinstance(value, str):
             continue
             
         # 1. Try to find if this field has a KV context stored from extractors
@@ -532,7 +537,7 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
         match = re.search(r'\b(\w+\s*[=:]\s*[\'"]?)' + re.escape(value) + r'(?:[\'"]?)(?:\b|$)', target_text)
         if match:
             prefix = match.group(1).strip()
-            results.append((f"\\.+{re.escape(prefix)}(\\S+)", [key]))
+            results.append((f"\\.+{osregex_escape(prefix)}(\\S+)", [key]))
             continue
 
         # 3. Fallback for completely free-form fields without key=
@@ -541,11 +546,14 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             start = found.start()
             
             # Determine appropriate capture group pattern
-            capture_group = r"(\S+)"
-            if re.fullmatch(r'(?:\d{1,3}\.){3}\d{1,3}', value):
-                capture_group = r"(\d+\.\d+\.\d+\.\d+)"
-            elif value.isdigit():
-                capture_group = r"(\d+)"
+            if key == "message":
+                capture_group = r"(\.+)"
+            else:
+                capture_group = r"(\S+)"
+                if re.fullmatch(r'(?:\d{1,3}\.){3}\d{1,3}', value):
+                    capture_group = r"(\d+.\d+.\d+.\d+)"
+                elif value.isdigit():
+                    capture_group = r"(\d+)"
                 
             prefix_candidate = target_text[:start]
             last_space = prefix_candidate.rstrip().rfind(' ')
@@ -559,10 +567,10 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                 prefix_text = target_text[max(0, start - 4):start]
                 
             if re.search(r'\d+[.:]\d+', prefix_text):
-                prefix_escaped = re.escape(prefix_text)
+                prefix_escaped = osregex_escape(prefix_text)
                 prefix_escaped = re.sub(r'\d+', r'\\d+', prefix_escaped)
             else:
-                prefix_escaped = re.escape(prefix_text)
+                prefix_escaped = osregex_escape(prefix_text)
 
             results.append((f"\\.+{prefix_escaped}{capture_group}", [key]))
             

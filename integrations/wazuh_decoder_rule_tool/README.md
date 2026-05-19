@@ -17,15 +17,29 @@ A small FastAPI app that:
 
 ## Run locally
 
+To run the application over HTTPS on port 8443 (ideal for secure access from other machines):
+
+1. **Set up the virtual environment and install dependencies:**
 ```bash
-cd wazuh_decoder_app
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open `http://localhost:8000`.
+2. **Generate SSL Certificates:**
+Create a `certs` directory and generate a self-signed certificate:
+```bash
+mkdir -p certs
+openssl req -x509 -newkey rsa:4096 -keyout certs/localhost.key -out certs/localhost.crt -days 365 -nodes -subj "/CN=localhost"
+```
+
+3. **Start the Application:**
+Run `uvicorn` with the generated certificates:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8443 --ssl-certfile certs/localhost.crt --ssl-keyfile certs/localhost.key --reload
+```
+
+Open `https://localhost:8443` (or use your machine's IP address). Note: You may need to bypass your browser's self-signed certificate warning.
 
 ## Wazuh integration
 
