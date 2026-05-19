@@ -1930,18 +1930,14 @@ def build_decoder_xml(
     include_child_prematch: bool,
     regex_order_pairs: List[Tuple[str, List[str]]],
 ) -> str:
-    parent_match = ""
+    parent_lines = [f"<decoder name=\"{escape_xml(parent_decoder)}\">"]
     if parent_program_name:
-        parent_match = f"  <program_name>{escape_xml(parent_program_name)}</program_name>"
+        parent_lines.append(f"  <program_name>{escape_xml(parent_program_name)}</program_name>")
     elif parent_prematch:
-        parent_match = f"  <prematch>{escape_xml(parent_prematch)}</prematch>"
+        parent_lines.append(f"  <prematch>{escape_xml(parent_prematch)}</prematch>")
+    parent_lines.append("</decoder>")
 
-    xml_parts = [
-        f"<decoder name=\"{escape_xml(parent_decoder)}\">",
-        parent_match,
-        "</decoder>"
-    ]
-
+    xml_parts = ["\n".join(parent_lines)]
     for regex, order in regex_order_pairs:
         child_lines = [
             f"<decoder name=\"{escape_xml(child_decoder_name)}\">",
