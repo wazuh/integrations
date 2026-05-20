@@ -106,6 +106,7 @@ class CandidateRequest(BaseModel):
     extract_fields: List[str] = Field(default_factory=list)
     field_hints: Dict[str, str] = Field(default_factory=dict)
     split_decoders: bool = Field(default=False)
+    log_source_name: Optional[str] = Field(default=None)
 
 
 class TestRequest(BaseModel):
@@ -225,38 +226,43 @@ def prematch_from_current_logs(logs: List[str], *candidates: Optional[str]) -> O
 def generalize_prefix_literal(prefix: str) -> str:
     # Check for bracketed timestamp at start
     # [2026-05-19 05:52:24 +0200] or [2026/05/19 05:52:24 +0200]
-    m1 = re.match(r'^(\[\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2}\s+[-+]\d{4}\])(.*)$', prefix)
+    m1 = re.match(r'^(\[\d{4}([-/])\d{2}\2\d{2}\s+\d{2}:\d{2}:\d{2}\s+[-+]\d{4}\])(.*)$', prefix)
     if m1:
-        ts_part = r'\p\d+\p\d+\p\d+ \d+\p\d+\p\d+ \S+]'
-        rest = m1.group(2)
+        sep = re.escape(m1.group(2))
+        ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+ \S+]'
+        rest = m1.group(3)
         return ts_part + generalize_regex_literal(rest)
 
     # [2026-05-19 05:52:24]
-    m2 = re.match(r'^(\[\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2}\])(.*)$', prefix)
+    m2 = re.match(r'^(\[\d{4}([-/])\d{2}\2\d{2}\s+\d{2}:\d{2}:\d{2}\])(.*)$', prefix)
     if m2:
-        ts_part = r'\p\d+\p\d+\p\d+ \d+\p\d+\p\d+]'
-        rest = m2.group(2)
+        sep = re.escape(m2.group(2))
+        ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+]'
+        rest = m2.group(3)
         return ts_part + generalize_regex_literal(rest)
 
     # [2026-05-19T05:52:24.123Z]
-    m3 = re.match(r'^(\[\d{4}[-/]\d{2}[-/]\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\])(.*)$', prefix)
+    m3 = re.match(r'^(\[\d{4}([-/])\d{2}\2\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\])(.*)$', prefix)
     if m3:
-        ts_part = r'\p\d+\p\d+\p\d+T\d+\p\d+\p\d+\S+]'
-        rest = m3.group(2)
+        sep = re.escape(m3.group(2))
+        ts_part = rf'\d+{sep}\d+{sep}\d+T\d+\p\d+\p\d+\S+]'
+        rest = m3.group(3)
         return ts_part + generalize_regex_literal(rest)
 
     # 2026-05-19 05:52:24 +0200
-    m4 = re.match(r'^(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2}\s+[-+]\d{4})(.*)$', prefix)
+    m4 = re.match(r'^(\d{4}([-/])\d{2}\2\d{2}\s+\d{2}:\d{2}:\d{2}\s+[-+]\d{4})(.*)$', prefix)
     if m4:
-        ts_part = r'\d+\p\d+\p\d+ \d+\p\d+\p\d+ \S+'
-        rest = m4.group(2)
+        sep = re.escape(m4.group(2))
+        ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+ \S+'
+        rest = m4.group(3)
         return ts_part + generalize_regex_literal(rest)
 
     # 2026-05-19 05:52:24
-    m5 = re.match(r'^(\d{4}[-/]\d{2}[-/]\d{2}\s+\d{2}:\d{2}:\d{2})(.*)$', prefix)
+    m5 = re.match(r'^(\d{4}([-/])\d{2}\2\d{2}\s+\d{2}:\d{2}:\d{2})(.*)$', prefix)
     if m5:
-        ts_part = r'\d+\p\d+\p\d+ \d+\p\d+\p\d+'
-        rest = m5.group(2)
+        sep = re.escape(m5.group(2))
+        ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+'
+        rest = m5.group(3)
         return ts_part + generalize_regex_literal(rest)
 
     # Dec 25 20:45:02
@@ -658,6 +664,23 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             full_prefix = prefix + quote_open
             results.append((f"\\.+{osregex_escape(full_prefix)}{capture_group}{osregex_escape(quote_close)}", [key]))
             continue
+
+        # 2.5 Handle hyphenated action/status fields (e.g., deny-smb -> capture deny)
+        if key in ("action", "status", "severity") and "-" in value:
+            found = re.search(re.escape(value), target_text)
+            if found:
+                prefix_part = value.split("-")[0]
+                start = found.start()
+                prefix_candidate = target_text[:start]
+                m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
+                if m_prefix:
+                    prefix_text = m_prefix.group(1)
+                else:
+                    last_space = prefix_candidate.rstrip().rfind(' ')
+                    prefix_text = prefix_candidate[last_space+1:] if last_space != -1 else target_text[max(0, start - 4):start]
+                prefix_escaped = generalize_prefix_text(prefix_text, fields, key)
+                results.append((f"\\.+{prefix_escaped}({re.escape(prefix_part)})-\\S+", [key]))
+                continue
 
         # 3. Fallback for completely free-form fields without key=
         found = re.search(re.escape(value), target_text)
@@ -1387,6 +1410,72 @@ def parse_phase1_predecode(log_line: str) -> Dict[str, str]:
     return data
 
 
+def derive_regex_from_predecoded_body(logs: List[str]) -> Optional[str]:
+    bodies = []
+    for log in logs:
+        predecoded = parse_phase1_predecode(log)
+        body = (predecoded.get("body") or log).strip()
+        if body:
+            bodies.append(body)
+    if not bodies:
+        return None
+
+    def body_to_regex(body: str) -> str:
+        tokens = re.split(r"(\s+|'[^']*'|\"[^\"]*\"|\b\d+\.\d+\.\d+\.\d+\b)", body)
+        parts = []
+        found_variable = False
+        for token in tokens:
+            if not token:
+                continue
+            if re.fullmatch(r"\s+", token):
+                parts.append(r"\s")
+            elif re.fullmatch(r"'[^']*'", token):
+                parts.append(r"'\S+'")
+                found_variable = True
+            elif re.fullmatch(r'"[^"]*"', token):
+                parts.append(r'"\S+"')
+                found_variable = True
+            elif re.fullmatch(r"\d+\.\d+\.\d+\.\d+", token):
+                parts.append(r"\d+\.\d+\.\d+\.\d+")
+                found_variable = True
+            elif re.fullmatch(r"\d+", token):
+                parts.append(r"\d+")
+                found_variable = True
+            else:
+                escaped = re.sub(r'([$()\\|<])', r'\\\1', token)
+                parts.append(escaped)
+        return "".join(parts)
+
+    regexes = [body_to_regex(b) for b in bodies]
+
+    if len(regexes) == 1:
+        full = regexes[0]
+        var_patterns = [r"'\S+'", r'"\S+"', r"\d+\.\d+\.\d+\.\d+"]
+        for vp in var_patterns:
+            idx = full.find(vp)
+            if idx >= 0:
+                return full[:idx + len(vp)]
+        idx = full.find(r"\d+")
+        if idx >= 0:
+            return full[:idx + len(r"\d+")]
+        return full
+
+    min_len = min(len(r) for r in regexes)
+    common = ""
+    for i in range(min_len):
+        if all(r[i] == regexes[0][i] for r in regexes):
+            common += regexes[0][i]
+        else:
+            break
+
+    if len(common) >= 4:
+        if common.endswith(r"\s"):
+            common = common[:-2]
+        return common
+
+    return regexes[0]
+
+
 def derive_unique_token(after_predecoded: str) -> str:
     if not after_predecoded:
         return ""
@@ -1518,6 +1607,29 @@ def extract_relevant_fields(log_line: str) -> Dict[str, str]:
         if ip_match:
             fields.setdefault("srcip", ip_match.group(0))
         return fields
+
+    # Palo Alto CSV logs — detect by timestamp + THREAT/TRAFFIC/CONFIG pattern
+    pa_match = re.match(r'^(\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2}),(\d+),(\w+),', text)
+    if pa_match:
+        parts = text.split(",")
+        if len(parts) >= 25:
+            fields["logtime"] = parts[0]
+            fields["serial"] = parts[1]
+            fields["logtype"] = parts[2]
+            fields["srcip"] = parts[6]
+            fields["dstip"] = parts[7]
+            action_raw = parts[10] if len(parts) > 10 else ""
+            if "-" in action_raw:
+                fields["action"] = action_raw.split("-")[0]
+            else:
+                fields["action"] = action_raw
+            # Message is typically in quotes later in the log
+            for p in parts:
+                p_stripped = p.strip()
+                if p_stripped.startswith('"') and p_stripped.endswith('"') and len(p_stripped) > 4:
+                    fields["message"] = p_stripped.strip('"')
+                    break
+            return fields
 
     # key=value, key==value, key:value, key::value pairs
     kv_pattern = r"(\b[\w\.-]+)\s*([=:]+)\s*('(?:[^']|\\')*'|\"(?:[^\"]|\\\")*\"|[^\s,;]+)"
@@ -1736,9 +1848,9 @@ def run_logtest_for_samples(samples: List[LogSample]) -> Dict[str, Any]:
     }
 
 
-def infer_rule_from_natural_language(requirement: str, default_level: int) -> Tuple[int, str]:
+def infer_rule_from_natural_language(requirement: str, default_level: int) -> int:
     if not requirement:
-        return default_level, ""
+        return default_level
     req = requirement.strip()
     level = default_level
     explicit_level = re.search(r"\blevel\s*(\d{1,2})\b", req, flags=re.IGNORECASE)
@@ -1752,7 +1864,7 @@ def infer_rule_from_natural_language(requirement: str, default_level: int) -> Tu
             level = max(level, 10)
         elif any(word in lowered for word in ["low", "informational", "info"]):
             level = min(level, 4)
-    return level, req
+    return level
 
 
 def ensure_ml_model(force_refresh: bool = False) -> Optional[DecoderSimilarityModel]:
@@ -2034,7 +2146,7 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
             "stderr": first_logtest.get("stderr", ""),
         },
         "logtest_scan": logtest_scan,
-        "needs_custom_decoder": not logtest_scan["builtin_decoder_seen"],
+        "needs_custom_decoder": not logtest_scan["builtin_decoder_seen"] or bool(request.extract_fields),
         "needs_custom_rule": bool(request.rule_requirement and request.rule_requirement.strip()),
         "notes": [
             "Analyze always checks the sample directly with wazuh-logtest first.",
@@ -2084,23 +2196,41 @@ def build_decoder_xml(
     return "\n\n".join(xml_parts)
 
 
+def derive_log_source_name(logs: List[str], parent_decoder: str, user_provided: Optional[str] = None) -> str:
+    if user_provided and user_provided.strip():
+        return user_provided.strip()
+    if parent_decoder and parent_decoder not in ("customapp", "custom"):
+        return parent_decoder
+    program = extract_program_from_log(logs)
+    if program:
+        return program
+    predecoded = parse_phase1_predecode(first_non_empty(logs))
+    if predecoded.get("program_name"):
+        return predecoded["program_name"]
+    return parent_decoder or "custom"
+
+
 def build_rule_xml(
     app_name: str,
     rule_id: int,
     level: int,
-    description: str,
+    log_source_name: str,
     decoded_as: Optional[str] = None,
     if_sid: Optional[int] = None,
+    regex: Optional[str] = None,
 ) -> str:
+    description = f"{escape_xml(log_source_name)} messages grouped"
     lines = [
         f"<group name=\"custom,{escape_xml(app_name)},\">",
         f"  <rule id=\"{rule_id}\" level=\"{level}\">",
     ]
     if if_sid is not None:
         lines.append(f"    <if_sid>{if_sid}</if_sid>")
-    elif decoded_as:
+    if decoded_as:
         lines.append(f"    <decoded_as>{escape_xml(decoded_as)}</decoded_as>")
-    lines.append(f"    <description>{escape_xml(description)}</description>")
+    if regex:
+        lines.append(f"    <regex>{escape_xml(regex)}</regex>")
+    lines.append(f"    <description>{description}</description>")
     lines.append("  </rule>")
     lines.append("</group>")
     return "\n".join(lines)
@@ -2227,22 +2357,50 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         )
 
     effective_level = request.level
-    custom_rule_description = f"{app_name} event detected"
     if request.rule_requirement:
-        effective_level, custom_rule_description = infer_rule_from_natural_language(request.rule_requirement, request.level)
+        effective_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
+
+    log_source_name = derive_log_source_name(
+        logs=[s.raw_log for s in request.logs],
+        parent_decoder=parent_decoder,
+        user_provided=getattr(request, 'log_source_name', None),
+    )
 
     rule_xml = None
     if needs_custom_rule:
-        if_sid = existing_rule_id if existing_rule_id else None
-        decoded_as = None if if_sid else (existing_decoder or parent_decoder)
-        rule_xml = build_rule_xml(
-            app_name=app_name,
-            rule_id=request.rule_id,
-            level=effective_level,
-            description=custom_rule_description,
-            decoded_as=decoded_as,
-            if_sid=if_sid,
-        )
+        builtin_rule_id = existing_rule_id
+        decoded_as = existing_decoder or parent_decoder
+
+        if builtin_rule_id == 2501:
+            regex_pattern = derive_regex_from_predecoded_body([s.raw_log for s in request.logs])
+            rule_xml = build_rule_xml(
+                app_name=app_name,
+                rule_id=request.rule_id,
+                level=effective_level,
+                log_source_name=log_source_name,
+                if_sid=builtin_rule_id,
+                regex=regex_pattern,
+            )
+        elif builtin_rule_id is not None:
+            analysis["rule_warning"] = (
+                f"Log already matches built-in rule {builtin_rule_id}. "
+                f"Verify with wazuh-logtest whether you need a custom rule or can extend the existing one."
+            )
+            rule_xml = build_rule_xml(
+                app_name=app_name,
+                rule_id=request.rule_id,
+                level=effective_level,
+                log_source_name=log_source_name,
+                decoded_as=decoded_as,
+            )
+        else:
+            rule_xml = build_rule_xml(
+                app_name=app_name,
+                rule_id=request.rule_id,
+                level=effective_level,
+                log_source_name=log_source_name,
+                decoded_as=decoded_as,
+            )
 
     candidate = {
         "analysis": analysis,
@@ -2254,6 +2412,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         "rule_xml": rule_xml,
         "rule_id": request.rule_id,
         "level": effective_level,
+        "log_source_name": log_source_name,
         "parent_program_name": parent_program_name,
         "parent_prematch": parent_prematch,
         "decision": {
@@ -2700,6 +2859,7 @@ class AIGenerateRequest(BaseModel):
     model: str = Field(default="anthropic/claude-sonnet-4-5")
     temperature: float = Field(default=0.2, ge=0.0, le=1.0)
     extra_context: str = Field(default="")
+    log_source_name: Optional[str] = Field(default=None)
 
 
 def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> str:
@@ -2711,7 +2871,8 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
     prematch = analysis.get("prematch") or ""
     program = analysis.get("predecoded_program_name") or analysis.get("program_name") or request.app_name
 
-    # Add field hints context if available
+    log_source = request.log_source_name or program or request.app_name
+
     hints_block = ""
     field_hints = getattr(request, 'field_hints', {})
     if field_hints:
@@ -2721,7 +2882,6 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
                 hints_block += f"  - Extract value '{val}' as field '{key}'\n"
         hints_block += "\n"
 
-    # Few-shot examples from ML suggestions
     few_shot = ""
     suggestions = analysis.get("ml_suggestions") or []
     if suggestions:
@@ -2740,6 +2900,7 @@ Log samples:
 {logs_block}
 
 App name: {request.app_name}
+Log source name: {log_source}
 Program name (from logtest): {program}
 Fields to extract: {fields_hint}
 Rule requirement: {rule_req}
@@ -2759,8 +2920,9 @@ Heuristic analysis hints (you may refine these):
 2. Use valid Wazuh osregex syntax (no PCRE, no (?:...) groups, no [^...] classes).
 3. Use \\d+ for digits, \\S+ for non-whitespace, .+ for anything.
 4. Output a rule XML group that references the decoder.
-5. Wrap the decoder XML in a ```xml ... ``` block and the rule XML in a separate ```xml ... ``` block.
-6. After each block, briefly explain your reasoning.
+5. The rule description MUST be: "{log_source} messages grouped"
+6. Wrap the decoder XML in a ```xml ... ``` block and the rule XML in a separate ```xml ... ``` block.
+7. After each block, briefly explain your reasoning.
 
 Generate the XML now:"""
 

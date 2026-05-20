@@ -102,6 +102,7 @@ function readPayload() {
     field_hints: field_hints,
     install_mode: document.getElementById('installMode').value,
     split_decoders: document.getElementById('splitDecoders').checked,
+    log_source_name: document.getElementById('logSourceName').value.trim() || null,
   };
 }
 
@@ -136,6 +137,7 @@ function showAnalysis(data) {
   const decoderSeen = wlt.builtin_decoder_seen ? `✓ ${wlt.decoder_name}` : '✗ None matched';
   const items = [
     ['Log type', data.log_type], ['App name', data.app_name],
+    ['Log source', data.log_source_name || data.program_name],
     ['Program name', data.program_name], ['Predecoded program', data.predecoded_program_name || '—'],
     ['Prematch', data.prematch], ['Regex', data.regex_display || data.regex],
     ['Order', (data.order || []).join(', ')], ['Logtest', available],
@@ -304,7 +306,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 async function runTest(outputEl) {
   const p = readPayload();
   const result = await postJson('/api/test', {
-    candidate: { app_name: p.app_name, logs: p.logs, rule_id: p.rule_id, level: p.level, rule_requirement: p.rule_requirement, extract_fields: p.extract_fields },
+    candidate: { app_name: p.app_name, logs: p.logs, rule_id: p.rule_id, level: p.level, rule_requirement: p.rule_requirement, extract_fields: p.extract_fields, log_source_name: p.log_source_name },
     install_mode: p.install_mode,
   });
   lastCandidate = result.candidate;
