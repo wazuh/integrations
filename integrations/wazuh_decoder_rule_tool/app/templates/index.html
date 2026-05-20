@@ -244,30 +244,18 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
             AI-Powered Generation
           </span>
-          <span class="card-badge">Powered by LLM</span>
+          <span class="card-badge">AI Powered</span>
         </div>
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
-          Uses an LLM (via OpenRouter) to intelligently generate decoder &amp; rule XML. Incorporates ML-retrieved similar decoders as few-shot examples.
+          Uses advanced AI with local ML similarity model context to intelligently generate decoder &amp; rule XML. The AI analyzes your logs, references trained Wazuh decoder patterns, and produces optimized XML with reasoning.
         </p>
-        <div class="form-row form-row-2">
-          <div class="form-group">
-            <label for="aiModel">Model</label>
-            <select id="aiModel">
-              <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
-              <option value="anthropic/claude-3-5-haiku">Claude 3.5 Haiku (fast)</option>
-              <option value="openai/gpt-4o">GPT-4o</option>
-              <option value="openai/gpt-4o-mini">GPT-4o Mini (fast)</option>
-              <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="aiTemperature">Temperature</label>
-            <input id="aiTemperature" type="number" value="0.2" min="0" max="1" step="0.05" />
-          </div>
+        <div class="form-group">
+          <label for="aiTemperature">Temperature</label>
+          <input id="aiTemperature" type="number" value="0.2" min="0" max="1" step="0.05" />
         </div>
         <div class="form-group mt-12">
           <label for="aiExtraContext">Extra Context (optional)</label>
-          <textarea id="aiExtraContext" rows="2" placeholder="e.g. This is a Nginx access log, extract status code and request URI"></textarea>
+          <textarea id="aiExtraContext" rows="2" placeholder="e.g. This is a Palo Alto threat log, extract action from deny-smb field"></textarea>
         </div>
         <div class="btn-row mt-16">
           <button class="btn btn-ai" id="aiGenerateBtn">

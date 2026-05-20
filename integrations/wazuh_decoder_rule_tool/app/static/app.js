@@ -430,14 +430,13 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
 
   try {
     const p = readPayload();
-    const model = document.getElementById('aiModel').value;
     const temperature = parseFloat(document.getElementById('aiTemperature').value);
     const extraContext = document.getElementById('aiExtraContext').value.trim();
 
     const res = await fetch('/api/ai/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...p, model, temperature, extra_context: extraContext }),
+      body: JSON.stringify({ ...p, temperature, extra_context: extraContext }),
     });
 
     if (!res.ok) throw new Error(await res.text());

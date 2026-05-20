@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import html
 import json
 import os
@@ -57,10 +58,15 @@ LOCAL_OUTPUT_DIR = BASE_DIR.parent / "generated"
 FEEDBACK_DATASET_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback.jsonl"
 REJECTED_FEEDBACK_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback_rejections.jsonl"
 
-# ── OpenRouter / LLM config ──
+# ── AI / LLM config ──
+# Primary: OpenRouter free tier - Llama 3.3 70B Instruct (free, reliable)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-AI_DEFAULT_MODEL = os.getenv("AI_DEFAULT_MODEL", "anthropic/claude-sonnet-4-5")
+AI_DEFAULT_MODEL = os.getenv("AI_DEFAULT_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+
+# Optional: DashScope International (Singapore) for Qwen 3.6 Plus
+DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+DASHSCOPE_BASE_URL = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
 
 _ML_MODEL: Optional[DecoderSimilarityModel] = None
 _ML_MODEL_ERROR: str = ""
@@ -2841,6 +2847,8 @@ def health():
         "ml_pattern_count": _ML_PATTERN_COUNT,
         "ml_model_error": _ML_MODEL_ERROR,
         "wazuh_repo_cache_dir": str(WAZUH_REPO_CACHE_DIR),
+        "ai_provider": "openrouter" if OPENROUTER_API_KEY else ("dashscope" if DASHSCOPE_API_KEY else "none"),
+        "ai_model": AI_DEFAULT_MODEL,
     }
 
 
@@ -2856,7 +2864,6 @@ class AIGenerateRequest(BaseModel):
     rule_requirement: Optional[str] = None
     extract_fields: List[str] = Field(default_factory=list)
     field_hints: Dict[str, str] = Field(default_factory=dict)
-    model: str = Field(default="anthropic/claude-sonnet-4-5")
     temperature: float = Field(default=0.2, ge=0.0, le=1.0)
     extra_context: str = Field(default="")
     log_source_name: Optional[str] = Field(default=None)
@@ -2882,95 +2889,181 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
                 hints_block += f"  - Extract value '{val}' as field '{key}'\n"
         hints_block += "\n"
 
-    few_shot = ""
+    ml_context = ""
     suggestions = analysis.get("ml_suggestions") or []
     if suggestions:
         examples = []
-        for s in suggestions[:3]:
+        for s in suggestions[:5]:
             examples.append(
-                f"  name={s.get('name','?')} parent={s.get('parent','?')} "
-                f"prematch={s.get('prematch','?')} regex={s.get('regex','?')} "
-                f"order={','.join(s.get('order') or [])}"
+                f"<decoder name='{s.get('name','?')}'>\n"
+                f"  parent={s.get('parent','?')}\n"
+                f"  prematch={s.get('prematch','?')}\n"
+                f"  regex={s.get('regex','?')}\n"
+                f"  order={','.join(s.get('order') or [])}\n"
+                f"</decoder>\n"
             )
-        few_shot = "Similar existing Wazuh decoders (for reference):\n" + "\n".join(examples) + "\n\n"
+        ml_context = (
+            "## ML Similarity Model Context\n"
+            "The local trained ML similarity model (loaded from Wazuh decoder XML patterns) "
+            f"found {len(suggestions)} similar decoders. These are real Wazuh decoders that match your log pattern:\n\n"
+            + "\n".join(examples) + "\n"
+            "Use these as reference for osregex syntax, field ordering, and decoder structure.\n\n"
+        )
 
-    return f"""You are a Wazuh SIEM expert. Generate a complete, valid Wazuh decoder and rule XML for the log samples below.
+    logtest_summary = analysis.get("wazuh_logtest_summary", {})
+    logtest_block = ""
+    if logtest_summary:
+        logtest_block = (
+            "## Wazuh Logtest Analysis\n"
+            f"- Built-in decoder matched: {logtest_summary.get('builtin_decoder_seen', False)}\n"
+            f"- Decoder name: {logtest_summary.get('decoder_name', 'None')}\n"
+            f"- Built-in rule matched: {logtest_summary.get('builtin_rule_seen', False)}\n"
+            f"- Rule ID: {logtest_summary.get('rule_id', 'None')}\n"
+            f"- Predecoded program: {logtest_summary.get('predecoded_program_name', 'None')}\n"
+            "\n"
+        )
 
-Log samples:
+    auto_fields = analysis.get("auto_fields", {})
+    fields_block = ""
+    if auto_fields:
+        fields_str = "\n".join(f"  - {k}: {v}" for k, v in auto_fields.items())
+        fields_block = f"## Auto-Extracted Fields\n{fields_str}\n\n"
+
+    return f"""You are a Wazuh SIEM expert with deep knowledge of osregex, decoder architecture, and rule engineering.
+
+Think step by step before generating XML. Analyze the log structure, identify variable vs static parts, and design optimal decoder/rule patterns.
+
+## Log Samples
 {logs_block}
 
-App name: {request.app_name}
-Log source name: {log_source}
-Program name (from logtest): {program}
-Fields to extract: {fields_hint}
-Rule requirement: {rule_req}
-Rule ID: {request.rule_id}
-Rule level: {request.level}
-{f'Extra context: {request.extra_context}' if request.extra_context else ''}
+## Configuration
+- App name: {request.app_name}
+- Log source name: {log_source}
+- Program name: {program}
+- Fields to extract: {fields_hint}
+- Rule requirement: {rule_req}
+- Rule ID: {request.rule_id}
+- Rule level: {request.level}
+{f'- Extra context: {request.extra_context}' if request.extra_context else ''}
 
-Heuristic analysis hints (you may refine these):
-  prematch: {prematch}
-  regex: {regex}
-  order: {order}
+{fields_block}{logtest_block}## Heuristic Analysis (use as reference, refine if needed)
+- Prematch: {prematch}
+- Regex: {regex}
+- Order: {order}
 
 {hints_block}
+{ml_context}## Rules for Decoder XML
+1. Create a parent decoder with <prematch> or <program_name> for scoping
+2. Create child decoders with <parent>, <regex>, and <order>
+3. Use valid Wazuh osregex: \\d+ for digits, \\S+ for non-whitespace, .+ for anything
+4. Use \\p ONLY for punctuation characters: ()*+,-.:;<=>?[]!"'#$%&|{{}}
+5. Do NOT use \\p for forward slashes (/), letters, or normal text — keep them as literals
+6. Generalize variable parts: IPs → \\d+.\\d+.\\d+.\\d+, quoted strings → '\\S+', numbers → \\d+
+7. Use split decoders (one child per field) for better accuracy
 
-{few_shot}Instructions:
-1. Output a parent decoder and a child decoder that captures the fields.
-2. Use valid Wazuh osregex syntax (no PCRE, no (?:...) groups, no [^...] classes).
-3. Use \\d+ for digits, \\S+ for non-whitespace, .+ for anything.
-4. Output a rule XML group that references the decoder.
-5. The rule description MUST be: "{log_source} messages grouped"
-6. Wrap the decoder XML in a ```xml ... ``` block and the rule XML in a separate ```xml ... ``` block.
-7. After each block, briefly explain your reasoning.
+## Rules for Rule XML
+1. If log matches built-in rule 2501 (failed login), use <if_sid>2501</if_sid> with a <regex> for keyword matching
+2. Otherwise use <decoded_as> pointing to the parent decoder name
+3. Rule description MUST be: "{log_source} messages grouped"
+
+## Output Format
+Wrap decoder XML in ```xml ... ``` and rule XML in a separate ```xml ... ``` block.
+After each block, briefly explain your reasoning.
 
 Generate the XML now:"""
 
 
-async def _stream_openrouter(prompt: str, model: str, temperature: float) -> AsyncIterator[bytes]:
-    if not OPENROUTER_API_KEY:
-        yield b"ERROR: OPENROUTER_API_KEY is not set. Add it to your environment and restart the app."
+async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterator[bytes]:
+    # Primary: OpenRouter free tier
+    if OPENROUTER_API_KEY:
+        payload = {
+            "model": model,
+            "temperature": temperature,
+            "stream": True,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:8443",
+            "X-Title": "Wazuh Decoder Studio",
+        }
+        url = f"{OPENROUTER_BASE_URL}/chat/completions"
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            async with httpx.AsyncClient(timeout=120) as client:
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
+                    if response.status_code == 429:
+                        retry_after = int(response.headers.get("Retry-After", 10))
+                        if attempt < max_retries - 1:
+                            yield f"[Rate limited. Retrying in {retry_after}s... (attempt {attempt + 1}/{max_retries})]\n".encode()
+                            await asyncio.sleep(retry_after)
+                            continue
+                        else:
+                            yield f"ERROR 429: Rate limit exceeded after {max_retries} retries. Try again in a minute.".encode()
+                            return
+                    if response.status_code != 200:
+                        body = await response.aread()
+                        yield f"ERROR {response.status_code}: {body.decode()}".encode()
+                        return
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:]
+                        if data.strip() == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            token = chunk["choices"][0]["delta"].get("content", "")
+                            if token:
+                                yield token.encode()
+                        except Exception:
+                            continue
+            break
         return
 
-    payload = {
-        "model": model,
-        "temperature": temperature,
-        "stream": True,
-        "messages": [{"role": "user", "content": prompt}],
-    }
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:8000",
-        "X-Title": "Wazuh Decoder Studio",
-    }
-    url = f"{OPENROUTER_BASE_URL}/chat/completions"
+    # Optional fallback: DashScope International (Singapore) for Qwen 3.6 Plus
+    if DASHSCOPE_API_KEY:
+        payload = {
+            "model": "qwen3.6-plus",
+            "temperature": temperature,
+            "stream": True,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        headers = {
+            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        url = f"{DASHSCOPE_BASE_URL}/chat/completions"
 
-    async with httpx.AsyncClient(timeout=120) as client:
-        async with client.stream("POST", url, json=payload, headers=headers) as response:
-            if response.status_code != 200:
-                body = await response.aread()
-                yield f"ERROR {response.status_code}: {body.decode()}".encode()
-                return
-            async for line in response.aiter_lines():
-                if not line.startswith("data: "):
-                    continue
-                data = line[6:]
-                if data.strip() == "[DONE]":
-                    break
-                try:
-                    chunk = json.loads(data)
-                    token = chunk["choices"][0]["delta"].get("content", "")
-                    if token:
-                        yield token.encode()
-                except Exception:
-                    continue
+        async with httpx.AsyncClient(timeout=120) as client:
+            async with client.stream("POST", url, json=payload, headers=headers) as response:
+                if response.status_code != 200:
+                    body = await response.aread()
+                    yield f"ERROR {response.status_code}: {body.decode()}".encode()
+                    return
+                async for line in response.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        token = chunk["choices"][0]["delta"].get("content", "")
+                        if token:
+                            yield token.encode()
+                    except Exception:
+                        continue
+        return
+
+    yield b"ERROR: No AI API key configured.\n\nSet OPENROUTER_API_KEY environment variable.\nGet a free key at https://openrouter.ai"
 
 
 @app.post("/api/ai/generate")
 async def ai_generate(request: AIGenerateRequest):
-    """Stream AI-generated decoder + rule XML from OpenRouter."""
-    # Run heuristic analysis first to provide context to the LLM
+    """Stream AI-generated decoder + rule XML using Qwen 3.6 Plus via DashScope."""
     analysis = analyze_logs_impl(
         AnalyzeRequest(
             logs=request.logs,
@@ -2982,6 +3075,6 @@ async def ai_generate(request: AIGenerateRequest):
     )
     prompt = _build_ai_prompt(request, analysis)
     return StreamingResponse(
-        _stream_openrouter(prompt, request.model, request.temperature),
+        _stream_ai(prompt, AI_DEFAULT_MODEL, request.temperature),
         media_type="text/plain",
     )
