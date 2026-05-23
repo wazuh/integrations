@@ -1418,6 +1418,103 @@ def parse_phase1_predecode(log_line: str) -> Dict[str, str]:
     return data
 
 
+def clean_rule_description(text: str) -> str:
+    cleaned = text.strip()
+    prefixes = [
+        r'^i\s+wanna\s+create\s+parent\s+rule\s+for\s+this\s+and\s+also\s+need\s+to\s+create\s+child\s+rule\s+based\s+on\s+the\s+parent\s+rule\s+that\s+need\s+to\s+be\s+',
+        r'^i\s+(?:want|need)\s+to\s+(?:create|make|have)\s+(?:a\s+)?(?:parent\s+)?rule\s+(?:for|to)\s+',
+        r'^(?:create|make|have)\s+(?:a\s+)?(?:parent\s+)?rule\s+(?:for|to)\s+',
+        r'^(?:please\s+)',
+    ]
+    for p in prefixes:
+        cleaned = re.sub(p, '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+(?:please|thanks|thank\s+you)$', '', cleaned, flags=re.IGNORECASE)
+    return cleaned.strip()
+
+
+def derive_child_regex_from_logs(logs: List[str], rule_requirement: str) -> Optional[str]:
+    bodies = []
+    for log in logs:
+        predecoded = parse_phase1_predecode(log)
+        body = (predecoded.get("body") or log).strip()
+        if body:
+            bodies.append(body)
+    if not bodies:
+        return derive_regex_from_predecoded_body(logs)
+    body = bodies[0]
+
+    _STOP = frozenset({'the','a','an','is','was','are','were','be','been','being',
+        'have','has','had','do','does','did','will','would','could','should','may',
+        'might','shall','can','need','dare','ought','used','to','of','in','for','on',
+        'with','at','by','from','as','into','through','during','before','after','above',
+        'below','between','out','off','over','under','again','further','then','once',
+        'here','there','when','where','why','how','all','each','every','both','few',
+        'more','most','other','some','such','no','nor','not','only','own','same','so',
+        'than','too','very','just','because','but','and','or','if','while','that',
+        'this','these','those','i','me','my','myself','we','our','ours','ourselves',
+        'you','your','yours','yourself','yourselves','he','him','his','himself','she',
+        'her','hers','herself','it','its','itself','they','them','their','theirs',
+        'themselves','what','which','who','whom','am','is','are','was','were','be',
+        'been','being','have','has','had','having','do','does','did','doing','will',
+        'would','should','can','could','shall','may','might','must','let','need',
+        'dare','ought','used','detected','detect','create','based','wanna','want',
+        'also','need','this','that','and','for','the','parent','rule','child'})
+
+    req_words = {w for w in re.findall(r'\b[a-zA-Z]{3,}\b', rule_requirement.lower()) if w not in _STOP}
+    if not req_words:
+        return derive_regex_from_predecoded_body(logs)
+
+    def stem(w: str) -> str:
+        w = w.rstrip('s')
+        for suf in ('ure', 'ing', 'ed'):
+            if w.endswith(suf):
+                return w[:-len(suf)]
+        return w
+
+    body_lower = body.lower()
+    matches = []
+    for rw in req_words:
+        rs = stem(rw)
+        for bw in re.findall(r'\b[a-zA-Z]+\b', body):
+            if stem(bw.lower()) == rs or bw.lower() == rw:
+                idx = body_lower.find(bw.lower())
+                if idx != -1:
+                    matches.append((idx, idx + len(bw)))
+                    break
+        else:
+            idx = body_lower.find(rw)
+            if idx != -1:
+                matches.append((idx, idx + len(rw)))
+
+    if not matches:
+        return derive_regex_from_predecoded_body(logs)
+
+    matches.sort()
+    seg_start = matches[0][0]
+    seg_end = max(e for _, e in matches)
+    seg = body[seg_start:seg_end]
+
+    tokens = re.split(r"(\s+|'[^']*'|\"[^\"]*\"|\b\d+\.\d+\.\d+\.\d+\b|\b\d+\b)", seg)
+    parts = []
+    for token in tokens:
+        if not token:
+            continue
+        if re.fullmatch(r"\s+", token):
+            parts.append(r"\s")
+        elif re.fullmatch(r"'[^']*'", token):
+            parts.append(r"'\S+'")
+        elif re.fullmatch(r'"[^"]*"', token):
+            parts.append(r'"\S+"')
+        elif re.fullmatch(r"\d+\.\d+\.\d+\.\d+", token):
+            parts.append(r"\d+\.\d+\.\d+\.\d+")
+        elif re.fullmatch(r"\d+", token):
+            parts.append(r"\d+")
+        else:
+            parts.append(re.sub(r'([$()\\|<])', r'\\\1', token))
+
+    return r".+" + "".join(parts) + r".+"
+
+
 def derive_regex_from_predecoded_body(logs: List[str]) -> Optional[str]:
     bodies = []
     for log in logs:
@@ -2415,12 +2512,13 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
 
         child_rule = None
         if request.rule_requirement:
-            child_regex = derive_regex_from_predecoded_body([s.raw_log for s in request.logs])
+            child_regex = derive_child_regex_from_logs([s.raw_log for s in request.logs], request.rule_requirement)
             child_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
+            child_desc = clean_rule_description(request.rule_requirement)
             child_rule = {
                 "id": request.rule_id + 1,
                 "level": child_level,
-                "description": request.rule_requirement,
+                "description": child_desc,
                 "regex": child_regex,
             }
 
