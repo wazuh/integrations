@@ -1868,7 +1868,7 @@ def infer_rule_from_natural_language(requirement: str, default_level: int) -> in
         lowered = req.lower()
         if any(word in lowered for word in ["critical", "severe", "urgent"]):
             level = max(level, 12)
-        elif any(word in lowered for word in ["high", "important"]):
+        elif any(word in lowered for word in ["high", "important", "fail"]):
             level = max(level, 10)
         elif any(word in lowered for word in ["low", "informational", "info"]):
             level = min(level, 4)
@@ -2250,6 +2250,7 @@ def build_rule_xml(
     decoded_as: Optional[str] = None,
     if_sid: Optional[int] = None,
     regex: Optional[str] = None,
+    child_rule: Optional[Dict[str, Any]] = None,
 ) -> str:
     description = f"{escape_xml(log_source_name)} messages grouped"
     lines = [
@@ -2264,6 +2265,17 @@ def build_rule_xml(
         lines.append(f"    <regex>{escape_xml(regex)}</regex>")
     lines.append(f"    <description>{description}</description>")
     lines.append("  </rule>")
+    if child_rule:
+        child_id = child_rule.get("id", rule_id + 1)
+        child_lvl = child_rule.get("level", level)
+        child_desc = child_rule.get("description", description)
+        child_re = child_rule.get("regex")
+        lines.append(f"  <rule id=\"{child_id}\" level=\"{child_lvl}\">")
+        lines.append(f"    <if_sid>{rule_id}</if_sid>")
+        if child_re:
+            lines.append(f"    <regex>{escape_xml(child_re)}</regex>")
+        lines.append(f"    <description>{escape_xml(child_desc)}</description>")
+        lines.append("  </rule>")
     lines.append("</group>")
     return "\n".join(lines)
 
@@ -2389,8 +2401,6 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         )
 
     effective_level = request.level
-    if request.rule_requirement:
-        effective_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
 
     log_source_name = derive_log_source_name(
         logs=[s.raw_log for s in request.logs],
@@ -2403,6 +2413,17 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         builtin_rule_id = existing_rule_id
         decoded_as = existing_decoder or parent_decoder
 
+        child_rule = None
+        if request.rule_requirement:
+            child_regex = derive_regex_from_predecoded_body([s.raw_log for s in request.logs])
+            child_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
+            child_rule = {
+                "id": request.rule_id + 1,
+                "level": child_level,
+                "description": request.rule_requirement,
+                "regex": child_regex,
+            }
+
         if builtin_rule_id == 2501:
             regex_pattern = derive_regex_from_predecoded_body([s.raw_log for s in request.logs])
             rule_xml = build_rule_xml(
@@ -2412,6 +2433,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 log_source_name=log_source_name,
                 if_sid=builtin_rule_id,
                 regex=regex_pattern,
+                child_rule=child_rule,
             )
         elif builtin_rule_id is not None:
             analysis["rule_warning"] = (
@@ -2424,6 +2446,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 level=effective_level,
                 log_source_name=log_source_name,
                 decoded_as=decoded_as,
+                child_rule=child_rule,
             )
         else:
             rule_xml = build_rule_xml(
@@ -2432,6 +2455,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 level=effective_level,
                 log_source_name=log_source_name,
                 decoded_as=decoded_as,
+                child_rule=child_rule,
             )
 
     candidate = {
