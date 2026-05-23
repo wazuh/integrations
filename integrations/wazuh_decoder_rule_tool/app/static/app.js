@@ -297,8 +297,11 @@ async function checkHealth() {
   try {
     const res = await fetch('/health');
     const data = await res.json();
-    pill.className = 'status-pill online';
-    pill.innerHTML = `<span class="status-dot pulse"></span> Wazuh ${data.wazuh_remote_enabled ? 'Remote' : 'Local'}`;
+    const accessible = data.wazuh_logtest_accessible;
+    pill.className = accessible ? 'status-pill online' : 'status-pill offline';
+    pill.innerHTML = accessible
+      ? `<span class="status-dot pulse"></span> Wazuh ${data.wazuh_remote_enabled ? 'Remote' : 'Local'}`
+      : `<span class="status-dot"></span> Wazuh ${data.wazuh_remote_enabled ? 'Remote' : 'Local'} (unavailable)`;
     const mlPill = document.getElementById('mlPill');
     mlPill.className = data.ml_model_loaded ? 'status-pill online' : 'status-pill offline';
     mlPill.innerHTML = `<span class="status-dot"></span> ML ${data.ml_pattern_count || 0} patterns`;

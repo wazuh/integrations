@@ -3034,6 +3034,18 @@ def feedback(request: FeedbackRequest):
 
 @app.get("/health")
 def health():
+    binary = find_wazuh_logtest()
+    if WAZUH_REMOTE_ENABLED and binary:
+        try:
+            cmd = ssh_base_cmd() + [f"sudo {WAZUH_LOGTEST} -q </dev/null 2>/dev/null; echo EXITCODE=$?"]
+            proc = subprocess.run(cmd, text=True, capture_output=True, timeout=5)
+            logtest_accessible = proc.returncode == 0 and proc.stdout is not None
+        except Exception:
+            logtest_accessible = False
+    elif binary:
+        logtest_accessible = os.access(binary, os.X_OK)
+    else:
+        logtest_accessible = False
     return {
         "ok": True,
         "wazuh_remote_enabled": WAZUH_REMOTE_ENABLED,
@@ -3041,7 +3053,8 @@ def health():
         "wazuh_ssh_port": WAZUH_SSH_PORT,
         "wazuh_ssh_user": WAZUH_SSH_USER,
         "wazuh_logtest_path": WAZUH_LOGTEST,
-        "wazuh_logtest_exists": bool(find_wazuh_logtest()),
+        "wazuh_logtest_exists": bool(binary),
+        "wazuh_logtest_accessible": logtest_accessible,
         "wazuh_decoders_dir": WAZUH_DECODERS_DIR,
         "wazuh_rules_dir": WAZUH_RULES_DIR,
         "ml_model_loaded": bool(_ML_MODEL),
