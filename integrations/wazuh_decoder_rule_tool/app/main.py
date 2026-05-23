@@ -30,6 +30,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from app.decoder_ml import DecoderSimilarityModel, load_patterns_from_repo, refresh_wazuh_repo
+from app.decoder_ml_enhanced import ensure_ml_model_enhanced
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -78,7 +79,7 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     # Pre-load ML patterns on startup to avoid "red" status in dashboard
     print("INFO:     Pre-loading ML model and patterns...")
-    ensure_ml_model(force_refresh=False)
+    ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
     print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
     yield
 
@@ -1954,10 +1955,34 @@ def retrain_similarity_model() -> Dict[str, Any]:
             "stderr": train_proc.stderr,
         }
 
+    # Reload model with newly trained SBERT
+    ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
+    return {
+        "ok": True,
+        "build_stdout": build_proc.stdout,
+        "build_stderr": build_proc.stderr,
+        "train_stdout": train_proc.stdout,
+        "train_stderr": train_proc.stderr,
+    }
+
+    train_proc = subprocess.run(
+        [sys.executable, str(BASE_DIR.parent / "scripts" / "train_similarity.py")],
+        text=True,
+        capture_output=True,
+        cwd=str(BASE_DIR.parent),
+    )
+    if train_proc.returncode != 0:
+        return {
+            "ok": False,
+            "step": "train_similarity",
+            "stdout": train_proc.stdout,
+            "stderr": train_proc.stderr,
+        }
+
     _ML_MODEL = None
     _SBERT_MODEL = None
     _ML_MODEL_ERROR = ""
-    ensure_ml_model(force_refresh=False)
+    ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
     return {
         "ok": True,
         "build_stdout": build_proc.stdout,
@@ -2030,7 +2055,7 @@ def ml_suggestions_for_logs(
     unique_after_predecoded: str,
     top_k: int = 5,
 ) -> List[Dict[str, Any]]:
-    model = ensure_ml_model(force_refresh=False)
+    model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
     if not model:
         return []
     query_parts = [
@@ -2796,7 +2821,7 @@ def test_candidate(request: TestRequest):
 
 @app.get("/api/ml/status")
 def ml_status():
-    model = ensure_ml_model(force_refresh=False)
+    model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
     return {
         "model_loaded": bool(model),
         "pattern_count": _ML_PATTERN_COUNT,
@@ -2817,7 +2842,7 @@ def ml_refresh(request: MLRefreshRequest):
         force=request.force,
     )
     _ML_MODEL = None
-    model = ensure_ml_model(force_refresh=False)
+    model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
     return {
         "refresh": refreshed,
         "model_loaded": bool(model),
