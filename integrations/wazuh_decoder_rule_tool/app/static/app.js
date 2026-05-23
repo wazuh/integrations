@@ -17,15 +17,30 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
 document.getElementById('outputTabs').addEventListener('click', e => {
   const btn = e.target.closest('.tab-btn');
   if (!btn) return;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const container = btn.closest('.card');
+  container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById(btn.dataset.tab).classList.add('active');
+  container.querySelector('#' + btn.dataset.tab).classList.add('active');
+});
+
+document.getElementById('ruleOutputTabs').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const container = btn.closest('.card');
+  container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  container.querySelector('#' + btn.dataset.tab).classList.add('active');
 });
 
 function switchTab(tabId) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
+  const panel = document.getElementById(tabId);
+  if (!panel) return;
+  const container = panel.closest('.card');
+  if (!container) return;
+  container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+  container.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
 }
 
 /* ══ Toast ══ */
@@ -95,14 +110,32 @@ function readPayload() {
   return {
     app_name: document.getElementById('appName').value,
     logs,
-    rule_id: Number(document.getElementById('ruleId').value),
-    level: Number(document.getElementById('level').value),
-    rule_requirement: document.getElementById('ruleRequirement').value.trim(),
     extract_fields: extractFields,
     field_hints: field_hints,
     install_mode: document.getElementById('installMode').value,
     split_decoders: document.getElementById('splitDecoders').checked,
     log_source_name: document.getElementById('logSourceName').value.trim() || null,
+  };
+}
+
+/* ══ Read rule form payload ══ */
+function readRulePayload() {
+  const rawInput = document.getElementById('ruleLogsInput').value.trim();
+  let logs;
+  try { logs = JSON.parse(rawInput); } catch (_) {
+    logs = rawInput.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => ({ raw_log: l }));
+  }
+  return {
+    app_name: document.getElementById('ruleAppName').value,
+    logs,
+    rule_id: Number(document.getElementById('ruleRuleId').value),
+    level: Number(document.getElementById('ruleLevel').value),
+    rule_requirement: document.getElementById('ruleRequirement').value.trim(),
+    extract_fields: [],
+    field_hints: {},
+    install_mode: document.getElementById('ruleInstallMode').value,
+    split_decoders: false,
+    log_source_name: document.getElementById('ruleLogSourceName').value.trim() || null,
   };
 }
 
@@ -129,8 +162,8 @@ function showXml(preId, xml, fallback = 'None generated.') {
 }
 
 /* ══ Analysis display ══ */
-function showAnalysis(data) {
-  const out = document.getElementById('analysisOut');
+function showAnalysis(data, targetId = 'analysisOut') {
+  const out = document.getElementById(targetId);
   if (!data) { out.innerHTML = '<div class="empty-state"><p>No data.</p></div>'; return; }
   const wlt = data.wazuh_logtest_summary || {};
   const available = wlt.available ? '🟢 Available' : '🔴 Unavailable';
@@ -164,9 +197,9 @@ function showAnalysis(data) {
 }
 
 /* ══ Regex preview ══ */
-function updateRegexPreview(regex) {
+function updateRegexPreview(regex, logElId = 'logsInput') {
   const preview = document.getElementById('regexPreview');
-  const log = document.getElementById('logsInput').value.split('\n').find(l => l.trim()) || '';
+  const log = document.getElementById(logElId).value.split('\n').find(l => l.trim()) || '';
   if (!regex || !log) { preview.innerHTML = '<span style="color:var(--text-muted)">Run Analyze…</span>'; return; }
   try {
     const pyToJs = regex.replace(/\\d/g,'\\d').replace(/\\S/g,'\\S').replace(/\\s/g,'\\s').replace(/\\.\\+/g,'[\\s\\S]+').replace(/\\.\\*/g,'[\\s\\S]*');
@@ -182,8 +215,8 @@ function updateRegexPreview(regex) {
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 /* ══ Test results ══ */
-function renderTestResults(results) {
-  const out = document.getElementById('testOut');
+function renderTestResults(results, targetId = 'testOut') {
+  const out = document.getElementById(targetId);
   if (!results || !results.length) { out.innerHTML = '<div class="empty-state"><p>No results.</p></div>'; return; }
   out.innerHTML = results.map(r => {
     const ev = r.evaluation || {};
@@ -237,7 +270,7 @@ window.loadHistory = function(i) {
   if (!h) return;
   if (h.app_name) document.getElementById('appName').value = h.app_name;
   if (h.log) document.getElementById('logsInput').value = h.log;
-  document.querySelectorAll('.sidebar-item[data-view="generate"]')[0].click();
+  document.querySelectorAll('.sidebar-item[data-view="decoder"]')[0].click();
   toast('info', 'History loaded');
 };
 
@@ -274,7 +307,7 @@ document.getElementById('analyzeBtn').addEventListener('click', async () => {
   setLoading(btn, true);
   try {
     const p = readPayload();
-    const result = await postJson('/api/analyze', { app_name: p.app_name, logs: p.logs, rule_requirement: p.rule_requirement, extract_fields: p.extract_fields });
+    const result = await postJson('/api/analyze', { app_name: p.app_name, logs: p.logs, extract_fields: p.extract_fields });
     showAnalysis(result);
     switchTab('tab-analysis');
     toast('success', 'Analysis complete');
@@ -292,7 +325,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     lastCandidate = result;
     showAnalysis(result.analysis);
     showXml('decoderOut', result.decoder_xml, result.decision?.decoder_skip_reason || 'No decoder XML.');
-    showXml('ruleOut', result.rule_xml, result.decision?.rule_skip_reason || 'No rule XML.');
     syncFeedback(result);
     saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
     switchTab('tab-decoder');
@@ -306,13 +338,12 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 async function runTest(outputEl) {
   const p = readPayload();
   const result = await postJson('/api/test', {
-    candidate: { app_name: p.app_name, logs: p.logs, rule_id: p.rule_id, level: p.level, rule_requirement: p.rule_requirement, extract_fields: p.extract_fields, log_source_name: p.log_source_name },
+    candidate: { app_name: p.app_name, logs: p.logs, extract_fields: p.extract_fields, log_source_name: p.log_source_name },
     install_mode: p.install_mode,
   });
   lastCandidate = result.candidate;
   showAnalysis(result.candidate.analysis);
   showXml('decoderOut', result.candidate.decoder_xml, result.candidate.decision?.decoder_skip_reason || 'No decoder XML.');
-  showXml('ruleOut', result.candidate.rule_xml, result.candidate.decision?.rule_skip_reason || 'No rule XML.');
   renderTestResults(result.results);
   syncFeedback(result.candidate);
   saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
@@ -337,6 +368,57 @@ document.getElementById('testBtn2').addEventListener('click', async () => {
     document.getElementById('testOut2').innerHTML = document.getElementById('testOut').innerHTML;
   }
   catch (e) { toast('error', 'Test failed', e.message); }
+  finally { setLoading(btn, false); }
+});
+
+/* ══ Rule: Analyze ══ */
+document.getElementById('ruleAnalyzeBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('ruleAnalyzeBtn');
+  setLoading(btn, true);
+  try {
+    const p = readRulePayload();
+    const result = await postJson('/api/analyze', { app_name: p.app_name, logs: p.logs, rule_requirement: p.rule_requirement, extract_fields: p.extract_fields });
+    showAnalysis(result, 'ruleAnalysisOut');
+    switchTab('ruletab-analysis');
+    toast('success', 'Analysis complete');
+  } catch (e) { toast('error', 'Analyze failed', e.message); }
+  finally { setLoading(btn, false); }
+});
+
+/* ══ Rule: Generate ══ */
+document.getElementById('ruleGenerateBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('ruleGenerateBtn');
+  setLoading(btn, true);
+  try {
+    const p = readRulePayload();
+    const result = await postJson('/api/generate', p);
+    showAnalysis(result.analysis, 'ruleAnalysisOut');
+    showXml('ruleOut', result.rule_xml, result.decision?.rule_skip_reason || 'No rule XML.');
+    saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
+    switchTab('ruletab-rule');
+    toast('success', 'Rule generated');
+  } catch (e) { toast('error', 'Generate failed', e.message); }
+  finally { setLoading(btn, false); }
+});
+
+/* ══ Rule: Test ══ */
+document.getElementById('ruleTestBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('ruleTestBtn');
+  setLoading(btn, true);
+  try {
+    const p = readRulePayload();
+    const result = await postJson('/api/test', {
+      candidate: { app_name: p.app_name, logs: p.logs, rule_id: p.rule_id, level: p.level, rule_requirement: p.rule_requirement, log_source_name: p.log_source_name },
+      install_mode: p.install_mode,
+    });
+    showAnalysis(result.candidate.analysis, 'ruleAnalysisOut');
+    showXml('ruleOut', result.candidate.rule_xml, result.candidate.decision?.rule_skip_reason || 'No rule XML.');
+    renderTestResults(result.results, 'ruleTestOut');
+    saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
+    const pass = result.results.every(r => r.evaluation?.pass);
+    toast(pass ? 'success' : 'error', pass ? 'All tests passed' : 'Some tests failed');
+    switchTab('ruletab-test');
+  } catch (e) { toast('error', 'Test failed', e.message); }
   finally { setLoading(btn, false); }
 });
 
@@ -494,12 +576,10 @@ document.getElementById('aiClearBtn').addEventListener('click', () => {
 
 document.getElementById('applyAiBtn').addEventListener('click', () => {
   const decoderXml = document.getElementById('aiDecoderXml').textContent;
-  const ruleXml = document.getElementById('aiRuleXml').textContent;
   document.getElementById('decoderOut').innerHTML = highlightXml(decoderXml);
-  document.getElementById('ruleOut').innerHTML = highlightXml(ruleXml);
-  document.querySelectorAll('.sidebar-item[data-view="generate"]')[0].click();
+  document.querySelectorAll('.sidebar-item[data-view="decoder"]')[0].click();
   switchTab('tab-decoder');
-  toast('success', 'AI output applied to Generate view');
+  toast('success', 'AI output applied to Decoder view');
 });
 
 /* ── Spinner keyframe (injected) ── */

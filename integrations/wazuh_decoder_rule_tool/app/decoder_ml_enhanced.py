@@ -222,28 +222,26 @@ def ensure_ml_model_enhanced(
     Enhanced version of ensure_ml_model that can use ensemble approach
     """
     from app.main import (
-        _ML_MODEL, _ML_MODEL_ERROR, _ML_PATTERN_COUNT,
         refresh_wazuh_repo, load_patterns_from_repo,
         WAZUH_REPO_URL, WAZUH_REPO_CACHE_DIR, 
-        WAZUH_REPO_DECODER_SUBPATH, BASE_DIR
+        WAZUH_REPO_DECODER_SUBPATH, WAZUH_REPO_BRANCH, BASE_DIR
     )
+    import app.main as main_module
     
-    global _ML_MODEL, _ML_MODEL_ERROR, _ML_PATTERN_COUNT
-    
-    # Refresh logic remains the same
-    if force_refresh or _ML_MODEL is None:
+    if force_refresh or main_module._ML_MODEL is None:
         print("INFO:     (Enhanced) Loading/refreshing ML model and patterns...")
         repo_result = refresh_wazuh_repo(
             WAZUH_REPO_URL,
             WAZUH_REPO_CACHE_DIR,
             WAZUH_REPO_DECODER_SUBPATH,
             force=force_refresh,
+            branch=WAZUH_REPO_BRANCH,
         )
         if repo_result.get("ok") != "true":
-            _ML_MODEL_ERROR = repo_result.get("message", "Unknown error")
-            _ML_MODEL = None
-            _ML_PATTERN_COUNT = 0
-            return _ML_MODEL
+            main_module._ML_MODEL_ERROR = repo_result.get("message", "Unknown error")
+            main_module._ML_MODEL = None
+            main_module._ML_PATTERN_COUNT = 0
+            return main_module._ML_MODEL
         
         patterns = load_patterns_from_repo(
             WAZUH_REPO_CACHE_DIR, 
@@ -251,30 +249,30 @@ def ensure_ml_model_enhanced(
         )
         
         if not patterns:
-            _ML_MODEL_ERROR = "No patterns loaded from Wazuh repo"
-            _ML_MODEL = None
-            _ML_PATTERN_COUNT = 0
-            return _ML_MODEL
+            main_module._ML_MODEL_ERROR = "No patterns loaded from Wazuh repo"
+            main_module._ML_MODEL = None
+            main_module._ML_PATTERN_COUNT = 0
+            return main_module._ML_MODEL
         
         # Use ensemble model if requested and available
         if use_ensemble and _ADVANCED_ML_AVAILABLE:
             try:
                 ensemble_model = create_ensemble_model(patterns)
-                _ML_MODEL = BackwardCompatibleModelWrapper(ensemble_model)
-                _ML_MODEL_ERROR = ""
-                _ML_PATTERN_COUNT = len(patterns)
-                print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT} (Enhanced Ensemble)")
+                main_module._ML_MODEL = BackwardCompatibleModelWrapper(ensemble_model)
+                main_module._ML_MODEL_ERROR = ""
+                main_module._ML_PATTERN_COUNT = len(patterns)
+                print(f"INFO:     ML patterns loaded: {main_module._ML_PATTERN_COUNT} (Enhanced Ensemble)")
             except Exception as e:
-                _ML_MODEL_ERROR = f"Ensemble model failed: {str(e)}, falling back to basic"
+                main_module._ML_MODEL_ERROR = f"Ensemble model failed: {str(e)}, falling back to basic"
                 # Fall back to basic model
                 from app.decoder_ml import DecoderSimilarityModel
-                _ML_MODEL = DecoderSimilarityModel(patterns)
-                _ML_PATTERN_COUNT = len(patterns)
+                main_module._ML_MODEL = DecoderSimilarityModel(patterns)
+                main_module._ML_PATTERN_COUNT = len(patterns)
         else:
             # Use original model
             from app.decoder_ml import DecoderSimilarityModel
-            _ML_MODEL = DecoderSimilarityModel(patterns)
-            _ML_PATTERN_COUNT = len(patterns)
-            _ML_MODEL_ERROR = ""
+            main_module._ML_MODEL = DecoderSimilarityModel(patterns)
+            main_module._ML_PATTERN_COUNT = len(patterns)
+            main_module._ML_MODEL_ERROR = ""
     
-    return _ML_MODEL
+    return main_module._ML_MODEL

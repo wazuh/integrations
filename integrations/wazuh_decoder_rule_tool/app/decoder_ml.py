@@ -126,16 +126,17 @@ def refresh_wazuh_repo(
     cache_dir: Path,
     sparse_subpath: str,
     force: bool = False,
+    branch: Optional[str] = None,
 ) -> Dict[str, str]:
     if cache_dir.exists() and force:
         shutil.rmtree(cache_dir, ignore_errors=True)
 
     if not cache_dir.exists():
-        clone = subprocess.run(
-            ["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", repo_url, str(cache_dir)],
-            text=True,
-            capture_output=True,
-        )
+        cmd = ["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse"]
+        if branch:
+            cmd.extend(["--branch", branch])
+        cmd.extend([repo_url, str(cache_dir)])
+        clone = subprocess.run(cmd, text=True, capture_output=True)
         if clone.returncode != 0:
             return {"ok": "false", "message": f"git clone failed: {clone.stderr.strip()}"}
         sparse = subprocess.run(

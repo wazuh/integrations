@@ -35,9 +35,13 @@
   <!-- ── Sidebar ── -->
   <nav class="sidebar">
     <span class="sidebar-section-label">Workspace</span>
-    <div class="sidebar-item active" data-view="generate" id="nav-generate">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-      Generate
+    <div class="sidebar-item active" data-view="decoder" id="nav-decoder">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+      Generate Decoder
+    </div>
+    <div class="sidebar-item" data-view="rulegenerator" id="nav-rulegenerator">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      Generate Rule
     </div>
     <div class="sidebar-item" data-view="test" id="nav-test">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -66,13 +70,13 @@
   <!-- ── Main ── -->
   <main class="main-content">
 
-    <!-- ════ GENERATE VIEW ════ -->
-    <div class="section-view active" id="view-generate">
+    <!-- ════ DECODER GENERATOR VIEW ════ -->
+    <div class="section-view active" id="view-decoder">
       <div class="card">
         <div class="card-header">
           <span class="card-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Configuration
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+            Decoder Configuration
           </span>
         </div>
         <div class="form-row form-row-4">
@@ -85,14 +89,6 @@
             <input id="logSourceName" type="text" placeholder="auto-detected from log" />
           </div>
           <div class="form-group">
-            <label for="ruleId">Rule ID</label>
-            <input id="ruleId" type="number" value="100500" />
-          </div>
-          <div class="form-group">
-            <label for="level">Level</label>
-            <input id="level" type="number" value="5" min="0" max="16" />
-          </div>
-          <div class="form-group">
             <label for="installMode">Install Mode</label>
             <select id="installMode">
               <option value="stdin">stdin only</option>
@@ -102,12 +98,6 @@
           <div class="form-group" style="display:flex;align-items:center;padding-top:20px">
             <input id="splitDecoders" type="checkbox" style="width:16px;height:16px;margin-right:8px" />
             <label for="splitDecoders" style="margin-bottom:0;cursor:pointer">Split Child Decoders</label>
-          </div>
-        </div>
-        <div class="form-row mt-12">
-          <div class="form-group">
-            <label for="ruleRequirement">Rule Requirement (natural language, optional)</label>
-            <textarea id="ruleRequirement" rows="2" placeholder="e.g. alert at level 12 when failed login happens from admin account"></textarea>
           </div>
         </div>
         <div class="form-row form-row-2 mt-12">
@@ -157,10 +147,6 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
             Decoder XML
           </button>
-          <button class="tab-btn" data-tab="tab-rule">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            Rule XML
-          </button>
           <button class="tab-btn" data-tab="tab-test">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             Test Results
@@ -189,7 +175,110 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
           </div>
         </div>
 
-        <div class="tab-panel" id="tab-rule">
+        <div class="tab-panel" id="tab-test">
+          <div id="testOut">
+            <div class="empty-state">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <p>Click Test to run wazuh-logtest validation.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ RULE GENERATOR VIEW ════ -->
+    <div class="section-view" id="view-rulegenerator">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Rule Configuration
+          </span>
+        </div>
+        <div class="form-row form-row-4">
+          <div class="form-group">
+            <label for="ruleAppName">App Name</label>
+            <input id="ruleAppName" type="text" value="myapp" />
+          </div>
+          <div class="form-group">
+            <label for="ruleLogSourceName">Log Source Name</label>
+            <input id="ruleLogSourceName" type="text" placeholder="auto-detected from log" />
+          </div>
+          <div class="form-group">
+            <label for="ruleRuleId">Rule ID</label>
+            <input id="ruleRuleId" type="number" value="100500" />
+          </div>
+          <div class="form-group">
+            <label for="ruleLevel">Level</label>
+            <input id="ruleLevel" type="number" value="5" min="0" max="16" />
+          </div>
+        </div>
+        <div class="form-row mt-12">
+          <div class="form-group">
+            <label for="ruleRequirement">Rule Requirement (natural language)</label>
+            <textarea id="ruleRequirement" rows="2" placeholder="e.g. alert at level 12 when failed login happens from admin account"></textarea>
+          </div>
+        </div>
+        <div class="form-row form-row-2 mt-12">
+          <div class="form-group">
+            <label for="ruleLogsInput">Log Source Samples</label>
+            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
+              Paste single or multiple logs from <strong>one log source</strong>.
+            </p>
+            <textarea id="ruleLogsInput" rows="7" placeholder="Paste one log per line from the same source…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
+Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</textarea>
+          </div>
+          <div class="form-group">
+            <label for="ruleInstallMode">Install Mode</label>
+            <select id="ruleInstallMode">
+              <option value="stdin">stdin only</option>
+              <option value="write_files">Write XML files</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row mt-16">
+          <button class="btn btn-ghost" id="ruleAnalyzeBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Analyze
+          </button>
+          <button class="btn btn-primary" id="ruleGenerateBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Generate
+          </button>
+          <button class="btn btn-accent" id="ruleTestBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Test
+          </button>
+        </div>
+      </div>
+
+      <!-- Output tabs -->
+      <div class="card">
+        <div class="tabs" id="ruleOutputTabs">
+          <button class="tab-btn active" data-tab="ruletab-analysis">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Analysis
+          </button>
+          <button class="tab-btn" data-tab="ruletab-rule">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Rule XML
+          </button>
+          <button class="tab-btn" data-tab="ruletab-test">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Test Results
+          </button>
+        </div>
+
+        <div class="tab-panel active" id="ruletab-analysis">
+          <div id="ruleAnalysisOut">
+            <div class="empty-state">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <p>Run Analyze or Generate to see results.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="ruletab-rule">
           <div class="output-block">
             <div class="output-block-toolbar">
               <span class="output-block-lang">XML</span>
@@ -202,8 +291,8 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
           </div>
         </div>
 
-        <div class="tab-panel" id="tab-test">
-          <div id="testOut">
+        <div class="tab-panel" id="ruletab-test">
+          <div id="ruleTestOut">
             <div class="empty-state">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <p>Click Test to run wazuh-logtest validation.</p>

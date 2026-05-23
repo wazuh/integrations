@@ -54,6 +54,7 @@ WAZUH_REMOTE_ENABLED = bool(WAZUH_SSH_HOST and WAZUH_SSH_USER)
 WAZUH_REPO_URL = os.getenv("WAZUH_REPO_URL", "https://github.com/wazuh/wazuh.git")
 WAZUH_REPO_CACHE_DIR = Path(os.getenv("WAZUH_REPO_CACHE_DIR", str(BASE_DIR.parent / "data" / "wazuh_repo")))
 WAZUH_REPO_DECODER_SUBPATH = os.getenv("WAZUH_REPO_DECODER_SUBPATH", "ruleset/decoders")
+WAZUH_REPO_BRANCH = os.getenv("WAZUH_REPO_BRANCH", "v4.14.5")
 ML_MODEL_DIR = Path(os.getenv("ML_MODEL_DIR", str(BASE_DIR.parent / "data" / "models" / "decoder-sbert")))
 LOCAL_OUTPUT_DIR = BASE_DIR.parent / "generated"
 FEEDBACK_DATASET_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback.jsonl"
@@ -2840,6 +2841,7 @@ def ml_refresh(request: MLRefreshRequest):
         cache_dir=WAZUH_REPO_CACHE_DIR,
         sparse_subpath=WAZUH_REPO_DECODER_SUBPATH,
         force=request.force,
+        branch=WAZUH_REPO_BRANCH,
     )
     _ML_MODEL = None
     model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
