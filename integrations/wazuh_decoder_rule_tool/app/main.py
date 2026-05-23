@@ -24,7 +24,7 @@ except Exception:  # noqa: BLE001
     _SBERT_AVAILABLE = False
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -2651,26 +2651,41 @@ def build_remote_stdin(payload: Optional[str] = None, requires_sudo: bool = Fals
 
 def run_ssh_command(remote_cmd: str, input_data: Optional[str] = None, timeout: int = 20) -> Dict[str, Any]:
     cmd = ssh_base_cmd() + [remote_cmd]
-    proc = subprocess.run(
-        cmd,
-        input=input_data,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-    )
-    connection_error = proc.returncode == 255 and (
-        "could not resolve hostname" in (proc.stderr or "").lower()
-        or "connection refused" in (proc.stderr or "").lower()
-        or "permission denied" in (proc.stderr or "").lower()
-        or "operation timed out" in (proc.stderr or "").lower()
-        or "no route to host" in (proc.stderr or "").lower()
-    )
-    return {
-        "returncode": proc.returncode,
-        "stdout": proc.stdout,
-        "stderr": proc.stderr,
-        "connection_error": connection_error,
-    }
+    try:
+        proc = subprocess.run(
+            cmd,
+            input=input_data,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+        )
+        connection_error = proc.returncode == 255 and (
+            "could not resolve hostname" in (proc.stderr or "").lower()
+            or "connection refused" in (proc.stderr or "").lower()
+            or "permission denied" in (proc.stderr or "").lower()
+            or "operation timed out" in (proc.stderr or "").lower()
+            or "no route to host" in (proc.stderr or "").lower()
+        )
+        return {
+            "returncode": proc.returncode,
+            "stdout": proc.stdout,
+            "stderr": proc.stderr,
+            "connection_error": connection_error,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "returncode": None,
+            "stdout": "",
+            "stderr": "wazuh-logtest is not accessible: SSH command timed out",
+            "connection_error": True,
+        }
+    except Exception as e:
+        return {
+            "returncode": None,
+            "stdout": "",
+            "stderr": f"wazuh-logtest is not accessible: SSH command failed — {e}",
+            "connection_error": True,
+        }
 
 
 def run_wazuh_logtest(log_line: str, expected: Optional[str] = None) -> Dict[str, Any]:
@@ -2710,13 +2725,38 @@ def run_wazuh_logtest(log_line: str, expected: Optional[str] = None) -> Dict[str
     if expected:
         cmd.extend(["-U", expected])
 
-    proc = subprocess.run(
-        cmd,
-        input=log_line + "\n",
-        text=True,
-        capture_output=True,
-        timeout=10,
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            input=log_line + "\n",
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+    except FileNotFoundError:
+        return {
+            "available": False,
+            "ok": False,
+            "returncode": None,
+            "stdout": "",
+            "stderr": f"wazuh-logtest is not accessible: binary not found at {binary}",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "available": False,
+            "ok": False,
+            "returncode": None,
+            "stdout": "",
+            "stderr": "wazuh-logtest is not accessible: the binary timed out (unresponsive)",
+        }
+    except Exception as e:
+        return {
+            "available": False,
+            "ok": False,
+            "returncode": None,
+            "stdout": "",
+            "stderr": f"wazuh-logtest is not accessible: {e}",
+        }
     return {
         "available": True,
         "ok": proc.returncode == 0,
@@ -2911,35 +2951,44 @@ def index(request: Request):
 
 @app.post("/api/analyze")
 def analyze(request: AnalyzeRequest):
-    return JSONResponse(analyze_logs_impl(request))
+    try:
+        return JSONResponse(analyze_logs_impl(request))
+    except Exception as e:
+        return JSONResponse({"message": str(e)}, status_code=503)
 
 
 @app.post("/api/generate")
 def generate(request: CandidateRequest):
-    return JSONResponse(build_candidate(request))
+    try:
+        return JSONResponse(build_candidate(request))
+    except Exception as e:
+        return JSONResponse({"message": str(e)}, status_code=503)
 
 
 @app.post("/api/test")
 def test_candidate(request: TestRequest):
-    candidate = build_candidate(request.candidate)
-    expected_tuple = f"{candidate['rule_id']}:{candidate['level']}:{candidate['decoder_name']}" if candidate.get("rule_xml") else None
-    file_install = None
-    if request.install_mode == "write_files":
-        file_install = write_candidate_files(candidate)
+    try:
+        candidate = build_candidate(request.candidate)
+        expected_tuple = f"{candidate['rule_id']}:{candidate['level']}:{candidate['decoder_name']}" if candidate.get("rule_xml") else None
+        file_install = None
+        if request.install_mode == "write_files":
+            file_install = write_candidate_files(candidate)
 
-    results = []
-    for sample in request.candidate.logs:
-        output = run_wazuh_logtest(sample.raw_log, expected=expected_tuple)
-        results.append(
-            {
-                "raw_log": sample.raw_log,
-                "logtest": output,
-                "evaluation": evaluate_test_result(sample, output, candidate),
-                "auto_fields": safe_auto_fields(sample.raw_log),
-                "parsed": parse_logtest_output(combined_logtest_output(output)) if output["available"] else {},
-            }
-        )
-    return JSONResponse({"candidate": candidate, "results": results, "file_install": file_install})
+        results = []
+        for sample in request.candidate.logs:
+            output = run_wazuh_logtest(sample.raw_log, expected=expected_tuple)
+            results.append(
+                {
+                    "raw_log": sample.raw_log,
+                    "logtest": output,
+                    "evaluation": evaluate_test_result(sample, output, candidate),
+                    "auto_fields": safe_auto_fields(sample.raw_log),
+                    "parsed": parse_logtest_output(combined_logtest_output(output)) if output["available"] else {},
+                }
+            )
+        return JSONResponse({"candidate": candidate, "results": results, "file_install": file_install})
+    except Exception as e:
+        return JSONResponse({"message": str(e)}, status_code=503)
 
 
 @app.get("/api/ml/status")
@@ -3213,15 +3262,19 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
 @app.post("/api/ai/generate")
 async def ai_generate(request: AIGenerateRequest):
     """Stream AI-generated decoder + rule XML using Qwen 3.6 Plus via DashScope."""
-    analysis = analyze_logs_impl(
-        AnalyzeRequest(
-            logs=request.logs,
-            app_name=request.app_name,
-            rule_requirement=request.rule_requirement,
-            extract_fields=request.extract_fields,
-            field_hints=getattr(request, 'field_hints', {}),
+    try:
+        analysis = analyze_logs_impl(
+            AnalyzeRequest(
+                logs=request.logs,
+                app_name=request.app_name,
+                rule_requirement=request.rule_requirement,
+                extract_fields=request.extract_fields,
+                field_hints=getattr(request, 'field_hints', {}),
+            )
         )
-    )
+    except Exception as e:
+        return PlainTextResponse(f"ERROR: wazuh-logtest is not accessible: {e}")
+
     prompt = _build_ai_prompt(request, analysis)
     return StreamingResponse(
         _stream_ai(prompt, AI_DEFAULT_MODEL, request.temperature),

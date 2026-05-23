@@ -143,8 +143,16 @@ async function postJson(url, payload) {
   const res = await fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const body = await res.text();
+  if (!res.ok) {
+    try {
+      const json = JSON.parse(body);
+      throw new Error(json.message || json.detail || body);
+    } catch (_) {
+      throw new Error(body.length > 200 ? 'wazuh-logtest is not accessible' : body);
+    }
+  }
+  try { return JSON.parse(body); } catch (_) { throw new Error(body); }
 }
 
 /* ══ XML syntax highlight ══ */

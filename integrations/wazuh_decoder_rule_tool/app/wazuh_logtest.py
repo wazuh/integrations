@@ -17,13 +17,20 @@ def run_logtest(log_line):
         f"sudo {WAZUH_LOGTEST}"
     ]
 
-    proc = subprocess.run(
-        cmd,
-        input=log_line + "\n",
-        text=True,
-        capture_output=True,
-        timeout=20
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            input=log_line + "\n",
+            text=True,
+            capture_output=True,
+            timeout=20
+        )
+    except subprocess.TimeoutExpired:
+        return {"returncode": None, "output": "wazuh-logtest is not accessible: SSH command timed out"}
+    except FileNotFoundError:
+        return {"returncode": None, "output": "wazuh-logtest is not accessible: ssh binary not found"}
+    except Exception as e:
+        return {"returncode": None, "output": f"wazuh-logtest is not accessible: {e}"}
 
     output = (proc.stdout or "") + (proc.stderr or "")
 
