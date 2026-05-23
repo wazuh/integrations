@@ -1512,7 +1512,7 @@ def derive_child_regex_from_logs(logs: List[str], rule_requirement: str) -> Opti
         else:
             parts.append(re.sub(r'([$()\\|<])', r'\\\1', token))
 
-    return r".+" + "".join(parts) + r".+"
+    return r"\.+" + "".join(parts) + r"\.+"
 
 
 def derive_regex_from_predecoded_body(logs: List[str]) -> Optional[str]:
