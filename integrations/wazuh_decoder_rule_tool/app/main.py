@@ -2427,6 +2427,9 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
             field_hints=getattr(request, 'field_hints', {}),
         )
     )
+    if not analysis.get("wazuh_logtest_summary", {}).get("available", False):
+        stderr = analysis.get("wazuh_logtest_summary", {}).get("stderr", "")
+        raise RuntimeError(f"wazuh-logtest is not accessible. Generation requires a working wazuh-logtest instance. Details: {stderr}")
     app_name = analysis["app_name"]
     first_parsed = analysis["logtest_scan"]["parsed_entries"][0] if analysis["logtest_scan"]["parsed_entries"] else {}
     existing_decoder = first_parsed.get("decoder_name")
