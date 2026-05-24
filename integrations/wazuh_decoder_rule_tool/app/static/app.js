@@ -125,12 +125,34 @@ function readRulePayload() {
   try { logs = JSON.parse(rawInput); } catch (_) {
     logs = rawInput.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => ({ raw_log: l }));
   }
+  const parentId = document.getElementById('ruleParentId').value.trim();
+  const fieldConditions = [];
+  document.querySelectorAll('#fieldConditionList .field-condition-row').forEach(row => {
+    const name = row.querySelector('.field-condition-name').value.trim();
+    const value = row.querySelector('.field-condition-value').value.trim();
+    if (name && value) fieldConditions.push({ name, value });
+  });
+  const matchConditions = [];
+  document.querySelectorAll('#matchConditionList .match-condition-row').forEach(row => {
+    const text = row.querySelector('.match-condition-text').value.trim();
+    if (text) matchConditions.push(text);
+  });
+  const staticConditions = [];
+  document.querySelectorAll('#staticConditionList .static-condition-row').forEach(row => {
+    const name = row.querySelector('.static-condition-name').value.trim();
+    const value = row.querySelector('.static-condition-value').value.trim();
+    if (name && value) staticConditions.push({ name, value });
+  });
   return {
     app_name: document.getElementById('ruleAppName').value,
     logs,
     rule_id: Number(document.getElementById('ruleRuleId').value),
     level: Number(document.getElementById('ruleLevel').value),
     rule_requirement: document.getElementById('ruleRequirement').value.trim(),
+    parent_rule_id: parentId ? Number(parentId) : null,
+    child_field_conditions: fieldConditions,
+    child_match_conditions: matchConditions,
+    child_static_conditions: staticConditions,
     extract_fields: [],
     field_hints: {},
     install_mode: document.getElementById('ruleInstallMode').value,
@@ -591,6 +613,70 @@ document.getElementById('applyAiBtn').addEventListener('click', () => {
   document.querySelectorAll('.sidebar-item[data-view="decoder"]')[0].click();
   switchTab('tab-decoder');
   toast('success', 'AI output applied to Decoder view');
+});
+
+/* ══ Rule: Field/Match/Static Conditions UI ══ */
+function toggleConditionsRow() {
+  const req = document.getElementById('ruleRequirement').value.trim();
+  document.getElementById('ruleFieldConditionsRow').style.display = req ? 'flex' : 'none';
+  document.getElementById('ruleMatchConditionsRow').style.display = req ? 'flex' : 'none';
+  document.getElementById('ruleStaticConditionsRow').style.display = req ? 'flex' : 'none';
+}
+
+document.getElementById('ruleRequirement').addEventListener('input', toggleConditionsRow);
+toggleConditionsRow();
+
+document.getElementById('addFieldConditionBtn').addEventListener('click', () => {
+  const list = document.getElementById('fieldConditionList');
+  const row = document.createElement('div');
+  row.className = 'field-condition-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px';
+  row.innerHTML = `
+    <input type="text" class="field-condition-name" placeholder="Field name (e.g. action)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
+    <input type="text" class="field-condition-value" placeholder="Field value (e.g. deny)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
+    <button type="button" class="btn btn-ghost btn-sm remove-field-condition" style="padding:4px 8px">✕</button>
+  `;
+  row.querySelector('.remove-field-condition').addEventListener('click', () => row.remove());
+  list.appendChild(row);
+});
+
+document.querySelectorAll('.remove-field-condition').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.field-condition-row').remove());
+});
+
+document.getElementById('addMatchConditionBtn').addEventListener('click', () => {
+  const list = document.getElementById('matchConditionList');
+  const row = document.createElement('div');
+  row.className = 'match-condition-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px';
+  row.innerHTML = `
+    <input type="text" class="match-condition-text" placeholder="e.g. Denied" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
+    <button type="button" class="btn btn-ghost btn-sm remove-match-condition" style="padding:4px 8px">✕</button>
+  `;
+  row.querySelector('.remove-match-condition').addEventListener('click', () => row.remove());
+  list.appendChild(row);
+});
+
+document.querySelectorAll('.remove-match-condition').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.match-condition-row').remove());
+});
+
+document.getElementById('addStaticConditionBtn').addEventListener('click', () => {
+  const list = document.getElementById('staticConditionList');
+  const row = document.createElement('div');
+  row.className = 'static-condition-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px';
+  row.innerHTML = `
+    <input type="text" class="static-condition-name" placeholder="Tag name (e.g. srcip, action, id)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
+    <input type="text" class="static-condition-value" placeholder="Tag value (e.g. deny, ^4625$)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
+    <button type="button" class="btn btn-ghost btn-sm remove-static-condition" style="padding:4px 8px">✕</button>
+  `;
+  row.querySelector('.remove-static-condition').addEventListener('click', () => row.remove());
+  list.appendChild(row);
+});
+
+document.querySelectorAll('.remove-static-condition').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.static-condition-row').remove());
 });
 
 /* ── Spinner keyframe (injected) ── */

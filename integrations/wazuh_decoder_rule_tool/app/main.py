@@ -29,7 +29,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from app.decoder_ml import DecoderSimilarityModel, load_patterns_from_repo, refresh_wazuh_repo
+from app.decoder_ml import (
+    DecoderSimilarityModel,
+    RulePattern,
+    RuleSimilarityModel,
+    load_patterns_from_repo,
+    load_rule_patterns_from_repo,
+    refresh_wazuh_repo,
+)
 from app.decoder_ml_enhanced import ensure_ml_model_enhanced
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -74,6 +81,11 @@ _ML_MODEL: Optional[DecoderSimilarityModel] = None
 _ML_MODEL_ERROR: str = ""
 _ML_PATTERN_COUNT = 0
 
+# Rule ML model (trained from wazuh-ruleset)
+_RULE_ML_MODEL: Optional[RuleSimilarityModel] = None
+_RULE_PATTERN_COUNT = 0
+WAZUH_RULESET_REPO_DIR = Path(os.getenv("WAZUH_RULESET_REPO_DIR", str(BASE_DIR.parent / "data" / "wazuh_ruleset_repo")))
+
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
@@ -82,6 +94,8 @@ async def lifespan(app: FastAPI):
     print("INFO:     Pre-loading ML model and patterns...")
     ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
     print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
+    # Pre-load rule patterns from wazuh-ruleset repo
+    _load_rule_ml_model()
     yield
 
 app = FastAPI(title="Wazuh Decoder Rule Creator", lifespan=lifespan)
@@ -115,6 +129,10 @@ class CandidateRequest(BaseModel):
     field_hints: Dict[str, str] = Field(default_factory=dict)
     split_decoders: bool = Field(default=False)
     log_source_name: Optional[str] = Field(default=None)
+    parent_rule_id: Optional[int] = Field(default=None, description="Existing parent rule ID to extend (creates child rule only)")
+    child_field_conditions: List[Dict[str, str]] = Field(default_factory=list, description="Field name/value pairs for <field> tags in child rule")
+    child_match_conditions: List[str] = Field(default_factory=list, description="Match strings for <match> tags in child rule")
+    child_static_conditions: List[Dict[str, str]] = Field(default_factory=list, description="Static field tag name/value pairs for direct XML tags (e.g. <srcip>, <action>, <id>) in child rule")
 
 
 class TestRequest(BaseModel):
@@ -1432,6 +1450,194 @@ def clean_rule_description(text: str) -> str:
     return cleaned.strip()
 
 
+def derive_child_rule_conditions(
+    logs: List[str],
+    rule_requirement: str,
+    extract_fields: Optional[List[str]] = None,
+    field_hints: Optional[Dict[str, str]] = None,
+    parsed_logtest_fields: Optional[Dict[str, str]] = None,
+) -> Tuple[List[Dict[str, str]], List[str], List[Dict[str, str]]]:
+    """
+    Derive <field>, <match>, and static conditions from all available context.
+    Returns (field_conditions, match_conditions, static_conditions).
+
+    Uses multiple signals to auto-detect conditions:
+    1. extract_fields — known field names the decoder extracts
+    2. field_hints — user-provided expected field values
+    3. parsed_logtest_fields — actual decoded fields from wazuh-logtest
+    4. extract_relevant_fields — heuristic extraction from raw logs
+    5. rule_requirement — natural language description of what to match
+    """
+    field_conditions: List[Dict[str, str]] = []
+    match_conditions: List[str] = []
+    static_conditions: List[Dict[str, str]] = []
+
+    # ── Step 1: Collect field values from all available sources ──
+    all_field_values: Dict[str, str] = {}
+
+    # 1a. field_hints provide direct expected values — highest priority.
+    # Track which fields were explicitly set so auto-detection doesn't override them.
+    hinted_fields: set = set()
+    if field_hints:
+        for fname, fval in field_hints.items():
+            if fname and fval:
+                hinted_fields.add(fname)
+                if fname in STATIC_FIELD_TAGS:
+                    cond = {"name": fname, "value": fval}
+                    if cond not in static_conditions:
+                        static_conditions.append(cond)
+                else:
+                    cond = {"name": fname, "value": fval}
+                    if cond not in field_conditions:
+                        field_conditions.append(cond)
+
+    # 1b. logtest decoded fields — real decoded values from wazuh-logtest
+    if parsed_logtest_fields:
+        for fname, fval in parsed_logtest_fields.items():
+            if fname and fval and not fname.startswith("_"):
+                if fname not in hinted_fields:
+                    all_field_values[fname] = fval
+
+    # 1c. extract_relevant_fields — heuristic extraction from raw logs
+    for log in logs:
+        fields = extract_relevant_fields(log)
+        for k, v in fields.items():
+            if not k.startswith("_") and isinstance(v, str) and v:
+                if k not in all_field_values and k not in hinted_fields:
+                    all_field_values[k] = v
+
+    # ── Step 2: Parse the requirement for explicit field-value patterns ──
+    cleaned_req = rule_requirement.strip().lower()
+
+    # Patterns: "field X (is|=|equals|matches) Y", "X field (is|=) Y"
+    explicit_patterns = re.findall(
+        r'(?:field\s+)?(\w{2,})\s+(?:is|are|=|equals?|matches?|contains?)\s+'  # field name
+        r"'([^']*)'",  # value in single quotes
+        cleaned_req, flags=re.IGNORECASE,
+    )
+    explicit_patterns += re.findall(
+        r'(?:field\s+)?(\w{2,})\s+(?:is|are|=|equals?|matches?|contains?)\s+'  # field name
+        r'"([^"]*)"',  # value in double quotes
+        cleaned_req, flags=re.IGNORECASE,
+    )
+    explicit_patterns += re.findall(
+        r'(?:field\s+)?(\w{2,})\s+(?:is|are|=|equals?|matches?|contains?)\s+'  # field name
+        r'(\w{2,})',  # value as bare word
+        cleaned_req, flags=re.IGNORECASE,
+    )
+
+    for fname, fval in explicit_patterns:
+        fname = fname.strip()
+        fval = fval.strip()
+        if fname and fval and fname not in hinted_fields:
+            cond = {"name": fname, "value": fval}
+            if fname in STATIC_FIELD_TAGS:
+                if cond not in static_conditions:
+                    static_conditions.append(cond)
+            else:
+                if cond not in field_conditions:
+                    field_conditions.append(cond)
+
+    # ── Step 3: Tokenize requirement into keywords ──
+    _STOP = frozenset({
+        'the','a','an','for','and','or','but','in','on','at','to','of','is','was',
+        'are','were','be','been','being','have','has','had','do','does','did','will',
+        'would','could','should','may','might','shall','can','need','dare','ought',
+        'used','this','that','these','those','with','from','by','as','into','through',
+        'during','before','after','above','below','between','out','off','over','under',
+        'again','further','then','once','here','there','when','where','why','how',
+        'all','each','every','both','few','more','most','other','some','such','no',
+        'nor','not','only','own','same','so','than','too','very','just','because',
+        'i','me','my','we','our','you','your','he','him','his','she','her','it','its',
+        'they','them','their','detect','create','based','wanna','want','also','need',
+        'parent','rule','child','level','alert','message','field','value','matches',
+        'equals','contain','contains','else','when','where','which','who','whom',
+    })
+    req_words = [w for w in re.findall(r'\b[a-zA-Z0-9]{3,}\b', cleaned_req) if w not in _STOP]
+
+    if not req_words:
+        return field_conditions, match_conditions, static_conditions
+
+    # ── Step 4: Score fields against requirement keywords ──
+    # Build a list of (field_name, field_value, score) for candidate conditions
+    candidate_conditions: List[Tuple[str, str, int]] = []
+    matched_words: set = set()
+
+    # 4a. Check if any requirement keyword IS a field name from extract_fields
+    extract_field_set = set(f.lower() for f in (extract_fields or [])) | set(all_field_values.keys()) | set(fname for fname, _ in explicit_patterns)
+
+    for kw in req_words:
+        if kw in extract_field_set:
+            # This keyword is a known field name — find its value in log data
+            field_value = all_field_values.get(kw, "") or all_field_values.get(kw.upper(), "") or all_field_values.get(kw.lower(), "")
+            # Also check if it matches in logtest fields
+            if parsed_logtest_fields:
+                for pf, pv in parsed_logtest_fields.items():
+                    if pf.lower() == kw and pv:
+                        field_value = pv
+                        break
+            if field_value:
+                candidate_conditions.append((kw, field_value, 3))
+                matched_words.add(kw)
+
+    # 4b. Match keywords against field values
+    for kw in sorted(req_words, key=len, reverse=True):
+        if kw in matched_words:
+            continue
+        for field_name, field_value in all_field_values.items():
+            fv_lower = field_value.lower()
+            # Check if keyword is a significant part of the field value
+            # or vice versa — but require at least 2-char overlap for short values
+            if kw in fv_lower or (len(kw) >= 3 and fv_lower in kw):
+                score = 2 if kw in fv_lower else 1
+                candidate_conditions.append((field_name, field_value, score))
+                matched_words.add(kw)
+                break
+
+    # 4c. From extract_fields, add conditions for fields with meaningful values
+    #      that haven't already been covered.
+    if extract_fields:
+        already_covered = {c[0] for c in candidate_conditions}
+        for ef in extract_fields:
+            ef_lower = ef.lower()
+            if ef_lower in already_covered or ef_lower in hinted_fields:
+                continue
+            fv = all_field_values.get(ef) or all_field_values.get(ef_lower)
+            if not fv:
+                continue
+            # Only add if the value is short/meaningful (not a specific IP, long path, etc.)
+            is_meaningful = (
+                fv.lower() in cleaned_req
+                or (len(fv) <= 25 and not re.search(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', fv) and not re.search(r'[\\/]', fv))
+            )
+            if is_meaningful:
+                candidate_conditions.append((ef, fv, 1))
+
+    # ── Step 5: Classify candidates into static vs field conditions ──
+    # Skip fields already set explicitly via field_hints
+    for fname, fval, score in candidate_conditions:
+        if fname in hinted_fields:
+            continue
+        cond = {"name": fname, "value": fval}
+        if fname in STATIC_FIELD_TAGS:
+            if cond not in static_conditions:
+                static_conditions.append(cond)
+        else:
+            if cond not in field_conditions:
+                field_conditions.append(cond)
+
+    # ── Step 6: Remaining unmatched keywords → match conditions ──
+    body_text = " ".join(logs)
+    for kw in sorted(req_words, key=len, reverse=True):
+        if kw in matched_words:
+            continue
+        if kw in body_text.lower():
+            match_conditions.append(kw)
+            matched_words.add(kw)
+
+    return field_conditions, match_conditions, static_conditions
+
+
 def derive_child_regex_from_logs(logs: List[str], rule_requirement: str) -> Optional[str]:
     bodies = []
     for log in logs:
@@ -2206,6 +2412,42 @@ def ml_suggestions_for_logs(
     return suggestions
 
 
+def _load_rule_ml_model() -> None:
+    global _RULE_ML_MODEL, _RULE_PATTERN_COUNT
+    rules_dir = WAZUH_RULESET_REPO_DIR / "rules"
+    if not rules_dir.exists():
+        return
+    patterns = load_rule_patterns_from_repo(WAZUH_RULESET_REPO_DIR, "rules")
+    if patterns:
+        _RULE_ML_MODEL = RuleSimilarityModel(patterns)
+        _RULE_PATTERN_COUNT = len(patterns)
+
+
+def rule_suggestions_for_requirement(rule_requirement: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    """Get ML-based rule suggestions from the wazuh-ruleset for a given natural language requirement."""
+    if _RULE_ML_MODEL is None:
+        _load_rule_ml_model()
+    if _RULE_ML_MODEL is None:
+        return []
+    suggestions: List[Dict[str, Any]] = []
+    for pattern, score in _RULE_ML_MODEL.suggest(query=rule_requirement, top_k=top_k):
+        suggestions.append({
+            "rule_id": pattern.rule_id,
+            "level": pattern.level,
+            "decoded_as": pattern.decoded_as,
+            "if_sid": pattern.if_sid,
+            "regex": pattern.regex,
+            "field_conditions": pattern.field_conditions,
+            "static_conditions": pattern.static_conditions,
+            "match_conditions": pattern.match_conditions,
+            "description": pattern.description,
+            "group": pattern.group,
+            "source_file": pattern.source_file,
+            "score": round(score, 4),
+        })
+    return suggestions
+
+
 def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
     raw_logs = [sample.raw_log for sample in request.logs]
     app_name = sanitize_name(request.app_name)
@@ -2339,6 +2581,39 @@ def derive_log_source_name(logs: List[str], parent_decoder: str, user_provided: 
     return parent_decoder or "custom"
 
 
+# Wazuh static field tags that are direct children of <rule> (no <field name="..."> wrapper)
+# Reference: https://documentation.wazuh.com/current/user-manual/ruleset/ruleset-xml-syntax/rules.html
+STATIC_FIELD_TAGS: frozenset = frozenset({
+    "srcip", "dstip", "srcport", "dstport", "protocol", "action", "id",
+    "url", "data", "extra_data", "status", "system_name", "user",
+    "hostname", "program_name",
+})
+
+
+def _render_field_tags(field_conditions: Optional[List[Dict[str, str]]]) -> List[str]:
+    if not field_conditions:
+        return []
+    return [f"    <field name=\"{escape_xml(fc['name'])}\">{escape_xml(fc.get('value', ''))}</field>" for fc in field_conditions if fc.get("name") and fc.get("value")]
+
+
+def _render_static_tags(static_conditions: Optional[List[Dict[str, str]]]) -> List[str]:
+    if not static_conditions:
+        return []
+    lines: List[str] = []
+    for sc in static_conditions:
+        tag = sc.get("name", "").strip()
+        value = sc.get("value", "").strip()
+        if tag and value and tag in STATIC_FIELD_TAGS:
+            lines.append(f"    <{escape_xml(tag)}>{escape_xml(value)}</{escape_xml(tag)}>")
+    return lines
+
+
+def _render_match_tags(match_conditions: Optional[List[str]]) -> List[str]:
+    if not match_conditions:
+        return []
+    return [f"    <match>{escape_xml(mc)}</match>" for mc in match_conditions]
+
+
 def build_rule_xml(
     app_name: str,
     rule_id: int,
@@ -2348,6 +2623,9 @@ def build_rule_xml(
     if_sid: Optional[int] = None,
     regex: Optional[str] = None,
     child_rule: Optional[Dict[str, Any]] = None,
+    field_conditions: Optional[List[Dict[str, str]]] = None,
+    match_conditions: Optional[List[str]] = None,
+    static_conditions: Optional[List[Dict[str, str]]] = None,
 ) -> str:
     description = f"{escape_xml(log_source_name)} messages grouped"
     lines = [
@@ -2360,6 +2638,9 @@ def build_rule_xml(
         lines.append(f"    <decoded_as>{escape_xml(decoded_as)}</decoded_as>")
     if regex:
         lines.append(f"    <regex>{escape_xml(regex)}</regex>")
+    lines.extend(_render_field_tags(field_conditions))
+    lines.extend(_render_static_tags(static_conditions))
+    lines.extend(_render_match_tags(match_conditions))
     lines.append(f"    <description>{description}</description>")
     lines.append("  </rule>")
     if child_rule:
@@ -2367,10 +2648,16 @@ def build_rule_xml(
         child_lvl = child_rule.get("level", level)
         child_desc = child_rule.get("description", description)
         child_re = child_rule.get("regex")
+        child_fields = child_rule.get("field_conditions")
+        child_statics = child_rule.get("static_conditions")
+        child_matches = child_rule.get("match_conditions")
         lines.append(f"  <rule id=\"{child_id}\" level=\"{child_lvl}\">")
         lines.append(f"    <if_sid>{rule_id}</if_sid>")
         if child_re:
             lines.append(f"    <regex>{escape_xml(child_re)}</regex>")
+        lines.extend(_render_field_tags(child_fields))
+        lines.extend(_render_static_tags(child_statics))
+        lines.extend(_render_match_tags(child_matches))
         lines.append(f"    <description>{escape_xml(child_desc)}</description>")
         lines.append("  </rule>")
     lines.append("</group>")
@@ -2508,6 +2795,9 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         user_provided=getattr(request, 'log_source_name', None),
     )
 
+    # ── Check for user-specified parent_rule_id ──
+    user_parent_id: Optional[int] = getattr(request, 'parent_rule_id', None)
+
     rule_xml = None
     if needs_custom_rule:
         builtin_rule_id = existing_rule_id
@@ -2518,14 +2808,52 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
             child_regex = derive_child_regex_from_logs([s.raw_log for s in request.logs], request.rule_requirement)
             child_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
             child_desc = clean_rule_description(request.rule_requirement)
+
+            # Derive field, match, and static conditions from all available context
+            user_field_conditions: List[Dict[str, str]] = getattr(request, 'child_field_conditions', [])
+            user_match_conditions: List[str] = getattr(request, 'child_match_conditions', [])
+            user_static_conditions: List[Dict[str, str]] = getattr(request, 'child_static_conditions', [])
+            if not user_field_conditions and not user_match_conditions and not user_static_conditions:
+                # Build parsed_logtest_fields from logtest analysis (actual decoded fields)
+                parsed_logtest_fields: Dict[str, str] = {}
+                for entry in analysis.get("logtest_scan", {}).get("parsed_entries", []):
+                    for field_key in ("decoder_name", "program_name", "predecoded_hostname"):
+                        val = entry.get(field_key)
+                        if val and field_key not in parsed_logtest_fields:
+                            parsed_logtest_fields[field_key.replace("predecoded_", "").replace("decoder_", "")] = val
+                auto_fields, auto_matches, auto_statics = derive_child_rule_conditions(
+                    logs=[s.raw_log for s in request.logs],
+                    rule_requirement=request.rule_requirement,
+                    extract_fields=request.extract_fields,
+                    field_hints=getattr(request, 'field_hints', {}),
+                    parsed_logtest_fields=parsed_logtest_fields or None,
+                )
+            else:
+                auto_fields, auto_matches, auto_statics = (
+                    user_field_conditions, user_match_conditions, user_static_conditions
+                )
+
             child_rule = {
                 "id": request.rule_id + 1,
                 "level": child_level,
                 "description": child_desc,
                 "regex": child_regex,
+                "field_conditions": auto_fields,
+                "match_conditions": auto_matches,
+                "static_conditions": auto_statics,
             }
 
-        if builtin_rule_id == 2501:
+        # ── Case 1: User specified an existing parent rule ID ──
+        if user_parent_id is not None:
+            rule_xml = build_rule_xml(
+                app_name=app_name,
+                rule_id=request.rule_id,
+                level=effective_level,
+                log_source_name=log_source_name,
+                if_sid=user_parent_id,
+                child_rule=child_rule,
+            )
+        elif builtin_rule_id == 2501:
             regex_pattern = derive_regex_from_predecoded_body([s.raw_log for s in request.logs])
             rule_xml = build_rule_xml(
                 app_name=app_name,
@@ -3143,6 +3471,31 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
         fields_str = "\n".join(f"  - {k}: {v}" for k, v in auto_fields.items())
         fields_block = f"## Auto-Extracted Fields\n{fields_str}\n\n"
 
+    rule_ml_context = ""
+    if request.rule_requirement:
+        rule_suggestions = rule_suggestions_for_requirement(request.rule_requirement, top_k=3)
+        if rule_suggestions:
+            examples = []
+            for rs in rule_suggestions:
+                field_tags = " ".join(
+                    f"<{fc['name']}>{fc['value']}</{fc['name']}>" if fc.get("name", "") in STATIC_FIELD_TAGS
+                    else f"<field name='{fc['name']}'>{fc['value']}</field>"
+                    for fc in rs.get("field_conditions", [])
+                )
+                match_tags = " ".join(f"<match>{m}</match>" for m in rs.get("match_conditions", []))
+                examples.append(
+                    f"  - Rule {rs.get('rule_id', '?')} (level {rs.get('level', '?')}): "
+                    f"decoded_as={rs.get('decoded_as', 'N/A')} "
+                    f"description='{rs.get('description', 'N/A')}' "
+                    f"{field_tags} {match_tags}"
+                )
+            rule_ml_context = (
+                "## ML Rule Suggestions (from wazuh-ruleset)\n"
+                "Similar real Wazuh rules matching your requirement:\n\n"
+                + "\n".join(examples) + "\n\n"
+                "Use these as reference for <field>, <match>, and rule structure.\n\n"
+            )
+
     return f"""You are a Wazuh SIEM expert with deep knowledge of osregex, decoder architecture, and rule engineering.
 
 Think step by step before generating XML. Analyze the log structure, identify variable vs static parts, and design optimal decoder/rule patterns.
@@ -3160,7 +3513,7 @@ Think step by step before generating XML. Analyze the log structure, identify va
 - Rule level: {request.level}
 {f'- Extra context: {request.extra_context}' if request.extra_context else ''}
 
-{fields_block}{logtest_block}## Heuristic Analysis (use as reference, refine if needed)
+{fields_block}{rule_ml_context}{logtest_block}## Heuristic Analysis (use as reference, refine if needed)
 - Prematch: {prematch}
 - Regex: {regex}
 - Order: {order}
@@ -3179,6 +3532,20 @@ Think step by step before generating XML. Analyze the log structure, identify va
 1. If log matches built-in rule 2501 (failed login), use <if_sid>2501</if_sid> with a <regex> for keyword matching
 2. Otherwise use <decoded_as> pointing to the parent decoder name
 3. Rule description MUST be: "{log_source} messages grouped"
+4. Use <match>tag</match> for simple case-insensitive substring matching against log content (preferred over <regex> when possible)
+5. Use Wazuh static field tags for well-known fields instead of <field name="...">:
+   - <srcip>, <dstip> — match source/destination IP addresses
+   - <srcport>, <dstport> — match source/destination ports
+   - <protocol> — match protocol (TCP, UDP, etc.)
+   - <action> — match action (allow, deny, drop, etc.)
+   - <id> — match event IDs (e.g., ^529$|^4625$ for failed logins)
+   - <url> — match URL paths
+   - <status> — match HTTP/connection status codes
+   - <data>, <extra_data> — match decoded data fields
+   - <system_name>, <user>, <hostname>, <program_name> — match system/user identifiers
+6. Use <field name="FIELD">VALUE</field> ONLY for truly custom/dynamic decoded fields NOT in the static tag list above
+7. Prefer <match>, static field tags, and <field name=""> over <regex> for simpler, more maintainable rules
+8. Multiple <match>, static field, or <field> tags are ANDed together
 
 ## Output Format
 Wrap decoder XML in ```xml ... ``` and rule XML in a separate ```xml ... ``` block.
