@@ -2859,7 +2859,6 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
 
         child_rule = None
         if request.rule_requirement:
-            child_regex = derive_child_regex_from_logs([s.raw_log for s in request.logs], request.rule_requirement)
             child_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
             child_desc = (
                 request.rule_description
@@ -2896,7 +2895,6 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 "id": request.rule_id + 1,
                 "level": child_level,
                 "description": child_desc,
-                "regex": child_regex,
                 "field_conditions": auto_fields,
                 "match_conditions": auto_matches,
                 "static_conditions": auto_statics,
