@@ -1438,10 +1438,20 @@ def parse_phase1_predecode(log_line: str) -> Dict[str, str]:
 
 def clean_rule_description(text: str) -> str:
     cleaned = text.strip()
+    # Extract explicit "use description as X" or "description should be X"
+    desc_match = re.search(
+        r'(?:use\s+description\s+(?:as|to\s+be)\s+|description\s+(?:should\s+)?be\s+|'
+        r'description\s+is\s+)[\'\"]?(.+?)[\'\"]?\s*\.?\s*$',
+        cleaned, flags=re.IGNORECASE,
+    )
+    if desc_match:
+        return desc_match.group(1).strip().strip('"').strip("'").rstrip('.').strip()
+
     prefixes = [
         r'^i\s+wanna\s+create\s+parent\s+rule\s+for\s+this\s+and\s+also\s+need\s+to\s+create\s+child\s+rule\s+based\s+on\s+the\s+parent\s+rule\s+that\s+need\s+to\s+be\s+',
         r'^i\s+(?:want|need)\s+to\s+(?:create|make|have)\s+(?:a\s+)?(?:parent\s+)?rule\s+(?:for|to)\s+',
         r'^(?:create|make|have)\s+(?:a\s+)?(?:parent\s+)?rule\s+(?:for|to)\s+',
+        r'^create\s+alert\s+using\s+\d+\s+parent\s+rule\s+by\s+matching\s+',
         r'^(?:please\s+)',
     ]
     for p in prefixes:
@@ -2626,40 +2636,60 @@ def build_rule_xml(
     field_conditions: Optional[List[Dict[str, str]]] = None,
     match_conditions: Optional[List[str]] = None,
     static_conditions: Optional[List[Dict[str, str]]] = None,
+    child_only: bool = False,
 ) -> str:
-    description = f"{escape_xml(log_source_name)} messages grouped"
     lines = [
         f"<group name=\"custom,{escape_xml(app_name)},\">",
-        f"  <rule id=\"{rule_id}\" level=\"{level}\">",
     ]
-    if if_sid is not None:
-        lines.append(f"    <if_sid>{if_sid}</if_sid>")
-    if decoded_as:
-        lines.append(f"    <decoded_as>{escape_xml(decoded_as)}</decoded_as>")
-    if regex:
-        lines.append(f"    <regex>{escape_xml(regex)}</regex>")
-    lines.extend(_render_field_tags(field_conditions))
-    lines.extend(_render_static_tags(static_conditions))
-    lines.extend(_render_match_tags(match_conditions))
-    lines.append(f"    <description>{description}</description>")
-    lines.append("  </rule>")
-    if child_rule:
-        child_id = child_rule.get("id", rule_id + 1)
-        child_lvl = child_rule.get("level", level)
-        child_desc = child_rule.get("description", description)
-        child_re = child_rule.get("regex")
-        child_fields = child_rule.get("field_conditions")
-        child_statics = child_rule.get("static_conditions")
-        child_matches = child_rule.get("match_conditions")
-        lines.append(f"  <rule id=\"{child_id}\" level=\"{child_lvl}\">")
-        lines.append(f"    <if_sid>{rule_id}</if_sid>")
+    if child_only:
+        # Emit only a single child rule extending an existing parent
+        desc = child_rule.get("description", f"{escape_xml(log_source_name)} messages grouped") if child_rule else f"{escape_xml(log_source_name)} messages grouped"
+        child_re = child_rule.get("regex") if child_rule else regex
+        child_fields = child_rule.get("field_conditions") if child_rule else field_conditions
+        child_statics = child_rule.get("static_conditions") if child_rule else static_conditions
+        child_matches = child_rule.get("match_conditions") if child_rule else match_conditions
+        child_lvl = child_rule.get("level", level) if child_rule else level
+        lines.append(f"  <rule id=\"{rule_id}\" level=\"{child_lvl}\">")
+        if if_sid is not None:
+            lines.append(f"    <if_sid>{if_sid}</if_sid>")
         if child_re:
             lines.append(f"    <regex>{escape_xml(child_re)}</regex>")
         lines.extend(_render_field_tags(child_fields))
         lines.extend(_render_static_tags(child_statics))
         lines.extend(_render_match_tags(child_matches))
-        lines.append(f"    <description>{escape_xml(child_desc)}</description>")
+        lines.append(f"    <description>{escape_xml(desc)}</description>")
         lines.append("  </rule>")
+    else:
+        description = f"{escape_xml(log_source_name)} messages grouped"
+        lines.append(f"  <rule id=\"{rule_id}\" level=\"{level}\">")
+        if if_sid is not None:
+            lines.append(f"    <if_sid>{if_sid}</if_sid>")
+        if decoded_as:
+            lines.append(f"    <decoded_as>{escape_xml(decoded_as)}</decoded_as>")
+        if regex:
+            lines.append(f"    <regex>{escape_xml(regex)}</regex>")
+        lines.extend(_render_field_tags(field_conditions))
+        lines.extend(_render_static_tags(static_conditions))
+        lines.extend(_render_match_tags(match_conditions))
+        lines.append(f"    <description>{description}</description>")
+        lines.append("  </rule>")
+        if child_rule:
+            child_id = child_rule.get("id", rule_id + 1)
+            child_lvl = child_rule.get("level", level)
+            child_desc = child_rule.get("description", description)
+            child_re = child_rule.get("regex")
+            child_fields = child_rule.get("field_conditions")
+            child_statics = child_rule.get("static_conditions")
+            child_matches = child_rule.get("match_conditions")
+            lines.append(f"  <rule id=\"{child_id}\" level=\"{child_lvl}\">")
+            lines.append(f"    <if_sid>{rule_id}</if_sid>")
+            if child_re:
+                lines.append(f"    <regex>{escape_xml(child_re)}</regex>")
+            lines.extend(_render_field_tags(child_fields))
+            lines.extend(_render_static_tags(child_statics))
+            lines.extend(_render_match_tags(child_matches))
+            lines.append(f"    <description>{escape_xml(child_desc)}</description>")
+            lines.append("  </rule>")
     lines.append("</group>")
     return "\n".join(lines)
 
@@ -2844,6 +2874,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
             }
 
         # ── Case 1: User specified an existing parent rule ID ──
+        # Emit a single child-only rule extending the user's parent, no wrapper parent rule
         if user_parent_id is not None:
             rule_xml = build_rule_xml(
                 app_name=app_name,
@@ -2852,6 +2883,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 log_source_name=log_source_name,
                 if_sid=user_parent_id,
                 child_rule=child_rule,
+                child_only=True,
             )
         elif builtin_rule_id == 2501:
             regex_pattern = derive_regex_from_predecoded_body([s.raw_log for s in request.logs])
