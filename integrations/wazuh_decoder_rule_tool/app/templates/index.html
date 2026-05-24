@@ -223,6 +223,12 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
             <textarea id="ruleRequirement" rows="2" placeholder="e.g. alert at level 12 when failed login happens from admin account"></textarea>
           </div>
         </div>
+        <div class="form-row mt-12">
+          <div class="form-group">
+            <label for="ruleDescription">Rule Description (optional — overrides auto-detected)</label>
+            <input type="text" id="ruleDescription" placeholder="e.g. myapp login failed" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
+          </div>
+        </div>
         <div class="form-row form-row-2 mt-12" id="ruleFieldConditionsRow" style="display:none">
           <div class="form-group">
             <label>Child Rule Dynamic Field Conditions (optional &lt;field&gt; tag)</label>

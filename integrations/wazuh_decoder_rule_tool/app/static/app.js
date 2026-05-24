@@ -149,6 +149,7 @@ function readRulePayload() {
     rule_id: Number(document.getElementById('ruleRuleId').value),
     level: Number(document.getElementById('ruleLevel').value),
     rule_requirement: document.getElementById('ruleRequirement').value.trim(),
+    rule_description: document.getElementById('ruleDescription').value.trim() || null,
     parent_rule_id: parentId ? Number(parentId) : null,
     child_field_conditions: fieldConditions,
     child_match_conditions: matchConditions,

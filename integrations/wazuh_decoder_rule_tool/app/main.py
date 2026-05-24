@@ -125,6 +125,7 @@ class CandidateRequest(BaseModel):
     level: int = Field(default=5, ge=0, le=16)
     rule_id: int = Field(default=100500, ge=100000)
     rule_requirement: Optional[str] = None
+    rule_description: Optional[str] = Field(default=None, description="Explicit rule description (overrides auto-detected from rule_requirement)")
     extract_fields: List[str] = Field(default_factory=list)
     field_hints: Dict[str, str] = Field(default_factory=dict)
     split_decoders: bool = Field(default=False)
@@ -2860,7 +2861,11 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         if request.rule_requirement:
             child_regex = derive_child_regex_from_logs([s.raw_log for s in request.logs], request.rule_requirement)
             child_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
-            child_desc = clean_rule_description(request.rule_requirement)
+            child_desc = (
+                request.rule_description
+                if request.rule_description
+                else clean_rule_description(request.rule_requirement)
+            )
 
             # Derive field, match, and static conditions from all available context
             user_field_conditions: List[Dict[str, str]] = getattr(request, 'child_field_conditions', [])
