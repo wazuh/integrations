@@ -1438,9 +1438,10 @@ def parse_phase1_predecode(log_line: str) -> Dict[str, str]:
 
 def clean_rule_description(text: str) -> str:
     cleaned = text.strip()
-    # Extract explicit "use description as X" or "description should be X"
+    # Extract explicit "use description as X" / "use the description as X" / "description should be X"
     desc_match = re.search(
-        r'(?:use\s+description\s+(?:as|to\s+be)\s+|description\s+(?:should\s+)?be\s+|'
+        r'(?:use\s+(?:the\s+)?description\s+(?:as|to\s+be)\s+|'
+        r'description\s+(?:should\s+)?be\s+|'
         r'description\s+is\s+)[\'\"]?(.+?)[\'\"]?\s*\.?\s*$',
         cleaned, flags=re.IGNORECASE,
     )
@@ -1456,6 +1457,14 @@ def clean_rule_description(text: str) -> str:
     ]
     for p in prefixes:
         cleaned = re.sub(p, '', cleaned, flags=re.IGNORECASE)
+    # After prefix stripping, check again for "use (the) description as X" pattern
+    if not desc_match:
+        desc_match = re.search(
+            r'use\s+(?:the\s+)?description\s+(?:as|to\s+be)\s+[\'\"]?(.+?)[\'\"]?\s*\.?\s*$',
+            cleaned, flags=re.IGNORECASE,
+        )
+        if desc_match:
+            return desc_match.group(1).strip().strip('"').strip("'").rstrip('.').strip()
     cleaned = re.sub(r'\s+(?:please|thanks|thank\s+you)$', '', cleaned, flags=re.IGNORECASE)
     return cleaned.strip()
 
@@ -1466,6 +1475,7 @@ def derive_child_rule_conditions(
     extract_fields: Optional[List[str]] = None,
     field_hints: Optional[Dict[str, str]] = None,
     parsed_logtest_fields: Optional[Dict[str, str]] = None,
+    clean_description: Optional[str] = None,
 ) -> Tuple[List[Dict[str, str]], List[str], List[Dict[str, str]]]:
     """
     Derive <field>, <match>, and static conditions from all available context.
@@ -1484,6 +1494,7 @@ def derive_child_rule_conditions(
 
     # ── Step 1: Collect field values from all available sources ──
     all_field_values: Dict[str, str] = {}
+    cleaned_req = rule_requirement.strip().lower()
 
     # 1a. field_hints provide direct expected values — highest priority.
     # Track which fields were explicitly set so auto-detection doesn't override them.
@@ -1501,12 +1512,21 @@ def derive_child_rule_conditions(
                     if cond not in field_conditions:
                         field_conditions.append(cond)
 
-    # 1b. logtest decoded fields — real decoded values from wazuh-logtest
+    # Meta fields from logtest that should not become rule conditions automatically
+    _META_FIELDS = frozenset({"program_name", "program", "hostname", "decoder_name"})
+    meta_in_req = any(mf in cleaned_req for mf in _META_FIELDS) or any(mf.replace("_", "") in cleaned_req for mf in _META_FIELDS)
+
+    # 1b. logtest decoded fields — real decoded values from wazuh-logtest.
+    #     Skip meta fields (program_name, hostname, decoder_name) unless
+    #     the user explicitly mentioned them in the requirement.
     if parsed_logtest_fields:
         for fname, fval in parsed_logtest_fields.items():
             if fname and fval and not fname.startswith("_"):
-                if fname not in hinted_fields:
-                    all_field_values[fname] = fval
+                if fname in hinted_fields:
+                    continue
+                if fname in _META_FIELDS and not meta_in_req:
+                    continue
+                all_field_values[fname] = fval
 
     # 1c. extract_relevant_fields — heuristic extraction from raw logs
     for log in logs:
@@ -1514,10 +1534,11 @@ def derive_child_rule_conditions(
         for k, v in fields.items():
             if not k.startswith("_") and isinstance(v, str) and v:
                 if k not in all_field_values and k not in hinted_fields:
+                    if k in _META_FIELDS and not meta_in_req:
+                        continue
                     all_field_values[k] = v
 
     # ── Step 2: Parse the requirement for explicit field-value patterns ──
-    cleaned_req = rule_requirement.strip().lower()
 
     # Patterns: "field X (is|=|equals|matches) Y", "X field (is|=) Y"
     explicit_patterns = re.findall(
@@ -1559,7 +1580,7 @@ def derive_child_rule_conditions(
         'all','each','every','both','few','more','most','other','some','such','no',
         'nor','not','only','own','same','so','than','too','very','just','because',
         'i','me','my','we','our','you','your','he','him','his','she','her','it','its',
-        'they','them','their','detect','create','based','wanna','want','also','need',
+        'they','them','their','detect','create','based','wanna','want','use','also','need',
         'parent','rule','child','level','alert','message','field','value','matches',
         'equals','contain','contains','else','when','where','which','who','whom',
     })
@@ -1637,11 +1658,15 @@ def derive_child_rule_conditions(
                 field_conditions.append(cond)
 
     # ── Step 6: Remaining unmatched keywords → match conditions ──
+    # Skip words that appear in the cleaned description (they're descriptive, not matching)
+    desc_words = set(clean_description.lower().split()) if clean_description else set()
     body_text = " ".join(logs)
     for kw in sorted(req_words, key=len, reverse=True):
         if kw in matched_words:
             continue
-        if kw in body_text.lower():
+        if kw in desc_words:
+            continue
+        if re.search(rf'\b{re.escape(kw)}\b', body_text, flags=re.IGNORECASE):
             match_conditions.append(kw)
             matched_words.add(kw)
 
@@ -2642,9 +2667,9 @@ def build_rule_xml(
         f"<group name=\"custom,{escape_xml(app_name)},\">",
     ]
     if child_only:
-        # Emit only a single child rule extending an existing parent
+        # Emit only a single child rule extending an existing parent.
+        # Use <match> / <field> / static tags instead of <regex> for clarity.
         desc = child_rule.get("description", f"{escape_xml(log_source_name)} messages grouped") if child_rule else f"{escape_xml(log_source_name)} messages grouped"
-        child_re = child_rule.get("regex") if child_rule else regex
         child_fields = child_rule.get("field_conditions") if child_rule else field_conditions
         child_statics = child_rule.get("static_conditions") if child_rule else static_conditions
         child_matches = child_rule.get("match_conditions") if child_rule else match_conditions
@@ -2652,8 +2677,6 @@ def build_rule_xml(
         lines.append(f"  <rule id=\"{rule_id}\" level=\"{child_lvl}\">")
         if if_sid is not None:
             lines.append(f"    <if_sid>{if_sid}</if_sid>")
-        if child_re:
-            lines.append(f"    <regex>{escape_xml(child_re)}</regex>")
         lines.extend(_render_field_tags(child_fields))
         lines.extend(_render_static_tags(child_statics))
         lines.extend(_render_match_tags(child_matches))
@@ -2857,6 +2880,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                     extract_fields=request.extract_fields,
                     field_hints=getattr(request, 'field_hints', {}),
                     parsed_logtest_fields=parsed_logtest_fields or None,
+                    clean_description=child_desc,
                 )
             else:
                 auto_fields, auto_matches, auto_statics = (
