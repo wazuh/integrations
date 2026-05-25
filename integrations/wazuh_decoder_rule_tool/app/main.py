@@ -686,10 +686,24 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             quote_close = match.group(4)
             val_start = match.start(3)
             
-            # Get the actual raw prefix before the value in target_text
-            # (e.g. "1.2.3.4:" instead of just "4:" when matching IP:port)
-            raw_prefix = target_text[:val_start]
-            prefix_escaped = generalize_prefix_text(raw_prefix, fields, key)
+            # Use the same prefix-shortening as Path 3 (last 1-2 words only)
+            # instead of the full raw_prefix which includes too much context
+            prefix_candidate = target_text[:val_start]
+            m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*[A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
+            if not m_prefix:
+                m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
+            if m_prefix:
+                prefix_text = m_prefix.group(1)
+            else:
+                last_space = prefix_candidate.rstrip().rfind(' ')
+                if last_space != -1:
+                    prefix_text = prefix_candidate[last_space+1:]
+                else:
+                    prefix_text = prefix_candidate
+                if len(prefix_text.strip()) < 2:
+                    prefix_text = target_text[max(0, val_start - 4):val_start]
+            
+            prefix_escaped = generalize_prefix_text(prefix_text, fields, key)
             
             if quote_open:
                 prefix_escaped += osregex_escape(quote_open)
