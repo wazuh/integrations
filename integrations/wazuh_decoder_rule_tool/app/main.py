@@ -567,9 +567,9 @@ def generalize_prefix_text(prefix_text: str, fields: Dict[str, str], current_key
                     pat = r"\S+"
                 placeholders[placeholder] = pat
 
-    # 2. Escape special characters
+    # 2. Escape special characters (must match build_split_regexes_from_fields osregex_escape)
     def osregex_escape(text: str) -> str:
-        return re.sub(r'([$()\\|<])', r'\\\1', text)
+        return re.sub(r'([\[\]$()\\|<])', r'\\\1', text)
     
     prefix_escaped = osregex_escape(prefix_text)
 
@@ -658,8 +658,11 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
     results = []
     
     def osregex_escape(text: str) -> str:
-        # User requested: only escape specific characters: $ ( ) \ | <
-        return re.sub(r'([$()\\|<])', r'\\\1', text)
+        # Escape characters special in Wazuh/OSSEC regex:
+        # $ ( ) \ | < — standard metacharacters
+        # [ ] — always open/close a character class in Wazuh regex,
+        #         so literal brackets in log text MUST be escaped
+        return re.sub(r'([\[\]$()\\|<])', r'\\\1', text)
 
     for key, value in fields.items():
         if key in ("_cef_field_map",) or key.startswith("_") or not value or not isinstance(value, str):
@@ -2167,6 +2170,22 @@ def parse_logtest_output(stdout: str) -> Dict[str, Any]:
         result["rule_level"] = int(rule_level)
     result["rule_description"] = rule_description
 
+    # Extract phase-2 decoded fields (everything after "name:" that looks like field: 'value')
+    if result["phase2_completed"]:
+        # Find the "name:" line and collect subsequent field:value lines
+        phase2_match = re.search(
+            r"\*\*Phase 2: Completed decoding\.\s*\n(\s+name:\s*'[^']*'\s*\n(?:\s+\w+:\s*'[^']*'\s*\n)*)",
+            stdout, re.MULTILINE
+        )
+        if phase2_match:
+            field_lines = re.findall(
+                r"\s+(\w+):\s*'([^']*)'",
+                phase2_match.group(1)
+            )
+            for fname, fval in field_lines:
+                if fname != "name":
+                    result["decoded_fields"][fname] = fval
+
     lower = stdout.lower()
     result["no_decoder_match"] = ("no decoder matched" in lower) or ("name:" not in lower and result["phase2_completed"])
     result["no_rule_match"] = ("no rule matched" in lower) or ("id:" not in lower and result["phase3_completed"])
@@ -2513,17 +2532,35 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
     unique_after_predecoded = derive_unique_token(token_source)
     logtest_available = logtest_scan["available"]
     first_logtest = logtest_scan["details"][0]["logtest"] if logtest_scan["details"] else {}
+
+    # Collect fields already decoded by the built-in decoder so we skip them
+    logtest_decoded_fields: Dict[str, str] = {}
+    for entry in parsed_entries:
+        for fname, fval in entry.get("decoded_fields", {}).items():
+            if fname not in logtest_decoded_fields:
+                logtest_decoded_fields[fname] = fval
+
+    # Filter extract_fields to only include fields NOT already decoded
+    effective_extract_fields = [
+        f for f in request.extract_fields
+        if f not in logtest_decoded_fields
+    ]
+    skipped_decoded_fields = [
+        f for f in request.extract_fields
+        if f in logtest_decoded_fields
+    ]
+
     ml_suggestions = ml_suggestions_for_logs(
         logs=raw_logs,
         extracted_program_name=extracted_program,
         unique_after_predecoded=unique_after_predecoded,
         top_k=5,
     )
-    ml_selected = select_ml_decoder_template(raw_logs, request.extract_fields, ml_suggestions)
+    ml_selected = select_ml_decoder_template(raw_logs, effective_extract_fields, ml_suggestions)
     # 4. Generate Regex & Order (New: returns list of pairs)
     regex_order_pairs, likely_fields, missing_extract_fields = build_log_based_regex(
         raw_logs,
-        request.extract_fields,
+        effective_extract_fields,
         ml_order=(ml_selected or {}).get("order"),
         split_decoders=request.split_decoders,
         field_hints=getattr(request, 'field_hints', None),
@@ -2545,6 +2582,9 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
         "token_source": token_source,
         "auto_fields": safe_auto_fields(first_non_empty(raw_logs)),
         "requested_extract_fields": request.extract_fields,
+        "effective_extract_fields": effective_extract_fields,
+        "skipped_decoded_fields": skipped_decoded_fields,
+        "logtest_decoded_fields": logtest_decoded_fields,
         "missing_extract_fields": missing_extract_fields,
         "regex": first_regex,
         "regex_order_pairs": regex_order_pairs,
