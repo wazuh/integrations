@@ -170,7 +170,12 @@ def sanitize_name(value: str) -> str:
 
 
 def escape_xml(text: str) -> str:
-    return html.escape(text, quote=False)
+    # Only escape & and < which are required for XML text content.
+    # Do NOT escape > — html.escape would turn -> into -&gt;,
+    # which breaks Wazuh regex patterns that use -> (arrow notation).
+    text = text.replace("&", "&amp;")
+    text = text.replace("<", "&lt;")
+    return text
 
 
 def first_non_empty(logs: List[str]) -> str:
@@ -672,11 +677,19 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                 
         # 2. Try a robust regex to dynamically find "key=value" or "key: value"
         # without hardcoding prefix length
-        match = re.search(r'\b(\w+\s*[=:]\s*)([\'"]?)' + re.escape(value) + r'([\'"]?)(?:\b|$)', target_text)
+        match = re.search(r'\b(\w+\s*[=:]\s*)([\'"]?)(' + re.escape(value) + r')([\'"]?)(?:\b|$)', target_text)
         if match:
-            prefix = match.group(1)
             quote_open = match.group(2)
-            quote_close = match.group(3)
+            quote_close = match.group(4)
+            val_start = match.start(3)
+            
+            # Get the actual raw prefix before the value in target_text
+            # (e.g. "1.2.3.4:" instead of just "4:" when matching IP:port)
+            raw_prefix = target_text[:val_start]
+            prefix_escaped = generalize_prefix_text(raw_prefix, fields, key)
+            
+            if quote_open:
+                prefix_escaped += osregex_escape(quote_open)
             
             # Determine appropriate capture group pattern
             if key == "message":
@@ -687,9 +700,8 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                     capture_group = r"(\d+.\d+.\d+.\d+)"
                 elif value.isdigit():
                     capture_group = r"(\d+)"
-                    
-            full_prefix = prefix + quote_open
-            results.append((f"\\.+{osregex_escape(full_prefix)}{capture_group}{osregex_escape(quote_close)}", [key]))
+            
+            results.append((f"\\.+{prefix_escaped}{capture_group}{osregex_escape(quote_close)}", [key]))
             continue
 
         # 2.5 Handle hyphenated action/status fields (e.g., deny-smb -> capture deny)
