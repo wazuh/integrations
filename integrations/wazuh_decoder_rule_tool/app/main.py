@@ -2515,6 +2515,52 @@ def rule_suggestions_for_requirement(rule_requirement: str, top_k: int = 5) -> L
     return suggestions
 
 
+PREDECODED_SYSLOG_FIELDS = frozenset({
+    "timestamp", "hostname", "program_name",
+})
+
+def validate_individual_fields(
+    extract_fields: List[str],
+    logtest_decoded_fields: Dict[str, str],
+    log_body: str,
+    field_hints: Optional[Dict[str, str]] = None,
+    auto_fields: Optional[Dict[str, str]] = None,
+) -> Dict[str, Dict[str, str]]:
+    """
+    For each requested field not yet decoded by the built-in decoder,
+    explain why it can or cannot be extracted.
+    Returns dict: field_name -> {"status": "...", "reason": "..."}
+    """
+    results: Dict[str, Dict[str, str]] = {}
+    for field in extract_fields:
+        if field in logtest_decoded_fields:
+            results[field] = {"status": "decoded", "reason": "already decoded by built-in decoder"}
+            continue
+        field_lower = field.lower()
+        if field_lower in PREDECODED_SYSLOG_FIELDS:
+            results[field] = {
+                "status": "skipped",
+                "reason": f"'{field}' is extracted during syslog pre-decoding "
+                          f"and cannot be re-decoded by a child decoder",
+            }
+            continue
+        # Check if a known value for this field exists in the body
+        hint_val = (field_hints or {}).get(field, "").lower()
+        if hint_val and hint_val in log_body.lower():
+            results[field] = {"status": "pending", "reason": "value found in body, will be extracted by custom decoder"}
+            continue
+        auto_val = (auto_fields or {}).get(field, "").lower()
+        if auto_val and auto_val in log_body.lower():
+            results[field] = {"status": "pending", "reason": "value detected in body, will be extracted by custom decoder"}
+            continue
+        results[field] = {
+            "status": "warning",
+            "reason": f"field '{field}' or its value not found in the message body — "
+                      f"verify the field name or provide a field_hint",
+        }
+    return results
+
+
 def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
     raw_logs = [sample.raw_log for sample in request.logs]
     app_name = sanitize_name(request.app_name)
@@ -2566,6 +2612,13 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
         field_hints=getattr(request, 'field_hints', None),
     )
     
+    # Per-field validation: explain which fields will/won't be decoded and why
+    field_validation = validate_individual_fields(
+        request.extract_fields, logtest_decoded_fields, token_source,
+        field_hints=getattr(request, 'field_hints', None),
+        auto_fields=safe_auto_fields(first_non_empty(raw_logs)),
+    )
+
     # For compatibility with single-regex logic in analysis results
     first_regex = regex_order_pairs[0][0] if regex_order_pairs else ""
     first_order = regex_order_pairs[0][1] if regex_order_pairs else []
@@ -2585,6 +2638,7 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
         "effective_extract_fields": effective_extract_fields,
         "skipped_decoded_fields": skipped_decoded_fields,
         "logtest_decoded_fields": logtest_decoded_fields,
+        "field_validation": field_validation,
         "missing_extract_fields": missing_extract_fields,
         "regex": first_regex,
         "regex_order_pairs": regex_order_pairs,
