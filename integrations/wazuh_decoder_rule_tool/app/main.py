@@ -2663,6 +2663,7 @@ def build_rule_xml(
     match_conditions: Optional[List[str]] = None,
     static_conditions: Optional[List[Dict[str, str]]] = None,
     child_only: bool = False,
+    description: Optional[str] = None,
 ) -> str:
     lines = [
         f"<group name=\"custom,{escape_xml(app_name)},\">",
@@ -2684,7 +2685,7 @@ def build_rule_xml(
         lines.append(f"    <description>{escape_xml(desc)}</description>")
         lines.append("  </rule>")
     else:
-        description = f"{escape_xml(log_source_name)} messages grouped"
+        parent_desc = description if description else f"{escape_xml(log_source_name)} messages grouped"
         lines.append(f"  <rule id=\"{rule_id}\" level=\"{level}\">")
         if if_sid is not None:
             lines.append(f"    <if_sid>{if_sid}</if_sid>")
@@ -2695,12 +2696,12 @@ def build_rule_xml(
         lines.extend(_render_field_tags(field_conditions))
         lines.extend(_render_static_tags(static_conditions))
         lines.extend(_render_match_tags(match_conditions))
-        lines.append(f"    <description>{description}</description>")
+        lines.append(f"    <description>{parent_desc}</description>")
         lines.append("  </rule>")
         if child_rule:
             child_id = child_rule.get("id", rule_id + 1)
             child_lvl = child_rule.get("level", level)
-            child_desc = child_rule.get("description", description)
+            child_desc = child_rule.get("description", parent_desc)
             child_re = child_rule.get("regex")
             child_fields = child_rule.get("field_conditions")
             child_statics = child_rule.get("static_conditions")
@@ -2858,20 +2859,23 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
         decoded_as = existing_decoder or parent_decoder
 
         child_rule = None
-        if request.rule_requirement:
-            child_level = infer_rule_from_natural_language(request.rule_requirement, request.level)
+        # Only build a child rule when explicitly requested via parent_rule_id
+        # or when user provides child conditions.
+        user_field_conditions: List[Dict[str, str]] = getattr(request, 'child_field_conditions', [])
+        user_match_conditions: List[str] = getattr(request, 'child_match_conditions', [])
+        user_static_conditions: List[Dict[str, str]] = getattr(request, 'child_static_conditions', [])
+        has_explicit_child_conditions = bool(user_field_conditions or user_match_conditions or user_static_conditions)
+
+        if user_parent_id is not None or has_explicit_child_conditions:
+            child_level = infer_rule_from_natural_language(request.rule_requirement or "", request.level)
             child_desc = (
                 request.rule_description
                 if request.rule_description
-                else clean_rule_description(request.rule_requirement)
+                else clean_rule_description(request.rule_requirement or "")
             )
 
-            # Derive field, match, and static conditions from all available context
-            user_field_conditions: List[Dict[str, str]] = getattr(request, 'child_field_conditions', [])
-            user_match_conditions: List[str] = getattr(request, 'child_match_conditions', [])
-            user_static_conditions: List[Dict[str, str]] = getattr(request, 'child_static_conditions', [])
-            if not user_field_conditions and not user_match_conditions and not user_static_conditions:
-                # Build parsed_logtest_fields from logtest analysis (actual decoded fields)
+            if not has_explicit_child_conditions:
+                # Auto-detect conditions from logs + requirement
                 parsed_logtest_fields: Dict[str, str] = {}
                 for entry in analysis.get("logtest_scan", {}).get("parsed_entries", []):
                     for field_key in ("decoder_name", "program_name", "predecoded_hostname"):
@@ -2880,7 +2884,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                             parsed_logtest_fields[field_key.replace("predecoded_", "").replace("decoder_", "")] = val
                 auto_fields, auto_matches, auto_statics = derive_child_rule_conditions(
                     logs=[s.raw_log for s in request.logs],
-                    rule_requirement=request.rule_requirement,
+                    rule_requirement=request.rule_requirement or "",
                     extract_fields=request.extract_fields,
                     field_hints=getattr(request, 'field_hints', {}),
                     parsed_logtest_fields=parsed_logtest_fields or None,
@@ -2899,6 +2903,13 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 "match_conditions": auto_matches,
                 "static_conditions": auto_statics,
             }
+
+        # Derive parent description from rule_requirement if available
+        parent_rule_desc: Optional[str] = None
+        if request.rule_description:
+            parent_rule_desc = request.rule_description
+        elif request.rule_requirement and not child_rule:
+            parent_rule_desc = clean_rule_description(request.rule_requirement)
 
         # ── Case 1: User specified an existing parent rule ID ──
         # Emit a single child-only rule extending the user's parent, no wrapper parent rule
@@ -2922,6 +2933,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 if_sid=builtin_rule_id,
                 regex=regex_pattern,
                 child_rule=child_rule,
+                description=parent_rule_desc,
             )
         elif builtin_rule_id is not None:
             analysis["rule_warning"] = (
@@ -2935,6 +2947,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 log_source_name=log_source_name,
                 decoded_as=decoded_as,
                 child_rule=child_rule,
+                description=parent_rule_desc,
             )
         else:
             rule_xml = build_rule_xml(
@@ -2944,6 +2957,7 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 log_source_name=log_source_name,
                 decoded_as=decoded_as,
                 child_rule=child_rule,
+                description=parent_rule_desc,
             )
 
     candidate = {
