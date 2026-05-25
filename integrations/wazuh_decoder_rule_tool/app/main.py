@@ -2145,6 +2145,7 @@ def parse_logtest_output(stdout: str) -> Dict[str, Any]:
         "program_name": None,
         "predecoded_timestamp": None,
         "predecoded_hostname": None,
+        "decoded_fields": {},
         "phase1_completed": "Phase 1" in stdout,
         "phase2_completed": "Phase 2" in stdout,
         "phase3_completed": "Phase 3" in stdout,
