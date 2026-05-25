@@ -569,7 +569,9 @@ def generalize_prefix_text(prefix_text: str, fields: Dict[str, str], current_key
 
     # 2. Escape special characters (must match build_split_regexes_from_fields osregex_escape)
     def osregex_escape(text: str) -> str:
-        return re.sub(r'([\[\]$()\\|<])', r'\\\1', text)
+        # Wazuh OS_REGEX special chars: $ ( ) \ | <
+        # [ ] { } are literal (NOT character classes/quantifiers)
+        return re.sub(r'([$()\\|<])', r'\\\1', text)
     
     prefix_escaped = osregex_escape(prefix_text)
 
@@ -658,11 +660,9 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
     results = []
     
     def osregex_escape(text: str) -> str:
-        # Escape characters special in Wazuh/OSSEC regex:
-        # $ ( ) \ | < — standard metacharacters
-        # [ ] — always open/close a character class in Wazuh regex,
-        #         so literal brackets in log text MUST be escaped
-        return re.sub(r'([\[\]$()\\|<])', r'\\\1', text)
+        # Wazuh OS_REGEX special chars: $ ( ) \ | <
+        # [ ] { } are literal (NOT character classes/quantifiers)
+        return re.sub(r'([$()\\|<])', r'\\\1', text)
 
     for key, value in fields.items():
         if key in ("_cef_field_map",) or key.startswith("_") or not value or not isinstance(value, str):
