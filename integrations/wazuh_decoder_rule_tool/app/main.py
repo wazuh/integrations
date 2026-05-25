@@ -2787,7 +2787,7 @@ def build_rule_xml(
     description: Optional[str] = None,
 ) -> str:
     lines = [
-        f"<group name=\"custom,{escape_xml(app_name)},\">",
+        f"<group name=\"custom,{escape_xml(app_name)}\">",
     ]
     if child_only:
         # Emit only a single child rule extending an existing parent.
@@ -3025,11 +3025,10 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
                 "static_conditions": auto_statics,
             }
 
-        # Derive parent description from rule_requirement if available
+        # Parent description is always "{log_source_name} messages grouped".
+        # rule_description is for the child rule, NOT the parent.
         parent_rule_desc: Optional[str] = None
-        if request.rule_description:
-            parent_rule_desc = request.rule_description
-        elif request.rule_requirement and not child_rule:
+        if not child_rule and request.rule_requirement:
             parent_rule_desc = clean_rule_description(request.rule_requirement)
 
         # ── Case 1: User specified an existing parent rule ID ──
