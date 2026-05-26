@@ -124,36 +124,6 @@ function highlightXml(xml) {
 
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-/* ══ Test results ══ */
-function renderTestResults(results, targetId = 'testOut') {
-  const out = document.getElementById(targetId);
-  if (!results || !results.length) { out.innerHTML = '<div class="empty-state"><p>No results.</p></div>'; return; }
-  out.innerHTML = results.map(r => {
-    const ev = r.evaluation || {};
-    const parsed = r.parsed || {};
-    const pass = ev.pass;
-    const fields = r.auto_fields || {};
-    const stdout = (r.logtest || {}).stdout || '';
-    const fieldRows = Object.entries(fields).map(([k,v]) => {
-      const matched = stdout.includes(v);
-      return `<tr><td class="field-name">${k}</td><td class="${matched?'field-match':'field-miss'}">${matched?'✓':'✗'} ${escHtml(v)}</td></tr>`;
-    }).join('');
-    return `<div class="result-card">
-      <div class="result-card-header">
-        <span class="result-card-log">${escHtml(r.raw_log)}</span>
-        <span class="${pass?'pass-badge':'fail-badge'}">${pass?'PASS':'FAIL'} ${ev.score||0}/100</span>
-      </div>
-      <div class="result-card-body">
-        <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">
-          Decoder: <strong>${parsed.decoder_name||'—'}</strong> &nbsp;|&nbsp; Rule: <strong>${parsed.rule_id||'—'}</strong>
-        </div>
-        ${fieldRows ? `<table class="field-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>${fieldRows}</tbody></table>` : ''}
-        ${stdout ? `<details style="margin-top:8px"><summary style="font-size:11px;color:var(--text-muted);cursor:pointer">Raw logtest output</summary><pre style="font-size:11px;margin-top:6px;max-height:150px;overflow:auto;color:var(--text-dim)">${escHtml(stdout)}</pre></details>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
-
 /* ══ History ══ */
 function saveHistory(entry) {
   history.unshift({ ...entry, ts: new Date().toLocaleTimeString() });
@@ -214,30 +184,137 @@ async function checkHealth() {
 }
 checkHealth();
 
-/* ══ Test (dedicated view) ══ */
-async function runTest(outputEl) {
-  const p = readPayload();
-  const result = await postJson('/api/test', {
-    candidate: { app_name: p.app_name, logs: p.logs, extract_fields: p.extract_fields, log_source_name: p.log_source_name },
-    install_mode: p.install_mode,
-  });
-  lastCandidate = result.candidate;
-  renderTestResults(result.results, outputEl);
-  saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
-  const pass = result.results.every(r => r.evaluation?.pass);
-  toast(pass ? 'success' : 'error', pass ? 'All tests passed' : 'Some tests failed');
-  return result;
+/* ══ Test: Install / Uninstall / Raw Logtest ══ */
+let _installedFiles = JSON.parse(localStorage.getItem('wds_installed') || '[]');
+let _lastAIDecoderXml = '';
+let _lastAIRuleXml = '';
+
+function updateInstallUI() {
+  const info = document.getElementById('installInfo');
+  const badge = document.getElementById('installStatusBadge');
+  const uninstallBtn = document.getElementById('uninstallBtn');
+  if (_installedFiles.length > 0) {
+    badge.textContent = 'Installed';
+    badge.style.background = 'var(--success)';
+    info.style.display = 'block';
+    info.textContent = 'Files:\n' + _installedFiles.map(f => '  ' + f).join('\n');
+    uninstallBtn.style.display = 'inline-flex';
+  } else {
+    badge.textContent = 'Not installed';
+    badge.style.background = 'var(--text-dim)';
+    info.style.display = 'none';
+    uninstallBtn.style.display = 'none';
+  }
 }
 
-document.getElementById('testBtn2').addEventListener('click', async () => {
-  const btn = document.getElementById('testBtn2');
+// Store AI XML when generated (called from AI handler)
+function storeAIXml(decoderXml, ruleXml) {
+  _lastAIDecoderXml = decoderXml;
+  _lastAIRuleXml = ruleXml;
+}
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  const decoderXml = document.getElementById('aiDecoderXml').textContent;
+  const ruleXml = document.getElementById('aiRuleXml').textContent;
+  if (!decoderXml || decoderXml === '— no decoder block found —') {
+    toast('error', 'No AI decoder to install', 'Generate a decoder with AI first.');
+    return;
+  }
+  const appName = document.getElementById('appName').value;
+  const btn = document.getElementById('installBtn');
   setLoading(btn, true);
   try {
-    await runTest('testOut2');
-  }
-  catch (e) { toast('error', 'Test failed', e.message); }
+    const result = await postJson('/api/install', {
+      decoder_xml: decoderXml,
+      rule_xml: ruleXml || null,
+      app_name: appName,
+    });
+    if (result.success) {
+      _installedFiles = result.written_files;
+      localStorage.setItem('wds_installed', JSON.stringify(_installedFiles));
+      updateInstallUI();
+      toast('success', 'Decoder installed to Wazuh', result.written_files.length + ' file(s) written');
+    } else {
+      toast('error', 'Install failed', result.errors.join('; '));
+    }
+  } catch (e) { toast('error', 'Install error', e.message); }
   finally { setLoading(btn, false); }
 });
+
+document.getElementById('uninstallBtn').addEventListener('click', async () => {
+  if (!_installedFiles.length) return;
+  const btn = document.getElementById('uninstallBtn');
+  setLoading(btn, true);
+  try {
+    const result = await postJson('/api/uninstall', { file_paths: _installedFiles });
+    _installedFiles = [];
+    localStorage.removeItem('wds_installed');
+    updateInstallUI();
+    toast('success', 'Uninstalled', result.removed_files.length + ' file(s) removed');
+  } catch (e) { toast('error', 'Uninstall error', e.message); }
+  finally { setLoading(btn, false); }
+});
+
+document.getElementById('logtestRunBtn').addEventListener('click', async () => {
+  const rawInput = document.getElementById('testLogsInput').value.trim();
+  if (!rawInput) { toast('error', 'No logs', 'Paste log samples to test.'); return; }
+  const logs = rawInput.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const btn = document.getElementById('logtestRunBtn');
+  setLoading(btn, true);
+  const outArea = document.getElementById('logtestOutputArea');
+  const parsedArea = document.getElementById('logtestParsedArea');
+  outArea.innerHTML = '<pre style="font-size:12px;font-family:JetBrains Mono,monospace;color:var(--text-dim);padding:8px;margin:0">Running wazuh-logtest…</pre>';
+  parsedArea.style.display = 'none';
+
+  try {
+    const result = await postJson('/api/logtest/raw', { logs });
+    let allStdout = '';
+    let allParsed = [];
+
+    result.results.forEach((r, i) => {
+      if (i > 0) allStdout += '\n' + '-'.repeat(60) + '\n';
+      allStdout += '[Log ' + (i + 1) + ']: ' + r.raw_log + '\n';
+      if (r.available) {
+        allStdout += r.stdout || '(no output)';
+        if (r.stderr) allStdout += '\n[stderr]: ' + r.stderr;
+      } else {
+        allStdout += '[unavailable] ' + (r.stderr || 'wazuh-logtest not accessible');
+      }
+      if (r.parsed && Object.keys(r.parsed).length > 1) allParsed.push(r.parsed);
+    });
+
+    outArea.innerHTML = '<pre style="font-size:12px;font-family:JetBrains Mono,monospace;color:var(--text);padding:10px 14px;margin:0;background:var(--bg);border:1px solid var(--border);border-radius:6px;max-height:400px;overflow:auto;white-space:pre-wrap">' + escHtml(allStdout) + '</pre>';
+
+    if (allParsed.length) {
+      const rows = Object.entries(allParsed[0]).map(([k, v]) =>
+        `<tr><td style="padding:5px 10px;font-size:12px;border-bottom:1px solid var(--border);color:var(--text-muted);white-space:nowrap">${escHtml(k)}</td><td style="padding:5px 10px;font-size:12px;font-family:JetBrains Mono,monospace;border-bottom:1px solid var(--border)">${escHtml(String(v))}</td></tr>`
+      ).join('');
+      document.getElementById('logtestParsedTable').innerHTML = '<table style="width:100%;border-collapse:collapse">' + rows + '</table>';
+      parsedArea.style.display = 'block';
+    }
+
+    saveHistory({ app_name: document.getElementById('appName').value, log: logs[0] || '' });
+    toast('success', 'wazuh-logtest completed');
+  } catch (e) {
+    outArea.innerHTML = '<pre style="font-size:12px;font-family:JetBrains Mono,monospace;color:var(--danger);padding:10px 14px;margin:0">Error: ' + escHtml(e.message) + '</pre>';
+    toast('error', 'Logtest failed', e.message);
+  } finally {
+    setLoading(btn, false);
+  }
+});
+
+document.getElementById('logtestClearBtn').addEventListener('click', () => {
+  document.getElementById('logtestOutputArea').innerHTML = '<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><p>Run wazuh-logtest to see output here.</p></div>';
+  document.getElementById('logtestParsedArea').style.display = 'none';
+});
+
+document.getElementById('copyLogtestOutputBtn').addEventListener('click', () => {
+  const pre = document.querySelector('#logtestOutputArea pre');
+  if (pre) copyText(pre.textContent, 'Logtest output copied');
+  else toast('info', 'Nothing to copy');
+});
+
+updateInstallUI();
 
 document.getElementById('feedbackYesBtn').addEventListener('click', async () => {
   const btn = document.getElementById('feedbackYesBtn');
@@ -361,6 +438,7 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
     if (decoderXml || ruleXml) {
       document.getElementById('aiDecoderXml').innerHTML = highlightXml(decoderXml || '— no decoder block found —');
       document.getElementById('aiRuleXml').innerHTML = highlightXml(ruleXml || '— no rule block found —');
+      storeAIXml(decoderXml, ruleXml);
       xmlOut.style.display = 'block';
       toast('success', 'AI generation complete');
     } else {

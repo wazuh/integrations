@@ -146,6 +146,22 @@ class TestRequest(BaseModel):
     install_mode: str = Field(default="stdin")
 
 
+class InstallRequest(BaseModel):
+    decoder_xml: Optional[str] = None
+    rule_xml: Optional[str] = None
+    app_name: str = Field(default="customapp")
+    log_source_name: Optional[str] = None
+
+
+class UninstallRequest(BaseModel):
+    file_paths: List[str] = Field(...)
+
+
+class LogtestRawRequest(BaseModel):
+    logs: List[str] = Field(..., min_length=1)
+    expected: Optional[str] = None
+
+
 class MLRefreshRequest(BaseModel):
     force: bool = Field(default=False)
 
@@ -3516,6 +3532,94 @@ def test_candidate(request: TestRequest):
                 }
             )
         return JSONResponse({"candidate": candidate, "results": results, "file_install": file_install})
+    except Exception as e:
+        return JSONResponse({"message": str(e)}, status_code=503)
+
+
+@app.post("/api/install")
+def install_decoder(request: InstallRequest):
+    try:
+        stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        app_name = sanitize_name(request.app_name) or "customapp"
+        writes = []
+        errors = []
+
+        def write_one(target_dir, prefix, content):
+            if not content:
+                return
+            filename = f"local_{app_name}_{prefix}_{stamp}.xml"
+            remote_path = f"{target_dir.rstrip('/')}/{filename}"
+            local_path = str(Path(target_dir) / filename)
+            if WAZUH_REMOTE_ENABLED:
+                remote_cmd = build_remote_sudo_command(f"tee {shlex.quote(remote_path)} >/dev/null")
+                proc = run_ssh_command(remote_cmd, input_data=build_remote_stdin(content, requires_sudo=True), timeout=20)
+                if proc["returncode"] == 0:
+                    writes.append(f"ssh://{WAZUH_SSH_USER}@{WAZUH_SSH_HOST}:{remote_path}")
+                    return
+                errors.append(f"failed to write remote {remote_path}: rc={proc['returncode']} stderr={proc['stderr'].strip()}")
+            else:
+                try:
+                    Path(target_dir).mkdir(parents=True, exist_ok=True)
+                    Path(local_path).write_text(content + "\n", encoding="utf-8")
+                    writes.append(local_path)
+                except Exception as exc:
+                    fallback = LOCAL_OUTPUT_DIR / prefix / filename
+                    fallback.parent.mkdir(parents=True, exist_ok=True)
+                    fallback.write_text(content + "\n", encoding="utf-8")
+                    writes.append(str(fallback))
+                    errors.append(f"wrote fallback: {fallback}")
+
+        write_one(WAZUH_DECODERS_DIR, "decoder", request.decoder_xml)
+        write_one(WAZUH_RULES_DIR, "rule", request.rule_xml)
+        return JSONResponse({"success": len(errors) == 0, "written_files": writes, "errors": errors, "stamp": stamp})
+    except Exception as e:
+        return JSONResponse({"message": str(e)}, status_code=503)
+
+
+@app.post("/api/uninstall")
+def uninstall_decoder(request: UninstallRequest):
+    try:
+        removed = []
+        errors = []
+        for path in request.file_paths:
+            if "ssh://" in path:
+                remote_path = path.split(":", 2)[-1]
+                remote_cmd = build_remote_sudo_command(f"rm -f {shlex.quote(remote_path)}")
+                proc = run_ssh_command(remote_cmd, input_data=build_remote_stdin(requires_sudo=True), timeout=15)
+                if proc["returncode"] == 0:
+                    removed.append(path)
+                else:
+                    errors.append(f"failed to remove {path}: rc={proc['returncode']}")
+            else:
+                try:
+                    Path(path).unlink(missing_ok=True)
+                    removed.append(path)
+                except Exception as exc:
+                    errors.append(f"failed to remove {path}: {exc}")
+        return JSONResponse({"removed_files": removed, "errors": errors})
+    except Exception as e:
+        return JSONResponse({"message": str(e)}, status_code=503)
+
+
+@app.post("/api/logtest/raw")
+def logtest_raw(request: LogtestRawRequest):
+    try:
+        results = []
+        for raw_log in request.logs:
+            output = run_wazuh_logtest(raw_log, expected=request.expected)
+            parsed = {}
+            if output["available"]:
+                combined = output.get("stdout", "") + "\n" + output.get("stderr", "")
+                parsed = parse_logtest_output(combined)
+            results.append({
+                "raw_log": raw_log,
+                "stdout": output.get("stdout", ""),
+                "stderr": output.get("stderr", ""),
+                "available": output["available"],
+                "ok": output.get("ok", False),
+                "parsed": parsed,
+            })
+        return JSONResponse({"results": results})
     except Exception as e:
         return JSONResponse({"message": str(e)}, status_code=503)
 
