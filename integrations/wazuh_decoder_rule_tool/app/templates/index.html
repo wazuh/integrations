@@ -35,21 +35,13 @@
   <!-- ── Sidebar ── -->
   <nav class="sidebar">
     <span class="sidebar-section-label">Workspace</span>
-    <div class="sidebar-item active" data-view="decoder" id="nav-decoder">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-      Generate Decoder
-    </div>
-    <div class="sidebar-item" data-view="rulegenerator" id="nav-rulegenerator">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-      Generate Rule
+    <div class="sidebar-item active" data-view="ai" id="nav-ai">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      AI Generate
     </div>
     <div class="sidebar-item" data-view="test" id="nav-test">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       Test
-    </div>
-    <div class="sidebar-item" data-view="ai" id="nav-ai">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-      AI Generate
     </div>
     <div class="sidebar-item" data-view="feedback" id="nav-feedback">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/></svg>
@@ -70,293 +62,7 @@
   <!-- ── Main ── -->
   <main class="main-content">
 
-    <!-- ════ DECODER GENERATOR VIEW ════ -->
-    <div class="section-view active" id="view-decoder">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-            Decoder Configuration
-          </span>
-        </div>
-        <div class="form-row form-row-4">
-          <div class="form-group">
-            <label for="appName">App Name</label>
-            <input id="appName" type="text" value="myapp" />
-          </div>
-          <div class="form-group">
-            <label for="logSourceName">Log Source Name</label>
-            <input id="logSourceName" type="text" placeholder="auto-detected from log" />
-          </div>
-          <div class="form-group">
-            <label for="installMode">Install Mode</label>
-            <select id="installMode">
-              <option value="stdin">stdin only</option>
-              <option value="write_files">Write XML files</option>
-            </select>
-          </div>
-          <div class="form-group" style="display:flex;align-items:center;padding-top:20px">
-            <input id="splitDecoders" type="checkbox" style="width:16px;height:16px;margin-right:8px" />
-            <label for="splitDecoders" style="margin-bottom:0;cursor:pointer">Split Child Decoders</label>
-          </div>
-        </div>
-        <div class="form-row form-row-2 mt-12">
-          <div class="form-group">
-            <label for="logsInput">Log Source Samples</label>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
-              Paste single or multiple logs from <strong>one log source</strong>. The engine will learn the log patterns from your input to automatically create accurate decoders.
-            </p>
-            <textarea id="logsInput" rows="7" placeholder="Paste one log per line from the same source…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
-Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</textarea>
-          </div>
-          <div class="form-group">
-            <label for="extractFields">Fields to Extract</label>
-            <textarea id="extractFields" rows="2" placeholder="timestamp, status, logger, message&#10;(one per line or comma-separated)"></textarea>
 
-            <label for="fieldHints" style="margin-top:10px">Field Value Mapping Hints (User Thoughts)</label>
-            <textarea id="fieldHints" rows="2" placeholder="e.g. protocol: POST&#10;(one mapping per line, format: field: value)"></textarea>
-
-            <label for="regexPreview" style="margin-top:10px">Live Regex Preview</label>
-            <div class="regex-preview" id="regexPreview"><span style="color:var(--text-muted)">Run Analyze to see preview…</span></div>
-          </div>
-        </div>
-        <div class="btn-row mt-16">
-          <button class="btn btn-ghost" id="analyzeBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            Analyze
-          </button>
-          <button class="btn btn-primary" id="generateBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Generate
-          </button>
-          <button class="btn btn-accent" id="testBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Test
-          </button>
-        </div>
-      </div>
-
-      <!-- Output tabs -->
-      <div class="card">
-        <div class="tabs" id="outputTabs">
-          <button class="tab-btn active" data-tab="tab-analysis">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            Analysis
-          </button>
-          <button class="tab-btn" data-tab="tab-decoder">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-            Decoder XML
-          </button>
-          <button class="tab-btn" data-tab="tab-test">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            Test Results
-          </button>
-        </div>
-
-        <div class="tab-panel active" id="tab-analysis">
-          <div id="analysisOut">
-            <div class="empty-state">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <p>Run Analyze or Generate to see results.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="tab-panel" id="tab-decoder">
-          <div class="output-block">
-            <div class="output-block-toolbar">
-              <span class="output-block-lang">XML</span>
-              <button class="btn btn-ghost btn-sm" id="copyDecoderBtn">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                Copy
-              </button>
-            </div>
-            <pre id="decoderOut">No decoder XML yet.</pre>
-          </div>
-        </div>
-
-        <div class="tab-panel" id="tab-test">
-          <div id="testOut">
-            <div class="empty-state">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <p>Click Test to run wazuh-logtest validation.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════ RULE GENERATOR VIEW ════ -->
-    <div class="section-view" id="view-rulegenerator">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            Rule Configuration
-          </span>
-        </div>
-        <div class="form-row form-row-4">
-          <div class="form-group">
-            <label for="ruleAppName">App Name</label>
-            <input id="ruleAppName" type="text" value="myapp" />
-          </div>
-          <div class="form-group">
-            <label for="ruleLogSourceName">Log Source Name</label>
-            <input id="ruleLogSourceName" type="text" placeholder="auto-detected from log" />
-          </div>
-          <div class="form-group">
-            <label for="ruleRuleId">Rule ID</label>
-            <input id="ruleRuleId" type="number" value="100500" />
-          </div>
-          <div class="form-group">
-            <label for="ruleLevel">Level</label>
-            <input id="ruleLevel" type="number" value="5" min="0" max="16" />
-          </div>
-          <div class="form-group">
-            <label for="ruleParentId">Parent Rule ID (optional)</label>
-            <input id="ruleParentId" type="number" placeholder="e.g. 100500 to add child rule" />
-          </div>
-        </div>
-        <div class="form-row mt-12">
-          <div class="form-group">
-            <label for="ruleRequirement">Rule Requirement (natural language)</label>
-            <textarea id="ruleRequirement" rows="2" placeholder="e.g. alert at level 12 when failed login happens from admin account"></textarea>
-          </div>
-        </div>
-        <div class="form-row mt-12">
-          <div class="form-group">
-            <label for="ruleDescription">Rule Description (optional — overrides auto-detected)</label>
-            <input type="text" id="ruleDescription" placeholder="e.g. myapp login failed" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-          </div>
-        </div>
-        <div class="form-row form-row-2 mt-12" id="ruleFieldConditionsRow" style="display:none">
-          <div class="form-group">
-            <label>Child Rule Dynamic Field Conditions (optional &lt;field&gt; tag)</label>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
-              Add <strong>&lt;field name="X"&gt;Y&lt;/field&gt;</strong> pairs for custom/unknown decoded fields. Leave empty to auto-detect.
-            </p>
-            <div id="fieldConditionList">
-              <div class="field-condition-row" style="display:flex;gap:8px;margin-bottom:6px">
-                <input type="text" class="field-condition-name" placeholder="Field name (e.g. srcip)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-                <input type="text" class="field-condition-value" placeholder="Field value (e.g. 192.168.1.1)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-                <button type="button" class="btn btn-ghost btn-sm remove-field-condition" style="padding:4px 8px">✕</button>
-              </div>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="addFieldConditionBtn" style="margin-top:4px">+ Add field condition</button>
-          </div>
-          <div class="form-group">
-            <label>Child Rule Match Conditions (optional &lt;match&gt; tag)</label>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
-              Add <strong>&lt;match&gt;text&lt;/match&gt;</strong> strings for simple text matching. Leave empty to auto-detect.
-            </p>
-            <div id="matchConditionList">
-              <div class="match-condition-row" style="display:flex;gap:8px;margin-bottom:6px">
-                <input type="text" class="match-condition-text" placeholder="e.g. Denied" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-                <button type="button" class="btn btn-ghost btn-sm remove-match-condition" style="padding:4px 8px">✕</button>
-              </div>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="addMatchConditionBtn" style="margin-top:4px">+ Add match condition</button>
-          </div>
-        </div>
-        <div class="form-row form-row-2 mt-12" id="ruleStaticConditionsRow" style="display:none">
-          <div class="form-group">
-            <label>Child Rule Static Field Tags (optional direct XML tags)</label>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
-              Add direct XML tags like <strong>&lt;srcip&gt;</strong>, <strong>&lt;action&gt;</strong>, <strong>&lt;id&gt;</strong>, <strong>&lt;url&gt;</strong>, <strong>&lt;status&gt;</strong>, <strong>&lt;protocol&gt;</strong>, <strong>&lt;user&gt;</strong>, <strong>&lt;data&gt;</strong> etc. Leave empty to auto-detect.
-            </p>
-            <div id="staticConditionList">
-              <div class="static-condition-row" style="display:flex;gap:8px;margin-bottom:6px">
-                <input type="text" class="static-condition-name" placeholder="Tag name (e.g. srcip, action, id)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-                <input type="text" class="static-condition-value" placeholder="Tag value (e.g. deny, ^4625$)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-                <button type="button" class="btn btn-ghost btn-sm remove-static-condition" style="padding:4px 8px">✕</button>
-              </div>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="addStaticConditionBtn" style="margin-top:4px">+ Add static tag condition</button>
-          </div>
-          <div class="form-group"><!-- placeholder for symmetry --></div>
-        </div>
-        <div class="form-row form-row-2 mt-12">
-          <div class="form-group">
-            <label for="ruleLogsInput">Log Source Samples</label>
-            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
-              Paste single or multiple logs from <strong>one log source</strong>.
-            </p>
-            <textarea id="ruleLogsInput" rows="7" placeholder="Paste one log per line from the same source…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
-Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</textarea>
-          </div>
-          <div class="form-group">
-            <label for="ruleInstallMode">Install Mode</label>
-            <select id="ruleInstallMode">
-              <option value="stdin">stdin only</option>
-              <option value="write_files">Write XML files</option>
-            </select>
-          </div>
-        </div>
-        <div class="btn-row mt-16">
-          <button class="btn btn-ghost" id="ruleAnalyzeBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            Analyze
-          </button>
-          <button class="btn btn-primary" id="ruleGenerateBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Generate
-          </button>
-          <button class="btn btn-accent" id="ruleTestBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Test
-          </button>
-        </div>
-      </div>
-
-      <!-- Output tabs -->
-      <div class="card">
-        <div class="tabs" id="ruleOutputTabs">
-          <button class="tab-btn active" data-tab="ruletab-analysis">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            Analysis
-          </button>
-          <button class="tab-btn" data-tab="ruletab-rule">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            Rule XML
-          </button>
-          <button class="tab-btn" data-tab="ruletab-test">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            Test Results
-          </button>
-        </div>
-
-        <div class="tab-panel active" id="ruletab-analysis">
-          <div id="ruleAnalysisOut">
-            <div class="empty-state">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <p>Run Analyze or Generate to see results.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="tab-panel" id="ruletab-rule">
-          <div class="output-block">
-            <div class="output-block-toolbar">
-              <span class="output-block-lang">XML</span>
-              <button class="btn btn-ghost btn-sm" id="copyRuleBtn">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                Copy
-              </button>
-            </div>
-            <pre id="ruleOut">No rule XML yet.</pre>
-          </div>
-        </div>
-
-        <div class="tab-panel" id="ruletab-test">
-          <div id="ruleTestOut">
-            <div class="empty-state">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <p>Click Test to run wazuh-logtest validation.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- ════ TEST VIEW (dedicated) ════ -->
     <div class="section-view" id="view-test">
@@ -394,13 +100,57 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
         <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
           Uses advanced AI with local ML similarity model context to intelligently generate decoder &amp; rule XML. The AI analyzes your logs, references trained Wazuh decoder patterns, and produces optimized XML with reasoning.
         </p>
-        <div class="form-group">
-          <label for="aiTemperature">Temperature</label>
-          <input id="aiTemperature" type="number" value="0.2" min="0" max="1" step="0.05" />
+
+        <!-- Shared Input Fields for AI generation -->
+        <div class="form-row form-row-4">
+          <div class="form-group">
+            <label for="appName">App Name</label>
+            <input id="appName" type="text" value="myapp" />
+          </div>
+          <div class="form-group">
+            <label for="logSourceName">Log Source Name</label>
+            <input id="logSourceName" type="text" placeholder="auto-detected from log" />
+          </div>
+          <div class="form-group">
+            <label for="installMode">Install Mode</label>
+            <select id="installMode">
+              <option value="stdin">stdin only</option>
+              <option value="write_files">Write XML files</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;padding-top:20px">
+            <input id="splitDecoders" type="checkbox" style="width:16px;height:16px;margin-right:8px" />
+            <label for="splitDecoders" style="margin-bottom:0;cursor:pointer">Split Child Decoders</label>
+          </div>
         </div>
-        <div class="form-group mt-12">
-          <label for="aiExtraContext">Extra Context (optional)</label>
-          <textarea id="aiExtraContext" rows="2" placeholder="e.g. This is a Palo Alto threat log, extract action from deny-smb field"></textarea>
+        <div class="form-row form-row-2 mt-12">
+          <div class="form-group">
+            <label for="logsInput">Log Source Samples</label>
+            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
+              Paste single or multiple logs from <strong>one log source</strong>. The engine will learn the log patterns from your input to automatically create accurate decoders.
+            </p>
+            <textarea id="logsInput" rows="5" placeholder="Paste one log per line from the same source…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
+Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</textarea>
+          </div>
+          <div class="form-group">
+            <label for="extractFields">Fields to Extract</label>
+            <textarea id="extractFields" rows="2" placeholder="timestamp, status, logger, message&#10;(one per line or comma-separated)"></textarea>
+            <label for="fieldHints" style="margin-top:10px">Field Value Mapping Hints (User Thoughts)</label>
+            <textarea id="fieldHints" rows="2" placeholder="e.g. protocol: POST&#10;(one mapping per line, format: field: value)"></textarea>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0" />
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label for="aiTemperature">Temperature</label>
+            <input id="aiTemperature" type="number" value="0.2" min="0" max="1" step="0.05" />
+          </div>
+          <div class="form-group">
+            <label for="aiExtraContext">Extra Context (optional)</label>
+            <textarea id="aiExtraContext" rows="2" placeholder="e.g. This is a Palo Alto threat log, extract action from deny-smb field"></textarea>
+          </div>
         </div>
         <div class="btn-row mt-16">
           <button class="btn btn-ai" id="aiGenerateBtn">
@@ -436,12 +186,6 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
               <span class="output-block-lang">XML — Rule</span>
             </div>
             <pre id="aiRuleXml"></pre>
-          </div>
-          <div class="btn-row mt-12">
-            <button class="btn btn-success" id="applyAiBtn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-              Apply to Generate Form
-            </button>
           </div>
         </div>
       </div>

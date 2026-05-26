@@ -14,26 +14,7 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
 });
 
 /* ══ Tabs ══ */
-document.getElementById('outputTabs').addEventListener('click', e => {
-  const btn = e.target.closest('.tab-btn');
-  if (!btn) return;
-  const container = btn.closest('.card');
-  container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  container.querySelector('#' + btn.dataset.tab).classList.add('active');
-});
-
-document.getElementById('ruleOutputTabs').addEventListener('click', e => {
-  const btn = e.target.closest('.tab-btn');
-  if (!btn) return;
-  const container = btn.closest('.card');
-  container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  container.querySelector('#' + btn.dataset.tab).classList.add('active');
-});
-
+// Removed decoder/rule generator tabs; keeping switchTab for future use
 function switchTab(tabId) {
   const panel = document.getElementById(tabId);
   if (!panel) return;
@@ -58,10 +39,6 @@ function copyText(text, label = 'Copied') {
   navigator.clipboard.writeText(text).then(() => toast('success', label));
 }
 
-document.getElementById('copyDecoderBtn').addEventListener('click', () =>
-  copyText(document.getElementById('decoderOut').textContent, 'Decoder XML copied'));
-document.getElementById('copyRuleBtn').addEventListener('click', () =>
-  copyText(document.getElementById('ruleOut').textContent, 'Rule XML copied'));
 document.getElementById('copyAiDecoderBtn').addEventListener('click', () =>
   copyText(document.getElementById('aiDecoderXml').textContent, 'AI Decoder copied'));
 document.getElementById('copyAiRuleBtn').addEventListener('click', () =>
@@ -118,49 +95,7 @@ function readPayload() {
   };
 }
 
-/* ══ Read rule form payload ══ */
-function readRulePayload() {
-  const rawInput = document.getElementById('ruleLogsInput').value.trim();
-  let logs;
-  try { logs = JSON.parse(rawInput); } catch (_) {
-    logs = rawInput.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => ({ raw_log: l }));
-  }
-  const parentId = document.getElementById('ruleParentId').value.trim();
-  const fieldConditions = [];
-  document.querySelectorAll('#fieldConditionList .field-condition-row').forEach(row => {
-    const name = row.querySelector('.field-condition-name').value.trim();
-    const value = row.querySelector('.field-condition-value').value.trim();
-    if (name && value) fieldConditions.push({ name, value });
-  });
-  const matchConditions = [];
-  document.querySelectorAll('#matchConditionList .match-condition-row').forEach(row => {
-    const text = row.querySelector('.match-condition-text').value.trim();
-    if (text) matchConditions.push(text);
-  });
-  const staticConditions = [];
-  document.querySelectorAll('#staticConditionList .static-condition-row').forEach(row => {
-    const name = row.querySelector('.static-condition-name').value.trim();
-    const value = row.querySelector('.static-condition-value').value.trim();
-    if (name && value) staticConditions.push({ name, value });
-  });
-  return {
-    app_name: document.getElementById('ruleAppName').value,
-    logs,
-    rule_id: Number(document.getElementById('ruleRuleId').value),
-    level: Number(document.getElementById('ruleLevel').value),
-    rule_requirement: document.getElementById('ruleRequirement').value.trim(),
-    rule_description: document.getElementById('ruleDescription').value.trim() || null,
-    parent_rule_id: parentId ? Number(parentId) : null,
-    child_field_conditions: fieldConditions,
-    child_match_conditions: matchConditions,
-    child_static_conditions: staticConditions,
-    extract_fields: [],
-    field_hints: {},
-    install_mode: document.getElementById('ruleInstallMode').value,
-    split_decoders: false,
-    log_source_name: document.getElementById('ruleLogSourceName').value.trim() || null,
-  };
-}
+
 
 async function postJson(url, payload) {
   const res = await fetch(url, {
@@ -185,62 +120,6 @@ function highlightXml(xml) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/(&lt;\/?[\w-]+)/g, '<span style="color:#60a5fa">$1</span>')
     .replace(/([\w-]+=)(&quot;[^&]*&quot;)/g, '<span style="color:#a78bfa">$1</span><span style="color:#34d399">$2</span>');
-}
-
-function showXml(preId, xml, fallback = 'None generated.') {
-  const pre = document.getElementById(preId);
-  if (xml) { pre.innerHTML = highlightXml(xml); } else { pre.textContent = fallback; }
-}
-
-/* ══ Analysis display ══ */
-function showAnalysis(data, targetId = 'analysisOut') {
-  const out = document.getElementById(targetId);
-  if (!data) { out.innerHTML = '<div class="empty-state"><p>No data.</p></div>'; return; }
-  const wlt = data.wazuh_logtest_summary || {};
-  const available = wlt.available ? '🟢 Available' : '🔴 Unavailable';
-  const decoderSeen = wlt.builtin_decoder_seen ? `✓ ${wlt.decoder_name}` : '✗ None matched';
-  const items = [
-    ['Log type', data.log_type], ['App name', data.app_name],
-    ['Log source', data.log_source_name || data.program_name],
-    ['Program name', data.program_name], ['Predecoded program', data.predecoded_program_name || '—'],
-    ['Prematch', data.prematch], ['Regex', data.regex_display || data.regex],
-    ['Order', (data.order || []).join(', ')], ['Logtest', available],
-    ['Built-in decoder', decoderSeen], ['Missing fields', (data.missing_extract_fields || []).join(', ') || '—'],
-  ];
-  const rows = items.map(([k, v]) =>
-    `<tr><td style="color:var(--text-muted);padding:5px 10px;font-size:12px;border-bottom:1px solid var(--border);white-space:nowrap">${k}</td><td style="padding:5px 10px;font-size:12px;font-family:JetBrains Mono,monospace;border-bottom:1px solid var(--border)">${v ?? '—'}</td></tr>`
-  ).join('');
-  let mlHtml = '';
-  if (data.ml_suggestions && data.ml_suggestions.length) {
-    const cards = data.ml_suggestions.slice(0,3).map(s =>
-      `<div class="result-card" style="padding:10px 14px;margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-weight:700;color:var(--primary)">${s.name}</span>
-          <span class="pass-badge">${(s.score*100).toFixed(0)}%</span>
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);font-family:JetBrains Mono,monospace">${s.regex || '—'}</div>
-      </div>`
-    ).join('');
-    mlHtml = `<div style="margin-top:16px"><div class="card-title" style="margin-bottom:8px">ML Suggestions</div>${cards}</div>`;
-  }
-  out.innerHTML = `<table style="width:100%;border-collapse:collapse">${rows}</table>${mlHtml}`;
-  updateRegexPreview(data.regex || '');
-}
-
-/* ══ Regex preview ══ */
-function updateRegexPreview(regex, logElId = 'logsInput') {
-  const preview = document.getElementById('regexPreview');
-  const log = document.getElementById(logElId).value.split('\n').find(l => l.trim()) || '';
-  if (!regex || !log) { preview.innerHTML = '<span style="color:var(--text-muted)">Run Analyze…</span>'; return; }
-  try {
-    const pyToJs = regex.replace(/\\d/g,'\\d').replace(/\\S/g,'\\S').replace(/\\s/g,'\\s').replace(/\\.\\+/g,'[\\s\\S]+').replace(/\\.\\*/g,'[\\s\\S]*');
-    const m = log.match(new RegExp(pyToJs));
-    if (!m) { preview.innerHTML = `<span style="color:var(--text-muted)">${escHtml(log)}</span>`; return; }
-    let out = escHtml(log.slice(0, m.index));
-    out += `<span class="regex-match">${escHtml(m[0])}</span>`;
-    out += escHtml(log.slice(m.index + m[0].length));
-    preview.innerHTML = out;
-  } catch (_) { preview.textContent = log; }
 }
 
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -301,7 +180,7 @@ window.loadHistory = function(i) {
   if (!h) return;
   if (h.app_name) document.getElementById('appName').value = h.app_name;
   if (h.log) document.getElementById('logsInput').value = h.log;
-  document.querySelectorAll('.sidebar-item[data-view="decoder"]')[0].click();
+  document.querySelectorAll('.sidebar-item[data-view="ai"]')[0].click();
   toast('info', 'History loaded');
 };
 
@@ -335,40 +214,7 @@ async function checkHealth() {
 }
 checkHealth();
 
-/* ══ Analyze ══ */
-document.getElementById('analyzeBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('analyzeBtn');
-  setLoading(btn, true);
-  try {
-    const p = readPayload();
-    const result = await postJson('/api/analyze', { app_name: p.app_name, logs: p.logs, extract_fields: p.extract_fields });
-    showAnalysis(result);
-    switchTab('tab-analysis');
-    toast('success', 'Analysis complete');
-  } catch (e) { toast('error', 'Analyze failed', e.message); }
-  finally { setLoading(btn, false); }
-});
-
-/* ══ Generate ══ */
-document.getElementById('generateBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('generateBtn');
-  setLoading(btn, true);
-  try {
-    const p = readPayload();
-    const result = await postJson('/api/generate', p);
-    lastCandidate = result;
-    showAnalysis(result.analysis);
-    showXml('decoderOut', result.decoder_xml, result.decision?.decoder_skip_reason || 'No decoder XML.');
-    syncFeedback(result);
-    saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
-    switchTab('tab-decoder');
-    toast('success', 'Decoder generated');
-    if (result.decision?.regex_validation_errors?.length) toast('info', 'Regex warnings', result.decision.regex_validation_errors[0]);
-  } catch (e) { toast('error', 'Generate failed', e.message); }
-  finally { setLoading(btn, false); }
-});
-
-/* ══ Test ══ */
+/* ══ Test (dedicated view) ══ */
 async function runTest(outputEl) {
   const p = readPayload();
   const result = await postJson('/api/test', {
@@ -376,94 +222,22 @@ async function runTest(outputEl) {
     install_mode: p.install_mode,
   });
   lastCandidate = result.candidate;
-  showAnalysis(result.candidate.analysis);
-  showXml('decoderOut', result.candidate.decoder_xml, result.candidate.decision?.decoder_skip_reason || 'No decoder XML.');
-  renderTestResults(result.results);
-  syncFeedback(result.candidate);
+  renderTestResults(result.results, outputEl);
   saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
   const pass = result.results.every(r => r.evaluation?.pass);
   toast(pass ? 'success' : 'error', pass ? 'All tests passed' : 'Some tests failed');
   return result;
 }
 
-document.getElementById('testBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('testBtn');
-  setLoading(btn, true);
-  try { await runTest('testOut'); switchTab('tab-test'); }
-  catch (e) { toast('error', 'Test failed', e.message); }
-  finally { setLoading(btn, false); }
-});
-
 document.getElementById('testBtn2').addEventListener('click', async () => {
   const btn = document.getElementById('testBtn2');
   setLoading(btn, true);
   try {
-    const result = await runTest('testOut2');
-    document.getElementById('testOut2').innerHTML = document.getElementById('testOut').innerHTML;
+    await runTest('testOut2');
   }
   catch (e) { toast('error', 'Test failed', e.message); }
   finally { setLoading(btn, false); }
 });
-
-/* ══ Rule: Analyze ══ */
-document.getElementById('ruleAnalyzeBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('ruleAnalyzeBtn');
-  setLoading(btn, true);
-  try {
-    const p = readRulePayload();
-    const result = await postJson('/api/analyze', { app_name: p.app_name, logs: p.logs, rule_requirement: p.rule_requirement, extract_fields: p.extract_fields });
-    showAnalysis(result, 'ruleAnalysisOut');
-    switchTab('ruletab-analysis');
-    toast('success', 'Analysis complete');
-  } catch (e) { toast('error', 'Analyze failed', e.message); }
-  finally { setLoading(btn, false); }
-});
-
-/* ══ Rule: Generate ══ */
-document.getElementById('ruleGenerateBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('ruleGenerateBtn');
-  setLoading(btn, true);
-  try {
-    const p = readRulePayload();
-    const result = await postJson('/api/generate', p);
-    showAnalysis(result.analysis, 'ruleAnalysisOut');
-    showXml('ruleOut', result.rule_xml, result.decision?.rule_skip_reason || 'No rule XML.');
-    saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
-    switchTab('ruletab-rule');
-    toast('success', 'Rule generated');
-  } catch (e) { toast('error', 'Generate failed', e.message); }
-  finally { setLoading(btn, false); }
-});
-
-/* ══ Rule: Test ══ */
-document.getElementById('ruleTestBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('ruleTestBtn');
-  setLoading(btn, true);
-  try {
-    const p = readRulePayload();
-    const result = await postJson('/api/test', {
-      candidate: { app_name: p.app_name, logs: p.logs, rule_id: p.rule_id, level: p.level, rule_requirement: p.rule_requirement, log_source_name: p.log_source_name },
-      install_mode: p.install_mode,
-    });
-    showAnalysis(result.candidate.analysis, 'ruleAnalysisOut');
-    showXml('ruleOut', result.candidate.rule_xml, result.candidate.decision?.rule_skip_reason || 'No rule XML.');
-    renderTestResults(result.results, 'ruleTestOut');
-    saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
-    const pass = result.results.every(r => r.evaluation?.pass);
-    toast(pass ? 'success' : 'error', pass ? 'All tests passed' : 'Some tests failed');
-    switchTab('ruletab-test');
-  } catch (e) { toast('error', 'Test failed', e.message); }
-  finally { setLoading(btn, false); }
-});
-
-/* ══ Feedback sync ══ */
-function syncFeedback(candidate) {
-  lastCandidate = candidate;
-  const a = candidate?.analysis || {};
-  document.getElementById('feedbackPrematch').value = a.prematch || '';
-  document.getElementById('feedbackRegex').value = a.regex || '';
-  document.getElementById('feedbackOrder').value = (a.order || []).join(',');
-}
 
 document.getElementById('feedbackYesBtn').addEventListener('click', async () => {
   const btn = document.getElementById('feedbackYesBtn');
@@ -608,77 +382,7 @@ document.getElementById('aiClearBtn').addEventListener('click', () => {
   document.getElementById('aiOut').textContent = '';
 });
 
-document.getElementById('applyAiBtn').addEventListener('click', () => {
-  const decoderXml = document.getElementById('aiDecoderXml').textContent;
-  document.getElementById('decoderOut').innerHTML = highlightXml(decoderXml);
-  document.querySelectorAll('.sidebar-item[data-view="decoder"]')[0].click();
-  switchTab('tab-decoder');
-  toast('success', 'AI output applied to Decoder view');
-});
 
-/* ══ Rule: Field/Match/Static Conditions UI ══ */
-function toggleConditionsRow() {
-  const req = document.getElementById('ruleRequirement').value.trim();
-  document.getElementById('ruleFieldConditionsRow').style.display = req ? 'flex' : 'none';
-  document.getElementById('ruleMatchConditionsRow').style.display = req ? 'flex' : 'none';
-  document.getElementById('ruleStaticConditionsRow').style.display = req ? 'flex' : 'none';
-}
-
-document.getElementById('ruleRequirement').addEventListener('input', toggleConditionsRow);
-toggleConditionsRow();
-
-document.getElementById('addFieldConditionBtn').addEventListener('click', () => {
-  const list = document.getElementById('fieldConditionList');
-  const row = document.createElement('div');
-  row.className = 'field-condition-row';
-  row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px';
-  row.innerHTML = `
-    <input type="text" class="field-condition-name" placeholder="Field name (e.g. action)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-    <input type="text" class="field-condition-value" placeholder="Field value (e.g. deny)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-    <button type="button" class="btn btn-ghost btn-sm remove-field-condition" style="padding:4px 8px">✕</button>
-  `;
-  row.querySelector('.remove-field-condition').addEventListener('click', () => row.remove());
-  list.appendChild(row);
-});
-
-document.querySelectorAll('.remove-field-condition').forEach(btn => {
-  btn.addEventListener('click', () => btn.closest('.field-condition-row').remove());
-});
-
-document.getElementById('addMatchConditionBtn').addEventListener('click', () => {
-  const list = document.getElementById('matchConditionList');
-  const row = document.createElement('div');
-  row.className = 'match-condition-row';
-  row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px';
-  row.innerHTML = `
-    <input type="text" class="match-condition-text" placeholder="e.g. Denied" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-    <button type="button" class="btn btn-ghost btn-sm remove-match-condition" style="padding:4px 8px">✕</button>
-  `;
-  row.querySelector('.remove-match-condition').addEventListener('click', () => row.remove());
-  list.appendChild(row);
-});
-
-document.querySelectorAll('.remove-match-condition').forEach(btn => {
-  btn.addEventListener('click', () => btn.closest('.match-condition-row').remove());
-});
-
-document.getElementById('addStaticConditionBtn').addEventListener('click', () => {
-  const list = document.getElementById('staticConditionList');
-  const row = document.createElement('div');
-  row.className = 'static-condition-row';
-  row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px';
-  row.innerHTML = `
-    <input type="text" class="static-condition-name" placeholder="Tag name (e.g. srcip, action, id)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-    <input type="text" class="static-condition-value" placeholder="Tag value (e.g. deny, ^4625$)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px" />
-    <button type="button" class="btn btn-ghost btn-sm remove-static-condition" style="padding:4px 8px">✕</button>
-  `;
-  row.querySelector('.remove-static-condition').addEventListener('click', () => row.remove());
-  list.appendChild(row);
-});
-
-document.querySelectorAll('.remove-static-condition').forEach(btn => {
-  btn.addEventListener('click', () => btn.closest('.static-condition-row').remove());
-});
 
 /* ── Spinner keyframe (injected) ── */
 const s = document.createElement('style');

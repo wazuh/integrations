@@ -3805,18 +3805,20 @@ It has correct Wazuh syntax and structure.
 - Make capture groups more precise (e.g., use \\\\S+ instead of \\\\.+ when field has no spaces)
 - Ensure edge cases are handled (different IP formats, quoted values, etc.)
 - If the patterns are already optimal, explain why and confirm they work
-- Do NOT change the decoder structure (parent, child relationships, field order)
+- Do NOT add new child decoders or remove existing ones
+- Do NOT create duplicate decoders for the same field — each field must appear in exactly one <order> list
+- Keep all captures for different fields in the SAME child decoder when they come from the same part of the log
 - Output the final improved XML in ```xml ... ```"""
 
     review_section = ""
     if programmatic_xml:
-        review_section = "Review the programmatically generated decoder XML above and improve the osregex patterns."
+        review_section = "Review the programmatic XML above and improve the osregex patterns. Output the SAME number of child decoders — do not add duplicates or remove any. Each field must appear in exactly one <order> list."
     else:
         review_section = decoder_rules
 
     return f"""You are a Wazuh SIEM expert with deep knowledge of osregex, decoder architecture, and rule engineering.
 
-Your role is to REVIEW and IMPROVE the programmatically generated decoder XML below. The XML structure is correct — focus on improving osregex patterns.
+Your role is to REVIEW and IMPROVE the programmatically generated decoder XML below. The XML structure is correct — focus on improving osregex patterns. Do NOT add duplicate child decoders or create multiple decoders for the same field.
 
 ## Log Samples
 {logs_block}
