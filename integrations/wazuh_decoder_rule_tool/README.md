@@ -13,7 +13,10 @@ A small FastAPI app that:
 - `app/main.py` – backend API and HTML UI
 - `app/templates/index.html` – single-page frontend
 - `app/static/*` – JS and CSS
+- `app/decoder_ml.py` – ML decoder similarity model (TF-IDF)
+- `app/decoder_ml_enhanced.py` – Enhanced ensemble ML model (TF-IDF + SBERT)
 - `requirements.txt`
+- `Modelfile` – Ollama model configuration for Wazuh decoder/rule expert
 
 ## Run locally
 
@@ -40,6 +43,16 @@ uvicorn app.main:app --host 0.0.0.0 --port 8443 --ssl-certfile certs/localhost.c
 ```
 
 Open `https://localhost:8443` (or use your machine's IP address). Note: You may need to bypass your browser's self-signed certificate warning.
+
+### With AI generation enabled
+
+If you have Ollama running locally, set the environment variables before starting:
+
+```bash
+export OLLAMA_BASE_URL=http://localhost:11434/v1
+export OLLAMA_MODEL=llama3.2:3b
+uvicorn app.main:app --host 0.0.0.0 --port 8443 --ssl-certfile certs/localhost.crt --ssl-keyfile certs/localhost.key
+```
 
 ## Wazuh integration
 
@@ -121,21 +134,46 @@ API:
 
 If you are following your VM-based workflow, run `/api/ml/refresh` once, then test logs through `/api/test` with remote mode enabled.
 
-## ML integration plan
+## AI-Powered Generation
 
-The current analyzer is heuristic-first. Replace `analyze_logs_impl()` and/or add a new service that:
+The app supports decoder and rule generation using LLMs via a **hybrid approach**:
 
-1. retrieves similar approved decoders/rules,
-2. asks an LLM to emit structured JSON,
-3. renders XML from JSON,
-4. validates every candidate with `wazuh-logtest`.
+1. **wazuh-logtest analysis** — the log is tested against Wazuh's built-in decoders first
+2. **Programmatic base generation** — using the same proven decoder/rule builder that produces syntactically correct Wazuh XML
+3. **AI review** — an LLM reviews the generated XML and improves osregex patterns
 
-A safe production loop is:
+This ensures the XML structure is always valid while leveraging LLM capabilities for pattern refinement.
 
-- ML proposes
-- XML renderer normalizes
-- `wazuh-logtest` validates
-- regression suite accepts or rejects
+### Supported AI Providers
+
+Set one of the following environment variable sets:
+
+**Ollama (local, recommended — no rate limits):**
+```bash
+export OLLAMA_BASE_URL=http://localhost:11434/v1
+export OLLAMA_MODEL=llama3.2:3b
+```
+
+**DashScope (Qwen 3.6 Plus):**
+```bash
+export DASHSCOPE_API_KEY=your_key_here
+```
+
+**OpenRouter:**
+```bash
+export OPENROUTER_API_KEY=your_key_here
+```
+
+Priority: Ollama > DashScope > OpenRouter. When Ollama is configured, it is always used first to avoid rate limits.
+
+### AI Generation Flow
+
+1. User provides log samples and requests specific fields to extract
+2. App runs `wazuh-logtest` to check what built-in decoders already match
+3. Fields already decoded by built-in decoders are skipped
+4. The app programmatically generates decoder XML using the heuristic + ML analysis
+5. The LLM receives the analysis results and the programmatic XML
+6. The LLM reviews and improves regex patterns while keeping the structure intact
 
 ## Optional file output
 

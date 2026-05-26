@@ -136,26 +136,37 @@ def refresh_wazuh_repo(
         if branch:
             cmd.extend(["--branch", branch])
         cmd.extend([repo_url, str(cache_dir)])
-        clone = subprocess.run(cmd, text=True, capture_output=True)
+        try:
+            clone = subprocess.run(cmd, text=True, capture_output=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            return {"ok": "false", "message": "git clone timed out (network issue)"}
         if clone.returncode != 0:
             return {"ok": "false", "message": f"git clone failed: {clone.stderr.strip()}"}
-        sparse = subprocess.run(
-            ["git", "-C", str(cache_dir), "sparse-checkout", "set", sparse_subpath],
-            text=True,
-            capture_output=True,
-        )
+        try:
+            sparse = subprocess.run(
+                ["git", "-C", str(cache_dir), "sparse-checkout", "set", sparse_subpath],
+                text=True,
+                capture_output=True,
+                timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            return {"ok": "false", "message": "git sparse-checkout timed out"}
         if sparse.returncode != 0:
             return {"ok": "false", "message": f"sparse-checkout failed: {sparse.stderr.strip()}"}
         return {"ok": "true", "message": "cloned"}
 
-    pull = subprocess.run(
-        ["git", "-C", str(cache_dir), "pull", "--ff-only"],
-        text=True,
-        capture_output=True,
-    )
-    if pull.returncode != 0:
-        return {"ok": "false", "message": f"git pull failed: {pull.stderr.strip()}"}
-    return {"ok": "true", "message": "updated"}
+    try:
+        pull = subprocess.run(
+            ["git", "-C", str(cache_dir), "pull", "--ff-only"],
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+        if pull.returncode != 0:
+            return {"ok": "false", "message": f"git pull failed: {pull.stderr.strip()}"}
+        return {"ok": "true", "message": "updated"}
+    except subprocess.TimeoutExpired:
+        return {"ok": "false", "message": "git pull timed out (network issue)"}
 
 
 def load_patterns_from_repo(cache_dir: Path, decoder_subpath: str) -> List[DecoderPattern]:

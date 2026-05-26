@@ -68,12 +68,17 @@ FEEDBACK_DATASET_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback.jsonl"
 REJECTED_FEEDBACK_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback_rejections.jsonl"
 
 # ── AI / LLM config ──
-# Primary: OpenRouter free tier - Llama 3.3 70B Instruct (free, reliable)
+# Priority: Ollama (local) > DashScope > OpenRouter
+# Ollama / local OpenAI-compatible endpoint (no rate limits)
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+
+# OpenRouter
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 AI_DEFAULT_MODEL = os.getenv("AI_DEFAULT_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
 
-# Optional: DashScope International (Singapore) for Qwen 3.6 Plus
+# DashScope International (Singapore) for Qwen 3.6 Plus
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
 
@@ -233,10 +238,10 @@ def choose_prematch(logs: List[str], program_name: str, predecoded_program: Opti
         return r"^CEF\p\d+\p"
     if first_log.startswith('['):
         return r"\p\d+-\d+-\S+:\d+:\d+,\d+\p"
-    if any("failed login" in line.lower() for line in logs):
-        return "failed login"
-    if any("User '" in line for line in logs):
-        return "User '"
+    if any(re.search(r"failed\s+login", line, re.IGNORECASE) for line in logs):
+        return r"failed\s+login"
+    if any(re.search(r"User\s+'", line) for line in logs):
+        return r"User\s+'"
     if program_name:
         return program_name
     return first_log[:20]
@@ -248,9 +253,9 @@ def prematch_from_current_logs(logs: List[str], *candidates: Optional[str]) -> O
         value = (candidate or "").strip()
         if not value:
             continue
-        if value.startswith(r'\p') or value.startswith('^'):
+        if value.startswith(r'\p') or value.startswith('^') or re.search(r'\\[spd]', value):
             return value
-        if any(value in line for line in source_logs):
+        if any(re.search(value, line, re.IGNORECASE) for line in source_logs):
             return value
     return None
 
@@ -311,8 +316,8 @@ def prematch_osregex_from_current_logs(logs: List[str], *candidates: Optional[st
     matched = prematch_from_current_logs(logs, *candidates)
     if not matched:
         return None
-    if matched.startswith(r'\p') or matched.startswith('^'):
-        return matched
+    if matched.startswith(r'\p') or matched.startswith('^') or re.search(r'\\[spd]', matched):
+        return matched if matched.startswith('^') else f'^{matched}'
 
     first_log = first_non_empty(logs)
     idx = first_log.find(matched)
@@ -3582,8 +3587,8 @@ def health():
         "ml_pattern_count": _ML_PATTERN_COUNT,
         "ml_model_error": _ML_MODEL_ERROR,
         "wazuh_repo_cache_dir": str(WAZUH_REPO_CACHE_DIR),
-        "ai_provider": "openrouter" if OPENROUTER_API_KEY else ("dashscope" if DASHSCOPE_API_KEY else "none"),
-        "ai_model": AI_DEFAULT_MODEL,
+        "ai_provider": "ollama" if OLLAMA_BASE_URL else ("dashscope" if DASHSCOPE_API_KEY else ("openrouter" if OPENROUTER_API_KEY else "none")),
+        "ai_model": OLLAMA_MODEL if OLLAMA_BASE_URL else AI_DEFAULT_MODEL,
     }
 
 
@@ -3604,14 +3609,19 @@ class AIGenerateRequest(BaseModel):
     log_source_name: Optional[str] = Field(default=None)
 
 
-def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> str:
+def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], programmatic_xml: Optional[str] = None) -> str:
     logs_block = "\n".join(s.raw_log for s in request.logs[:5])
-    fields_hint = ", ".join(request.extract_fields) if request.extract_fields else "auto-detect"
-    rule_req = request.rule_requirement or "generic event detection"
+    effective_fields = analysis.get("effective_extract_fields") or request.extract_fields
+    skipped_fields = analysis.get("skipped_decoded_fields") or []
+    fields_hint = ", ".join(effective_fields) if effective_fields else "auto-detect"
+    has_rule_req = bool(request.rule_requirement and request.rule_requirement.strip())
+    rule_req = request.rule_requirement or ""
     regex = analysis.get("regex") or ""
     order = ", ".join(analysis.get("order") or [])
     prematch = analysis.get("prematch") or ""
-    program = analysis.get("predecoded_program_name") or analysis.get("program_name") or request.app_name
+    predecoded_program = analysis.get("predecoded_program_name") or ""
+    extracted_program = analysis.get("extracted_program_name") or ""
+    program = predecoded_program or extracted_program or request.app_name
 
     log_source = request.log_source_name or program or request.app_name
 
@@ -3646,8 +3656,13 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
         )
 
     logtest_summary = analysis.get("wazuh_logtest_summary", {})
+    logtest_decoded = analysis.get("logtest_decoded_fields", {})
     logtest_block = ""
     if logtest_summary:
+        decoded_fields_str = ""
+        if logtest_decoded:
+            fields_list = "\n".join(f"    {k}: {v}" for k, v in logtest_decoded.items())
+            decoded_fields_str = f"  - Already decoded fields:\n{fields_list}\n"
         logtest_block = (
             "## Wazuh Logtest Analysis\n"
             f"- Built-in decoder matched: {logtest_summary.get('builtin_decoder_seen', False)}\n"
@@ -3655,6 +3670,7 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             f"- Built-in rule matched: {logtest_summary.get('builtin_rule_seen', False)}\n"
             f"- Rule ID: {logtest_summary.get('rule_id', 'None')}\n"
             f"- Predecoded program: {logtest_summary.get('predecoded_program_name', 'None')}\n"
+            f"{decoded_fields_str}"
             "\n"
         )
 
@@ -3665,7 +3681,7 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
         fields_block = f"## Auto-Extracted Fields\n{fields_str}\n\n"
 
     rule_ml_context = ""
-    if request.rule_requirement:
+    if has_rule_req:
         rule_suggestions = rule_suggestions_for_requirement(request.rule_requirement, top_k=3)
         if rule_suggestions:
             examples = []
@@ -3689,93 +3705,155 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
                 "Use these as reference for <field>, <match>, and rule structure.\n\n"
             )
 
+    config_lines = [
+        f"- App name: {request.app_name}",
+        f"- Log source name: {log_source}",
+        f"- Program name: {program}",
+        f"- Fields to extract (not already decoded by built-in): {fields_hint}",
+    ]
+    if skipped_fields:
+        config_lines.append(f"- Fields ALREADY decoded by built-in (skip these): {', '.join(skipped_fields)}")
+    if has_rule_req:
+        config_lines.append(f"- Rule requirement: {rule_req}")
+        config_lines.append(f"- Rule ID: {request.rule_id}")
+        config_lines.append(f"- Rule level: {request.level}")
+    if request.extra_context:
+        config_lines.append(f"- Extra context: {request.extra_context}")
+    config_block = "\n".join(config_lines)
+
+    if predecoded_program or extracted_program:
+        parent_strategy = (
+            f"The log syslog/predecoded program name is '{program}'. "
+            "The parent decoder MUST use <program_name> for scoping (NOT <prematch>)."
+        )
+    else:
+        parent_strategy = (
+            "The log does not have a decoded program name. "
+            "Create a parent decoder with <prematch> to match the log prefix."
+        )
+
+    decoder_rules = """## Decoder XML Rules (Wazuh Syntax)
+Reference: https://documentation.wazuh.com/current/user-manual/ruleset/ruleset-xml-syntax/decoders.html
+
+### Parent decoder:
+```xml
+<decoder name="PARENT">
+  <program_name>^program$</program_name>  <!-- OR <prematch>PREFIX</prematch> if no program_name -->
+</decoder>
+```
+
+### Child decoder (one per field):
+```xml
+<decoder name="CHILD">
+  <parent>PARENT</parent>
+  <regex>PATTERN_WITH_(CAPTURES)</regex>
+  <order>field1,field2</order>
+</decoder>
+```
+
+### CRITICAL:
+1. Check Wazuh Logtest Analysis above — fields already decoded by built-in decoders must NOT have decoders generated for them
+2. Parent uses <program_name> when log has a program name (from syslog or predecode); use <prematch> ONLY when no program name exists
+3. Child decoders use <parent>, <regex>, <order> — there is NO <child> tag in Wazuh
+4. Each child decoder is a standalone <decoder> block with <parent> pointing to parent
+5. Use split decoders: one child per extracted field for better accuracy
+6. Osregex: \\\\d+ for digits, \\\\S+ for non-whitespace, \\\\.+ for any chars
+7. \\\\p matches ONLY: ()*+,-.:;<=>?[]!"'#$%&|{{}}
+8. Do NOT use \\\\p for / or normal text
+9. Generalize: IPs → \\\\d+.\\\\d+.\\\\d+.\\\\d+, numbers → \\\\d+, quoted → '\\\\S+'
+10. Do NOT add <type>, <fts>, <plugin_decoder> unless log type requires it
+11. Do NOT generate rule XML unless explicitly asked"""
+
+    rule_section = ""
+    output_format = "Wrap decoder XML in ```xml ... ```. After it, briefly explain your reasoning."
+    if has_rule_req:
+        rule_section = """## Rule XML Rules (Wazuh Syntax)
+Reference: https://documentation.wazuh.com/current/user-manual/ruleset/ruleset-xml-syntax/rules.html
+
+```xml
+<group name="custom,APP">
+  <rule id="ID" level="LEVEL">
+    <decoded_as>PARENT</decoded_as>
+    <field name="FIELD">VALUE</field>
+    <description>Description</description>
+  </rule>
+</group>
+```
+
+### CRITICAL:
+1. Use <decoded_as> pointing to the parent decoder name
+2. Use <match>TEXT</match> for simple substring matching
+3. Static tags (no <field name=""> wrapper): <srcip>, <dstip>, <srcport>, <dstport>, <protocol>, <action>, <id>, <url>, <status>, <data>, <extra_data>, <system_name>, <user>, <hostname>, <program_name>
+4. Use <field name="F">V</field> ONLY for custom decoded fields not in static list
+5. Description: "LOGSOURCE messages grouped"
+6. Multiple <match>/<field>/static tags are ANDed"""
+        output_format = "Wrap decoder XML in ```xml ... ``` and rule XML in a separate ```xml ... ``` block. After each block, briefly explain your reasoning."
+
+    base_xml_block = ""
+    if programmatic_xml:
+        base_xml_block = f"""
+## Programmatically Generated Base Decoder XML (verified Wazuh syntax)
+The following decoder XML was generated by the Wazuh Decoder Rule Tool engine after checking wazuh-logtest.
+It has correct Wazuh syntax and structure.
+
+```xml
+{programmatic_xml}
+```
+
+### Your task: Review and improve the regex patterns above
+- The structure and field ordering are correct — focus on improving the osregex patterns
+- Make capture groups more precise (e.g., use \\\\S+ instead of \\\\.+ when field has no spaces)
+- Ensure edge cases are handled (different IP formats, quoted values, etc.)
+- If the patterns are already optimal, explain why and confirm they work
+- Do NOT change the decoder structure (parent, child relationships, field order)
+- Output the final improved XML in ```xml ... ```"""
+
+    review_section = ""
+    if programmatic_xml:
+        review_section = "Review the programmatically generated decoder XML above and improve the osregex patterns."
+    else:
+        review_section = decoder_rules
+
     return f"""You are a Wazuh SIEM expert with deep knowledge of osregex, decoder architecture, and rule engineering.
 
-Think step by step before generating XML. Analyze the log structure, identify variable vs static parts, and design optimal decoder/rule patterns.
+Your role is to REVIEW and IMPROVE the programmatically generated decoder XML below. The XML structure is correct — focus on improving osregex patterns.
 
 ## Log Samples
 {logs_block}
 
 ## Configuration
-- App name: {request.app_name}
-- Log source name: {log_source}
-- Program name: {program}
-- Fields to extract: {fields_hint}
-- Rule requirement: {rule_req}
-- Rule ID: {request.rule_id}
-- Rule level: {request.level}
-{f'- Extra context: {request.extra_context}' if request.extra_context else ''}
+{config_block}
 
-{fields_block}{rule_ml_context}{logtest_block}## Heuristic Analysis (use as reference, refine if needed)
-- Prematch: {prematch}
-- Regex: {regex}
-- Order: {order}
+{fields_block}{rule_ml_context}{logtest_block}{parent_strategy}
 
 {hints_block}
-{ml_context}## Rules for Decoder XML
-1. Create a parent decoder with <prematch> or <program_name> for scoping
-2. Create child decoders with <parent>, <regex>, and <order>
-3. Use valid Wazuh osregex: \\d+ for digits, \\S+ for non-whitespace, .+ for anything
-4. Use \\p ONLY for punctuation characters: ()*+,-.:;<=>?[]!"'#$%&|{{}}
-5. Do NOT use \\p for forward slashes (/), letters, or normal text — keep them as literals
-6. Generalize variable parts: IPs → \\d+.\\d+.\\d+.\\d+, quoted strings → '\\S+', numbers → \\d+
-7. Use split decoders (one child per field) for better accuracy
+{ml_context}
+{base_xml_block}
 
-## Rules for Rule XML
-1. If log matches built-in rule 2501 (failed login), use <if_sid>2501</if_sid> with a <regex> for keyword matching
-2. Otherwise use <decoded_as> pointing to the parent decoder name
-3. Rule description MUST be: "{log_source} messages grouped"
-4. Use <match>tag</match> for simple case-insensitive substring matching against log content (preferred over <regex> when possible)
-5. Use Wazuh static field tags for well-known fields instead of <field name="...">:
-   - <srcip>, <dstip> — match source/destination IP addresses
-   - <srcport>, <dstport> — match source/destination ports
-   - <protocol> — match protocol (TCP, UDP, etc.)
-   - <action> — match action (allow, deny, drop, etc.)
-   - <id> — match event IDs (e.g., ^529$|^4625$ for failed logins)
-   - <url> — match URL paths
-   - <status> — match HTTP/connection status codes
-   - <data>, <extra_data> — match decoded data fields
-   - <system_name>, <user>, <hostname>, <program_name> — match system/user identifiers
-6. Use <field name="FIELD">VALUE</field> ONLY for truly custom/dynamic decoded fields NOT in the static tag list above
-7. Prefer <match>, static field tags, and <field name=""> over <regex> for simpler, more maintainable rules
-8. Multiple <match>, static field, or <field> tags are ANDed together
+{rule_section}
 
 ## Output Format
-Wrap decoder XML in ```xml ... ``` and rule XML in a separate ```xml ... ``` block.
-After each block, briefly explain your reasoning.
+{output_format}
 
-Generate the XML now:"""
+{review_section}"""
 
 
 async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterator[bytes]:
-    # Primary: OpenRouter free tier
-    if OPENROUTER_API_KEY:
-        payload = {
-            "model": model,
-            "temperature": temperature,
-            "stream": True,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8443",
-            "X-Title": "Wazuh Decoder Studio",
-        }
-        url = f"{OPENROUTER_BASE_URL}/chat/completions"
+    # Priority: Ollama (local, no rate limits) > DashScope > OpenRouter
 
-        max_retries = 3
+    async def _stream_from_api(url: str, payload: dict, headers: dict, max_retries: int = 3) -> AsyncIterator[bytes]:
         for attempt in range(max_retries):
             async with httpx.AsyncClient(timeout=120) as client:
                 async with client.stream("POST", url, json=payload, headers=headers) as response:
                     if response.status_code == 429:
-                        retry_after = int(response.headers.get("Retry-After", 10))
+                        retry_after = int(response.headers.get("Retry-After", 5))
+                        backoff = retry_after * (2 ** attempt)
                         if attempt < max_retries - 1:
-                            yield f"[Rate limited. Retrying in {retry_after}s... (attempt {attempt + 1}/{max_retries})]\n".encode()
-                            await asyncio.sleep(retry_after)
+                            yield f"[Rate limited. Retrying in {backoff}s... (attempt {attempt + 1}/{max_retries})]\n".encode()
+                            await asyncio.sleep(backoff)
                             continue
                         else:
-                            yield f"ERROR 429: Rate limit exceeded after {max_retries} retries. Try again in a minute.".encode()
+                            yield f"ERROR 429: Rate limit exceeded after {max_retries} retries. Try again later.".encode()
                             return
                     if response.status_code != 200:
                         body = await response.aread()
@@ -3795,9 +3873,22 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
                         except Exception:
                             continue
             break
+
+    # 1) Ollama / local model (no rate limits)
+    if OLLAMA_BASE_URL:
+        payload = {
+            "model": OLLAMA_MODEL,
+            "temperature": temperature,
+            "stream": True,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        headers = {"Content-Type": "application/json"}
+        url = f"{OLLAMA_BASE_URL}/chat/completions"
+        async for chunk in _stream_from_api(url, payload, headers, max_retries=2):
+            yield chunk
         return
 
-    # Optional fallback: DashScope International (Singapore) for Qwen 3.6 Plus
+    # 2) DashScope (with retry)
     if DASHSCOPE_API_KEY:
         payload = {
             "model": "qwen3.6-plus",
@@ -3810,34 +3901,35 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
             "Content-Type": "application/json",
         }
         url = f"{DASHSCOPE_BASE_URL}/chat/completions"
-
-        async with httpx.AsyncClient(timeout=120) as client:
-            async with client.stream("POST", url, json=payload, headers=headers) as response:
-                if response.status_code != 200:
-                    body = await response.aread()
-                    yield f"ERROR {response.status_code}: {body.decode()}".encode()
-                    return
-                async for line in response.aiter_lines():
-                    if not line.startswith("data: "):
-                        continue
-                    data = line[6:]
-                    if data.strip() == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data)
-                        token = chunk["choices"][0]["delta"].get("content", "")
-                        if token:
-                            yield token.encode()
-                    except Exception:
-                        continue
+        async for chunk in _stream_from_api(url, payload, headers):
+            yield chunk
         return
 
-    yield b"ERROR: No AI API key configured.\n\nSet OPENROUTER_API_KEY environment variable.\nGet a free key at https://openrouter.ai"
+    # 3) OpenRouter (with retry)
+    if OPENROUTER_API_KEY:
+        payload = {
+            "model": model,
+            "temperature": temperature,
+            "stream": True,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:8443",
+            "X-Title": "Wazuh Decoder Studio",
+        }
+        url = f"{OPENROUTER_BASE_URL}/chat/completions"
+        async for chunk in _stream_from_api(url, payload, headers):
+            yield chunk
+        return
+
+    yield b"ERROR: No AI provider configured.\n\nSet one of:\n  OLLAMA_BASE_URL (recommended - local, no rate limits)\n  DASHSCOPE_API_KEY\n  OPENROUTER_API_KEY"
 
 
 @app.post("/api/ai/generate")
 async def ai_generate(request: AIGenerateRequest):
-    """Stream AI-generated decoder + rule XML using Qwen 3.6 Plus via DashScope."""
+    """Stream AI-generated decoder + rule XML using LLM with programmatic base generation."""
     try:
         analysis = analyze_logs_impl(
             AnalyzeRequest(
@@ -3851,7 +3943,54 @@ async def ai_generate(request: AIGenerateRequest):
     except Exception as e:
         return PlainTextResponse(f"ERROR: wazuh-logtest is not accessible: {e}")
 
-    prompt = _build_ai_prompt(request, analysis)
+    # ── Programmatically generate correct decoder XML (same logic as build_candidate) ──
+    app_name = analysis["app_name"]
+    first_parsed = analysis["logtest_scan"]["parsed_entries"][0] if analysis["logtest_scan"]["parsed_entries"] else {}
+    predecoded_program = first_parsed.get("program_name")
+    needs_custom_decoder = analysis["needs_custom_decoder"]
+    regex_order_pairs = analysis.get("regex_order_pairs", [])
+
+    # Determine parent strategy (program_name vs prematch) — same logic as build_candidate
+    parsed_entries = analysis.get("logtest_scan", {}).get("parsed_entries", [])
+    programs = []
+    for entry in parsed_entries:
+        p = entry.get("program_name")
+        if p and p not in programs:
+            programs.append(p)
+    if programs:
+        if len(programs) > 1:
+            parent_program_name = "^" + "$|^".join(programs) + "$"
+        else:
+            parent_program_name = programs[0]
+    else:
+        parent_program_name = predecoded_program
+
+    parent_prematch = None
+    if not parent_program_name:
+        parent_prematch = prematch_osregex_from_current_logs(
+            [sample.raw_log for sample in request.logs],
+            analysis.get("extracted_program_name"),
+            analysis.get("unique_after_predecoded"),
+        )
+
+    parent_decoder = app_name
+    child_decoder_name = f"{app_name}-event"
+
+    # Build correct decoder XML programmatically
+    decoder_xml = None
+    if needs_custom_decoder and regex_order_pairs:
+        decoder_xml = build_decoder_xml(
+            app_name=app_name,
+            parent_decoder=parent_decoder,
+            child_decoder_name=child_decoder_name,
+            parent_program_name=parent_program_name,
+            parent_prematch=parent_prematch,
+            child_prematch=analysis.get("prematch", ""),
+            include_child_prematch=False,
+            regex_order_pairs=regex_order_pairs,
+        )
+
+    prompt = _build_ai_prompt(request, analysis, programmatic_xml=decoder_xml)
     return StreamingResponse(
         _stream_ai(prompt, AI_DEFAULT_MODEL, request.temperature),
         media_type="text/plain",
