@@ -159,15 +159,30 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
             <input id="logSourceName" type="text" placeholder="auto-detected from log" />
           </div>
           <div class="form-group">
+            <label for="generationMode">Generation Mode</label>
+            <select id="generationMode">
+              <option value="auto">Auto</option>
+              <option value="decoder_only">Decoder Only</option>
+              <option value="rule_only">Rule Only</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label for="installMode">Install Mode</label>
             <select id="installMode">
               <option value="stdin">stdin only</option>
               <option value="write_files">Write XML files</option>
             </select>
           </div>
-          <div class="form-group" style="display:flex;align-items:center;padding-top:20px">
+        </div>
+        <div class="form-row form-row-4" style="margin-top:8px">
+          <div class="form-group" style="display:flex;align-items:center;padding-top:4px">
             <input id="splitDecoders" type="checkbox" style="width:16px;height:16px;margin-right:8px" />
             <label for="splitDecoders" style="margin-bottom:0;cursor:pointer">Split Child Decoders</label>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;padding-top:4px">
+            <input id="validateLogtest" type="checkbox" checked style="width:16px;height:16px;margin-right:8px" />
+            <label for="validateLogtest" style="margin-bottom:0;cursor:pointer">Validate with logtest</label>
           </div>
         </div>
         <div class="form-row form-row-2 mt-12">
@@ -204,6 +219,10 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             Generate with AI
           </button>
+          <button class="btn btn-primary" id="aiGenerateValidateBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Generate &amp; Validate
+          </button>
           <button class="btn btn-ghost" id="aiClearBtn">Clear</button>
         </div>
         <div id="aiStatus" style="display:none;margin-top:12px">
@@ -213,6 +232,13 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
           </div>
         </div>
         <div id="aiOut" class="ai-stream-block" style="display:none"></div>
+        <div id="aiValidationOut" style="display:none;margin-top:12px">
+          <div class="card-header" style="margin-bottom:8px">
+            <span class="card-title">Logtest Validation</span>
+            <span class="card-badge" id="validationBadge" style="background:var(--text-dim)">—</span>
+          </div>
+          <pre id="validationDetails" style="font-size:12px;font-family:JetBrains Mono,monospace;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;white-space:pre-wrap;max-height:200px;overflow:auto"></pre>
+        </div>
         <div id="aiXmlOut" style="display:none;margin-top:16px">
           <div class="card-header" style="margin-bottom:8px">
             <span class="card-title">AI-Generated Decoder XML</span>
@@ -224,15 +250,17 @@ Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</t
             </div>
             <pre id="aiDecoderXml"></pre>
           </div>
-          <div class="card-header" style="margin-bottom:8px;margin-top:12px">
-            <span class="card-title">AI-Generated Rule XML</span>
-            <button class="btn btn-ghost btn-sm" id="copyAiRuleBtn">Copy</button>
-          </div>
-          <div class="output-block">
-            <div class="output-block-toolbar">
-              <span class="output-block-lang">XML — Rule</span>
+          <div id="aiRuleSection">
+            <div class="card-header" style="margin-bottom:8px;margin-top:12px">
+              <span class="card-title">AI-Generated Rule XML</span>
+              <button class="btn btn-ghost btn-sm" id="copyAiRuleBtn">Copy</button>
             </div>
-            <pre id="aiRuleXml"></pre>
+            <div class="output-block">
+              <div class="output-block-toolbar">
+                <span class="output-block-lang">XML — Rule</span>
+              </div>
+              <pre id="aiRuleXml"></pre>
+            </div>
           </div>
         </div>
       </div>

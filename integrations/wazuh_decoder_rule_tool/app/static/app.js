@@ -92,6 +92,8 @@ function readPayload() {
     install_mode: document.getElementById('installMode').value,
     split_decoders: document.getElementById('splitDecoders').checked,
     log_source_name: document.getElementById('logSourceName').value.trim() || null,
+    generation_mode: document.getElementById('generationMode')?.value || 'auto',
+    validate_with_logtest: document.getElementById('validateLogtest')?.checked ?? true,
   };
 }
 
@@ -399,6 +401,13 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
     const p = readPayload();
     const temperature = parseFloat(document.getElementById('aiTemperature').value);
     const extraContext = document.getElementById('aiExtraContext').value.trim();
+    const genMode = document.getElementById('generationMode')?.value || 'auto';
+
+    // Hide/show rule section based on generation mode
+    const ruleSection = document.getElementById('aiRuleSection');
+    if (ruleSection) {
+      ruleSection.style.display = genMode === 'decoder_only' ? 'none' : 'block';
+    }
 
     const res = await fetch('/api/ai/generate', {
       method: 'POST',
@@ -453,11 +462,81 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
   }
 });
 
+/* ══ AI Generate & Validate ══ */
+document.getElementById('aiGenerateValidateBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('aiGenerateValidateBtn');
+  setLoading(btn, true);
+  const statusEl = document.getElementById('aiStatus');
+  const outEl = document.getElementById('aiOut');
+  const xmlOut = document.getElementById('aiXmlOut');
+  const validationOut = document.getElementById('aiValidationOut');
+  const validationBadge = document.getElementById('validationBadge');
+  const validationDetails = document.getElementById('validationDetails');
+  statusEl.style.display = 'block';
+  statusEl.querySelector('.ai-label').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Generating & validating with wazuh-logtest…';
+  outEl.style.display = 'none';
+  xmlOut.style.display = 'none';
+  validationOut.style.display = 'none';
+
+  try {
+    const p = readPayload();
+    const temperature = parseFloat(document.getElementById('aiTemperature').value);
+    const extraContext = document.getElementById('aiExtraContext').value.trim();
+    const genMode = document.getElementById('generationMode')?.value || 'auto';
+
+    // Hide/show rule section based on generation mode
+    const ruleSection = document.getElementById('aiRuleSection');
+    if (ruleSection) {
+      ruleSection.style.display = genMode === 'decoder_only' ? 'none' : 'block';
+    }
+
+    const result = await postJson('/api/ai/generate-validated', {
+      ...p, temperature, extra_context: extraContext,
+    });
+
+    // Show validation results
+    validationOut.style.display = 'block';
+    const validated = result.validation?.validated;
+    validationBadge.textContent = validated ? '✓ Passed' : '✗ Failed';
+    validationBadge.style.background = validated ? 'var(--success)' : 'var(--danger)';
+    let detailsText = `Attempts: ${result.attempts}\nValidation: ${result.validation?.reason || 'unknown'}\n`;
+    if (result.validation?.results) {
+      result.validation.results.forEach((r, i) => {
+        detailsText += `\n[Log ${i+1}] ${r.matched ? '✓' : '✗'} decoder=${r.decoder_matched || 'none'}`;
+        if (r.fields && Object.keys(r.fields).length) {
+          detailsText += '\n  Fields: ' + Object.entries(r.fields).map(([k,v]) => `${k}=${v}`).join(', ');
+        }
+      });
+    }
+    validationDetails.textContent = detailsText;
+
+    // Show XML output
+    if (result.decoder_xml || result.rule_xml) {
+      document.getElementById('aiDecoderXml').innerHTML = highlightXml(result.decoder_xml || '— no decoder —');
+      document.getElementById('aiRuleXml').innerHTML = highlightXml(result.rule_xml || '— no rule —');
+      storeAIXml(result.decoder_xml || '', result.rule_xml || '');
+      xmlOut.style.display = 'block';
+      toast(validated ? 'success' : 'info',
+        validated ? 'Validated decoder generated!' : `Best attempt after ${result.attempts} tries`,
+        validated ? 'Decoder confirmed working with wazuh-logtest' : 'Decoder may need manual adjustment'
+      );
+    }
+    saveHistory({ app_name: p.app_name, log: (p.logs[0] || {}).raw_log || '' });
+  } catch (e) {
+    toast('error', 'Generate & Validate error', e.message);
+  } finally {
+    statusEl.style.display = 'none';
+    setLoading(btn, false);
+  }
+});
+
 document.getElementById('aiClearBtn').addEventListener('click', () => {
   document.getElementById('aiOut').style.display = 'none';
   document.getElementById('aiXmlOut').style.display = 'none';
   document.getElementById('aiStatus').style.display = 'none';
   document.getElementById('aiOut').textContent = '';
+  const valOut = document.getElementById('aiValidationOut');
+  if (valOut) valOut.style.display = 'none';
 });
 
 

@@ -71,7 +71,7 @@ REJECTED_FEEDBACK_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback_rejec
 # Priority: Ollama (local) > DashScope > OpenRouter
 # Ollama / local OpenAI-compatible endpoint (no rate limits)
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "wazuh-decoder")
 
 # OpenRouter
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
@@ -3708,240 +3708,194 @@ class AIGenerateRequest(BaseModel):
     rule_requirement: Optional[str] = None
     extract_fields: List[str] = Field(default_factory=list)
     field_hints: Dict[str, str] = Field(default_factory=dict)
-    temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+    temperature: float = Field(default=0.05, ge=0.0, le=1.0)
     extra_context: str = Field(default="")
     log_source_name: Optional[str] = Field(default=None)
+    generation_mode: str = Field(
+        default="auto",
+        description="What to generate: 'decoder_only', 'rule_only', 'both', or 'auto'. "
+                    "'auto' generates decoder when no rule_requirement, both when rule_requirement is set."
+    )
+    validate_with_logtest: bool = Field(
+        default=True,
+        description="If True, auto-validate the generated decoder by installing temporarily "
+                    "and running wazuh-logtest to ensure 100% accuracy."
+    )
+
+
+_OLLAMA_SYSTEM_PROMPT = """You are a Wazuh SIEM expert. You produce ONLY valid Wazuh decoder and rule XML.
+OS_Regex rules: \\d=digits, \\w=word, \\s=space, \\p=punctuation, \\.=ANY char, \\S=non-space.
+Quantifiers (\\d+, \\w+, \\.+) work ONLY on backslash expressions — never on bare chars.
+. is a literal dot (NOT any char). Use \\.+ for any-char matching.
+Do NOT use .* or .+ in OS_Regex decoders — use \\.+ instead.
+
+## Decoder Format Example
+<decoder name="myapp">
+  <program_name>myapp</program_name>
+</decoder>
+<decoder name="myapp-event">
+  <parent>myapp</parent>
+  <regex>User '(\\S+)' failed login from '(\\d+.\\d+.\\d+.\\d+)'</regex>
+  <order>user, srcip</order>
+</decoder>
+
+## Rule Format Example
+<rule id="100001" level="5">
+  <if_sid>5710</if_sid>
+  <decoded_as>myapp</decoded_as>
+  <field name="user">admin</field>
+  <description>User login failed</description>
+</rule>
+
+If a 'Base Decoder XML' is provided in the prompt, you MUST keep the parent decoder exactly as it is (do NOT change `<program_name>` to `<prematch>`). You must keep the exact same decoder names and parent/child hierarchy. You only improve/fix the child decoders' `<regex>` and `<order>` tags to make them precise.
+Output ONLY XML wrapped in ```xml``` blocks. No explanations, no commentary."""
 
 
 def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], programmatic_xml: Optional[str] = None) -> str:
     logs_block = "\n".join(s.raw_log for s in request.logs[:5])
     effective_fields = analysis.get("effective_extract_fields") or request.extract_fields
     skipped_fields = analysis.get("skipped_decoded_fields") or []
-    fields_hint = ", ".join(effective_fields) if effective_fields else "auto-detect"
     has_rule_req = bool(request.rule_requirement and request.rule_requirement.strip())
     rule_req = request.rule_requirement or ""
-    regex = analysis.get("regex") or ""
-    order = ", ".join(analysis.get("order") or [])
-    prematch = analysis.get("prematch") or ""
     predecoded_program = analysis.get("predecoded_program_name") or ""
     extracted_program = analysis.get("extracted_program_name") or ""
     program = predecoded_program or extracted_program or request.app_name
-
     log_source = request.log_source_name or program or request.app_name
 
-    hints_block = ""
-    field_hints = getattr(request, 'field_hints', {})
-    if field_hints:
-        hints_block = "User-provided additional field mappings/hints:\n"
-        for key, val in field_hints.items():
-            if val:
-                hints_block += f"  - Extract value '{val}' as field '{key}'\n"
-        hints_block += "\n"
+    # ── Determine effective generation mode ──
+    gen_mode = getattr(request, 'generation_mode', 'auto')
+    if gen_mode == "auto":
+        gen_mode = "both" if has_rule_req else "decoder_only"
 
-    ml_context = ""
-    suggestions = analysis.get("ml_suggestions") or []
-    if suggestions:
-        examples = []
-        for s in suggestions[:5]:
-            examples.append(
-                f"<decoder name='{s.get('name','?')}'>\n"
-                f"  parent={s.get('parent','?')}\n"
-                f"  prematch={s.get('prematch','?')}\n"
-                f"  regex={s.get('regex','?')}\n"
-                f"  order={','.join(s.get('order') or [])}\n"
-                f"</decoder>\n"
-            )
-        ml_context = (
-            "## ML Similarity Model Context\n"
-            "The local trained ML similarity model (loaded from Wazuh decoder XML patterns) "
-            f"found {len(suggestions)} similar decoders. These are real Wazuh decoders that match your log pattern:\n\n"
-            + "\n".join(examples) + "\n"
-            "Use these as reference for osregex syntax, field ordering, and decoder structure.\n\n"
-        )
-
-    logtest_summary = analysis.get("wazuh_logtest_summary", {})
-    logtest_decoded = analysis.get("logtest_decoded_fields", {})
-    logtest_block = ""
-    if logtest_summary:
-        decoded_fields_str = ""
-        if logtest_decoded:
-            fields_list = "\n".join(f"    {k}: {v}" for k, v in logtest_decoded.items())
-            decoded_fields_str = f"  - Already decoded fields:\n{fields_list}\n"
-        logtest_block = (
-            "## Wazuh Logtest Analysis\n"
-            f"- Built-in decoder matched: {logtest_summary.get('builtin_decoder_seen', False)}\n"
-            f"- Decoder name: {logtest_summary.get('decoder_name', 'None')}\n"
-            f"- Built-in rule matched: {logtest_summary.get('builtin_rule_seen', False)}\n"
-            f"- Rule ID: {logtest_summary.get('rule_id', 'None')}\n"
-            f"- Predecoded program: {logtest_summary.get('predecoded_program_name', 'None')}\n"
-            f"{decoded_fields_str}"
-            "\n"
-        )
-
-    auto_fields = analysis.get("auto_fields", {})
-    fields_block = ""
-    if auto_fields:
-        fields_str = "\n".join(f"  - {k}: {v}" for k, v in auto_fields.items())
-        fields_block = f"## Auto-Extracted Fields\n{fields_str}\n\n"
-
-    rule_ml_context = ""
-    if has_rule_req:
-        rule_suggestions = rule_suggestions_for_requirement(request.rule_requirement, top_k=3)
-        if rule_suggestions:
-            examples = []
-            for rs in rule_suggestions:
-                field_tags = " ".join(
-                    f"<{fc['name']}>{fc['value']}</{fc['name']}>" if fc.get("name", "") in STATIC_FIELD_TAGS
-                    else f"<field name='{fc['name']}'>{fc['value']}</field>"
-                    for fc in rs.get("field_conditions", [])
-                )
-                match_tags = " ".join(f"<match>{m}</match>" for m in rs.get("match_conditions", []))
-                examples.append(
-                    f"  - Rule {rs.get('rule_id', '?')} (level {rs.get('level', '?')}): "
-                    f"decoded_as={rs.get('decoded_as', 'N/A')} "
-                    f"description='{rs.get('description', 'N/A')}' "
-                    f"{field_tags} {match_tags}"
-                )
-            rule_ml_context = (
-                "## ML Rule Suggestions (from wazuh-ruleset)\n"
-                "Similar real Wazuh rules matching your requirement:\n\n"
-                + "\n".join(examples) + "\n\n"
-                "Use these as reference for <field>, <match>, and rule structure.\n\n"
-            )
-
+    # ── Configuration block ──
     config_lines = [
         f"- App name: {request.app_name}",
-        f"- Log source name: {log_source}",
+        f"- Log source: {log_source}",
         f"- Program name: {program}",
-        f"- Fields to extract (not already decoded by built-in): {fields_hint}",
     ]
+    # Strict field enforcement
+    if effective_fields:
+        config_lines.append(f"- ONLY extract these fields: {', '.join(effective_fields)}")
+        config_lines.append("- Do NOT add any extra fields beyond this list")
+    else:
+        config_lines.append("- Fields: auto-detect from log content")
     if skipped_fields:
-        config_lines.append(f"- Fields ALREADY decoded by built-in (skip these): {', '.join(skipped_fields)}")
-    if has_rule_req:
+        config_lines.append(f"- Fields ALREADY decoded by built-in (SKIP these): {', '.join(skipped_fields)}")
+    if gen_mode in ("both", "rule_only") and has_rule_req:
         config_lines.append(f"- Rule requirement: {rule_req}")
-        config_lines.append(f"- Rule ID: {request.rule_id}")
-        config_lines.append(f"- Rule level: {request.level}")
+        config_lines.append(f"- Rule ID: {request.rule_id}, Level: {request.level}")
     if request.extra_context:
         config_lines.append(f"- Extra context: {request.extra_context}")
     config_block = "\n".join(config_lines)
 
+    # ── Field hints ──
+    hints_block = ""
+    field_hints = getattr(request, 'field_hints', {})
+    if field_hints:
+        hints_lines = [f"  - '{v}' -> field '{k}'" for k, v in field_hints.items() if v]
+        if hints_lines:
+            hints_block = "Field value mapping hints:\n" + "\n".join(hints_lines) + "\n"
+
+    # ── Parent strategy ──
     if predecoded_program or extracted_program:
-        parent_strategy = (
-            f"The log syslog/predecoded program name is '{program}'. "
-            "The parent decoder MUST use <program_name> for scoping (NOT <prematch>)."
-        )
+        parent_strategy = f"Parent decoder MUST use <program_name> (program: '{program}')."
     else:
-        parent_strategy = (
-            "The log does not have a decoded program name. "
-            "Create a parent decoder with <prematch> to match the log prefix."
+        parent_strategy = "No program name detected. Use <prematch> for parent decoder."
+
+    # ── Logtest context ──
+    logtest_summary = analysis.get("wazuh_logtest_summary", {})
+    logtest_decoded = analysis.get("logtest_decoded_fields", {})
+    logtest_block = ""
+    if logtest_summary:
+        decoded_str = ""
+        if logtest_decoded:
+            decoded_str = "  Already decoded: " + ", ".join(f"{k}={v}" for k, v in logtest_decoded.items()) + "\n"
+        logtest_block = (
+            f"Logtest: decoder={logtest_summary.get('decoder_name', 'None')}, "
+            f"rule={logtest_summary.get('rule_id', 'None')}, "
+            f"program={logtest_summary.get('predecoded_program_name', 'None')}\n"
+            f"{decoded_str}"
         )
 
-    decoder_rules = """## Decoder XML Rules (Wazuh Syntax)
-Reference: https://documentation.wazuh.com/current/user-manual/ruleset/ruleset-xml-syntax/decoders.html
+    # ── ML context (concise) ──
+    ml_context = ""
+    suggestions = analysis.get("ml_suggestions") or []
+    if suggestions[:3]:
+        ml_lines = []
+        for s in suggestions[:3]:
+            ml_lines.append(f"  {s.get('name','?')}: regex={s.get('regex','?')} order={','.join(s.get('order') or [])}")
+        ml_context = "Similar Wazuh decoders (reference):\n" + "\n".join(ml_lines) + "\n"
 
-### Parent decoder:
-```xml
-<decoder name="PARENT">
-  <program_name>^program$</program_name>  <!-- OR <prematch>PREFIX</prematch> if no program_name -->
-</decoder>
-```
+    # ── Rule ML context ──
+    rule_ml_context = ""
+    if has_rule_req and gen_mode in ("both", "rule_only"):
+        rule_suggestions = rule_suggestions_for_requirement(request.rule_requirement, top_k=2)
+        if rule_suggestions:
+            rl = []
+            for rs in rule_suggestions:
+                rl.append(f"  Rule {rs.get('rule_id','?')} (level {rs.get('level','?')}): {rs.get('description','')}")
+            rule_ml_context = "Similar rules:\n" + "\n".join(rl) + "\n"
 
-### Child decoder (one per field):
-```xml
-<decoder name="CHILD">
-  <parent>PARENT</parent>
-  <regex>PATTERN_WITH_(CAPTURES)</regex>
-  <order>field1,field2</order>
-</decoder>
-```
-
-### CRITICAL:
-1. Check Wazuh Logtest Analysis above — fields already decoded by built-in decoders must NOT have decoders generated for them
-2. Parent uses <program_name> when log has a program name (from syslog or predecode); use <prematch> ONLY when no program name exists
-3. Child decoders use <parent>, <regex>, <order> — there is NO <child> tag in Wazuh
-4. Each child decoder is a standalone <decoder> block with <parent> pointing to parent
-5. Use split decoders: one child per extracted field for better accuracy
-6. Osregex: \\\\d+ for digits, \\\\S+ for non-whitespace, \\\\.+ for any chars
-7. \\\\p matches ONLY: ()*+,-.:;<=>?[]!"'#$%&|{{}}
-8. Do NOT use \\\\p for / or normal text
-9. Generalize: IPs → \\\\d+.\\\\d+.\\\\d+.\\\\d+, numbers → \\\\d+, quoted → '\\\\S+'
-10. Do NOT add <type>, <fts>, <plugin_decoder> unless log type requires it
-11. Do NOT generate rule XML unless explicitly asked"""
-
-    rule_section = ""
-    output_format = "Wrap decoder XML in ```xml ... ```. After it, briefly explain your reasoning."
-    if has_rule_req:
-        rule_section = """## Rule XML Rules (Wazuh Syntax)
-Reference: https://documentation.wazuh.com/current/user-manual/ruleset/ruleset-xml-syntax/rules.html
-
-```xml
-<group name="custom,APP">
-  <rule id="ID" level="LEVEL">
-    <decoded_as>PARENT</decoded_as>
-    <field name="FIELD">VALUE</field>
-    <description>Description</description>
-  </rule>
-</group>
-```
-
-### CRITICAL:
-1. Use <decoded_as> pointing to the parent decoder name
-2. Use <match>TEXT</match> for simple substring matching
-3. Static tags (no <field name=""> wrapper): <srcip>, <dstip>, <srcport>, <dstport>, <protocol>, <action>, <id>, <url>, <status>, <data>, <extra_data>, <system_name>, <user>, <hostname>, <program_name>
-4. Use <field name="F">V</field> ONLY for custom decoded fields not in static list
-5. Description: "LOGSOURCE messages grouped"
-6. Multiple <match>/<field>/static tags are ANDed"""
-        output_format = "Wrap decoder XML in ```xml ... ``` and rule XML in a separate ```xml ... ``` block. After each block, briefly explain your reasoning."
-
+    # ── Base XML block ──
     base_xml_block = ""
-    if programmatic_xml:
+    if programmatic_xml and gen_mode in ("decoder_only", "both"):
         base_xml_block = f"""
-## Programmatically Generated Base Decoder XML (verified Wazuh syntax)
-The following decoder XML was generated by the Wazuh Decoder Rule Tool engine after checking wazuh-logtest.
-It has correct Wazuh syntax and structure.
-
+## Base Decoder XML (verified syntax — improve regex patterns only)
 ```xml
 {programmatic_xml}
 ```
+Do NOT add/remove child decoders. Each field in exactly one <order>. Improve regex precision only."""
 
-### Your task: Review and improve the regex patterns above
-- The structure and field ordering are correct — focus on improving the osregex patterns
-- Make capture groups more precise (e.g., use \\\\S+ instead of \\\\.+ when field has no spaces)
-- Ensure edge cases are handled (different IP formats, quoted values, etc.)
-- If the patterns are already optimal, explain why and confirm they work
-- Do NOT add new child decoders or remove existing ones
-- Do NOT create duplicate decoders for the same field — each field must appear in exactly one <order> list
-- Keep all captures for different fields in the SAME child decoder when they come from the same part of the log
-- Output the final improved XML in ```xml ... ```"""
-
-    review_section = ""
-    if programmatic_xml:
-        review_section = "Review the programmatic XML above and improve the osregex patterns. Output the SAME number of child decoders — do not add duplicates or remove any. Each field must appear in exactly one <order> list."
+    # ── Output instructions based on mode ──
+    if gen_mode == "decoder_only":
+        output_instruction = (
+            "## OUTPUT: Generate ONLY decoder XML. NO rule XML. NO explanations.\n"
+            "Wrap in a single ```xml ... ``` block."
+        )
+    elif gen_mode == "rule_only":
+        output_instruction = (
+            "## OUTPUT: Generate ONLY rule XML. NO decoder XML. NO explanations.\n"
+            "Wrap in a single ```xml ... ``` block."
+        )
     else:
-        review_section = decoder_rules
+        output_instruction = (
+            "## OUTPUT: Decoder XML in one ```xml``` block, rule XML in a separate ```xml``` block.\n"
+            "NO explanations — ONLY XML blocks."
+        )
 
-    return f"""You are a Wazuh SIEM expert with deep knowledge of osregex, decoder architecture, and rule engineering.
+    # ── Decoder rules (only if generating decoders) ──
+    decoder_rules = ""
+    if gen_mode in ("decoder_only", "both") and not programmatic_xml:
+        decoder_rules = """## Decoder Rules
+- Parent: <program_name> if program exists, else <prematch>
+- Child: <parent>, <regex>, <order> — one child per field
+- Osregex: \\d+ digits, \\S+ non-space, \\.+ any char
+- IPs: \\d+.\\d+.\\d+.\\d+, numbers: \\d+
+- Do NOT add <type>/<fts>/<plugin_decoder> unless needed"""
 
-Your role is to REVIEW and IMPROVE the programmatically generated decoder XML below. The XML structure is correct — focus on improving osregex patterns. Do NOT add duplicate child decoders or create multiple decoders for the same field.
+    # ── Rule section (only if generating rules) ──
+    rule_section = ""
+    if gen_mode in ("rule_only", "both") and has_rule_req:
+        rule_section = """## Rule Rules
+- <decoded_as> points to parent decoder name
+- <match> for substring matching (| for OR)
+- Static tags: <srcip>, <dstip>, <srcport>, <dstport>, <action>, <id>, <url>, <status>, <user>
+- <field name="F">V</field> for custom fields only"""
 
-## Log Samples
+    return f"""## Log Samples
 {logs_block}
 
 ## Configuration
 {config_block}
 
-{fields_block}{rule_ml_context}{logtest_block}{parent_strategy}
-
-{hints_block}
-{ml_context}
-{base_xml_block}
-
+{logtest_block}{parent_strategy}
+{hints_block}{ml_context}{rule_ml_context}{base_xml_block}
+{decoder_rules}
 {rule_section}
+{output_instruction}"""
 
-## Output Format
-{output_format}
 
-{review_section}"""
+
 
 
 async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterator[bytes]:
@@ -3980,16 +3934,22 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
                             continue
             break
 
-    # 1) Ollama / local model (no rate limits)
+    # 1) Ollama / local model (no rate limits) — use system+user roles
     if OLLAMA_BASE_URL:
         payload = {
             "model": OLLAMA_MODEL,
             "temperature": temperature,
+            "top_k": 20,
+            "repeat_penalty": 1.15,
+            "num_predict": 4096,
             "stream": True,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": _OLLAMA_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
         }
         headers = {"Content-Type": "application/json"}
-        url = f"{OLLAMA_BASE_URL}/chat/completions"
+        url = f"{OLLAMA_BASE_URL}/v1/chat/completions"
         async for chunk in _stream_from_api(url, payload, headers, max_retries=2):
             yield chunk
         return
@@ -4101,3 +4061,194 @@ async def ai_generate(request: AIGenerateRequest):
         _stream_ai(prompt, AI_DEFAULT_MODEL, request.temperature),
         media_type="text/plain",
     )
+
+
+async def _collect_ai_response(prompt: str, model: str, temperature: float) -> str:
+    """Collect the full AI response as a string (non-streaming)."""
+    chunks: List[str] = []
+    async for chunk in _stream_ai(prompt, model, temperature):
+        chunks.append(chunk.decode() if isinstance(chunk, bytes) else chunk)
+    return "".join(chunks)
+
+
+def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
+    """Extract decoder XML and rule XML from AI response text.
+    Returns (decoder_xml, rule_xml)."""
+    import re as _re
+    xml_blocks = _re.findall(r'```xml\s*([\s\S]*?)```', full_text)
+    decoder_xml = ""
+    rule_xml = ""
+    for block in xml_blocks:
+        block = block.strip()
+        if "<decoder" in block and not decoder_xml:
+            decoder_xml = block
+        elif ("<rule" in block or "<group" in block) and not rule_xml:
+            rule_xml = block
+    # Fallback: try to find bare XML tags
+    if not decoder_xml:
+        m = _re.search(r'(<decoder[\s\S]*?</decoder>)', full_text)
+        if m:
+            decoder_xml = m.group(1).strip()
+    if not rule_xml:
+        m = _re.search(r'(<group[\s\S]*?</group>)', full_text)
+        if m:
+            rule_xml = m.group(1).strip()
+    return decoder_xml, rule_xml
+
+
+def _validate_ai_decoder_with_logtest(
+    decoder_xml: str,
+    rule_xml: str,
+    logs: List[LogSample],
+    app_name: str,
+) -> Dict[str, Any]:
+    """Install decoder/rule temporarily, run wazuh-logtest, and return validation results."""
+    if not decoder_xml:
+        return {"validated": False, "reason": "no decoder XML to validate"}
+    if not find_wazuh_logtest():
+        return {"validated": False, "reason": "wazuh-logtest unavailable"}
+
+    stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    safe_name = sanitize_name(app_name)
+    decoder_filename = f"local_{safe_name}_ai_validate_decoder_{stamp}.xml"
+    rule_filename = f"local_{safe_name}_ai_validate_rule_{stamp}.xml"
+
+    ok, err = install_temp_content(WAZUH_DECODERS_DIR, decoder_filename, decoder_xml)
+    if not ok:
+        return {"validated": False, "reason": f"decoder install failed: {err}"}
+
+    rule_installed = False
+    if rule_xml:
+        rule_ok, rule_err = install_temp_content(WAZUH_RULES_DIR, rule_filename, rule_xml)
+        if rule_ok:
+            rule_installed = True
+
+    try:
+        results = []
+        all_matched = True
+        for sample in logs:
+            output = run_wazuh_logtest(sample.raw_log)
+            parsed = parse_logtest_output(combined_logtest_output(output)) if output["available"] else {}
+            decoder_name = parsed.get("decoder_name", "")
+            matched = bool(decoder_name and decoder_name != "unknown")
+            if not matched:
+                all_matched = False
+            results.append({
+                "raw_log": sample.raw_log[:200],
+                "decoder_matched": decoder_name,
+                "fields": {k: v for k, v in parsed.items() if k not in ("decoder_name", "rule_id", "rule_level")},
+                "matched": matched,
+            })
+        return {
+            "validated": all_matched,
+            "results": results,
+            "reason": "all logs matched decoder" if all_matched else "some logs did not match decoder",
+        }
+    finally:
+        remove_temp_content(WAZUH_DECODERS_DIR, decoder_filename)
+        if rule_installed:
+            remove_temp_content(WAZUH_RULES_DIR, rule_filename)
+
+
+@app.post("/api/ai/generate-validated")
+async def ai_generate_validated(request: AIGenerateRequest):
+    """Generate decoder/rule XML with AI, then validate with wazuh-logtest.
+    Retries up to 3 times if validation fails, feeding errors back to the AI."""
+    try:
+        analysis = analyze_logs_impl(
+            AnalyzeRequest(
+                logs=request.logs,
+                app_name=request.app_name,
+                rule_requirement=request.rule_requirement,
+                extract_fields=request.extract_fields,
+                field_hints=getattr(request, 'field_hints', {}),
+            )
+        )
+    except Exception as e:
+        return JSONResponse({"error": f"wazuh-logtest is not accessible: {e}"}, status_code=503)
+
+    # Build programmatic base decoder XML
+    app_name = analysis["app_name"]
+    first_parsed = analysis["logtest_scan"]["parsed_entries"][0] if analysis["logtest_scan"]["parsed_entries"] else {}
+    predecoded_program = first_parsed.get("program_name")
+    needs_custom_decoder = analysis["needs_custom_decoder"]
+    regex_order_pairs = analysis.get("regex_order_pairs", [])
+
+    parsed_entries = analysis.get("logtest_scan", {}).get("parsed_entries", [])
+    programs = [p for entry in parsed_entries for p in [entry.get("program_name")] if p]
+    programs = list(dict.fromkeys(programs))
+    parent_program_name = ("^" + "$|^".join(programs) + "$" if len(programs) > 1 else programs[0]) if programs else predecoded_program
+
+    parent_prematch = None
+    if not parent_program_name:
+        parent_prematch = prematch_osregex_from_current_logs(
+            [sample.raw_log for sample in request.logs],
+            analysis.get("extracted_program_name"),
+            analysis.get("unique_after_predecoded"),
+        )
+
+    parent_decoder = app_name
+    child_decoder_name = f"{app_name}-event"
+    programmatic_xml = None
+    if needs_custom_decoder and regex_order_pairs:
+        programmatic_xml = build_decoder_xml(
+            app_name=app_name, parent_decoder=parent_decoder,
+            child_decoder_name=child_decoder_name,
+            parent_program_name=parent_program_name,
+            parent_prematch=parent_prematch,
+            child_prematch=analysis.get("prematch", ""),
+            include_child_prematch=False,
+            regex_order_pairs=regex_order_pairs,
+        )
+
+    max_retries = 3
+    best_decoder_xml = ""
+    best_rule_xml = ""
+    best_validation = {"validated": False, "reason": "not attempted"}
+    correction_context = ""
+
+    for attempt in range(max_retries):
+        prompt = _build_ai_prompt(request, analysis, programmatic_xml=programmatic_xml)
+        if correction_context:
+            prompt += f"\n\n## CORRECTION (attempt {attempt + 1})\n{correction_context}"
+
+        full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
+        decoder_xml, rule_xml = _extract_xml_from_ai_response(full_response)
+
+        if not decoder_xml and programmatic_xml:
+            decoder_xml = programmatic_xml
+
+        best_decoder_xml = decoder_xml or best_decoder_xml
+        best_rule_xml = rule_xml or best_rule_xml
+
+        if not request.validate_with_logtest:
+            best_validation = {"validated": False, "reason": "validation disabled by user"}
+            break
+
+        validation = _validate_ai_decoder_with_logtest(
+            decoder_xml, rule_xml, request.logs, app_name
+        )
+        best_validation = validation
+
+        if validation.get("validated"):
+            break
+
+        # Build correction context for retry
+        failed_logs = [r for r in validation.get("results", []) if not r.get("matched")]
+        if failed_logs:
+            correction_context = (
+                f"The previous decoder XML FAILED wazuh-logtest validation.\n"
+                f"Failed logs:\n"
+            )
+            for fl in failed_logs[:3]:
+                correction_context += f"  Log: {fl['raw_log']}\n  Matched decoder: {fl.get('decoder_matched', 'none')}\n"
+            correction_context += "Fix the regex patterns to match these logs. Output corrected XML only."
+
+    return JSONResponse({
+        "decoder_xml": best_decoder_xml,
+        "rule_xml": best_rule_xml,
+        "validation": best_validation,
+        "attempts": attempt + 1,
+        "generation_mode": getattr(request, 'generation_mode', 'auto'),
+    })
+
