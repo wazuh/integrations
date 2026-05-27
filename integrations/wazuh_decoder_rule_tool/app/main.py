@@ -3569,8 +3569,12 @@ def install_decoder(request: InstallRequest):
                     writes.append(str(fallback))
                     errors.append(f"wrote fallback: {fallback}")
 
+        rule_content = request.rule_xml
+        if rule_content and not rule_content.strip().startswith("<group"):
+            rule_content = f'<group name="custom_{app_name}">\n{rule_content.strip()}\n</group>'
+
         write_one(WAZUH_DECODERS_DIR, "decoder", request.decoder_xml)
-        write_one(WAZUH_RULES_DIR, "rule", request.rule_xml)
+        write_one(WAZUH_RULES_DIR, "rule", rule_content)
         return JSONResponse({"success": len(errors) == 0, "written_files": writes, "errors": errors, "stamp": stamp})
     except Exception as e:
         return JSONResponse({"message": str(e)}, status_code=503)
@@ -4096,6 +4100,25 @@ def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
     return decoder_xml, rule_xml
 
 
+def _sanitize_rule_xml_static_fields(rule_xml: str) -> str:
+    """Wazuh rules do not allow <field name="static_field"> tags.
+    They must be written as <static_field> tags directly. This function sanitizes them."""
+    if not rule_xml:
+        return rule_xml
+    import re as _re
+    static_fields = {
+        "srcip", "dstip", "srcport", "dstport", "user", "url", "id", 
+        "status", "action", "hostname", "program_name", "location", 
+        "match", "extra_data", "system_name", "protocol"
+    }
+    sanitized = rule_xml
+    for field in static_fields:
+        pattern = rf'<field\s+name=["\']{field}["\']\s*>([\s\S]*?)</field>'
+        replacement = rf'<{field}>\1</{field}>'
+        sanitized = _re.sub(pattern, replacement, sanitized)
+    return sanitized
+
+
 def _validate_ai_decoder_with_logtest(
     decoder_xml: str,
     rule_xml: str,
@@ -4103,6 +4126,7 @@ def _validate_ai_decoder_with_logtest(
     app_name: str,
 ) -> Dict[str, Any]:
     """Install decoder/rule temporarily, run wazuh-logtest, and return validation results."""
+    rule_xml = _sanitize_rule_xml_static_fields(rule_xml)
     if not decoder_xml:
         return {"validated": False, "reason": "no decoder XML to validate"}
     if not find_wazuh_logtest():
@@ -4119,7 +4143,10 @@ def _validate_ai_decoder_with_logtest(
 
     rule_installed = False
     if rule_xml:
-        rule_ok, rule_err = install_temp_content(WAZUH_RULES_DIR, rule_filename, rule_xml)
+        wrapped_rule_xml = rule_xml.strip()
+        if not wrapped_rule_xml.startswith("<group"):
+            wrapped_rule_xml = f'<group name="temp_ai_validate">\n{wrapped_rule_xml}\n</group>'
+        rule_ok, rule_err = install_temp_content(WAZUH_RULES_DIR, rule_filename, wrapped_rule_xml)
         if rule_ok:
             rule_installed = True
 
@@ -4214,6 +4241,7 @@ async def ai_generate_validated(request: AIGenerateRequest):
 
         full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
         decoder_xml, rule_xml = _extract_xml_from_ai_response(full_response)
+        rule_xml = _sanitize_rule_xml_static_fields(rule_xml)
 
         if not decoder_xml and programmatic_xml:
             decoder_xml = programmatic_xml
