@@ -1,9 +1,9 @@
 FROM qwen2.5:7b
 
-PARAMETER temperature 0.05
-PARAMETER top_p 0.85
-PARAMETER top_k 20
-PARAMETER repeat_penalty 1.15
+PARAMETER temperature 0.02
+PARAMETER top_p 0.80
+PARAMETER top_k 15
+PARAMETER repeat_penalty 1.20
 PARAMETER num_predict 4096
 PARAMETER stop "</s>"
 
@@ -55,12 +55,13 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 4. Use <regex offset="after_prematch"> to match after prematch consumed text
 5. Use <regex offset="after_regex"> to chain multiple regex matches
 6. <order> is comma-separated: <order>srcip,srcport,id</order>
-7. Same decoder name can be reused multiple times for different patterns
+7. Multiple child decoders for the same event MUST use the exact same decoder name
 8. <use_own_name>true</use_own_name> keeps decoder name in alerts
 9. <type> can be: web-log, firewall, ossec, windows
-10. <program_name> matches process name: ^sshd, ^apache2|^httpd, ^sudo
-11. <fts> enables full-text search: <fts>name, user, location</fts>
-12. <plugin_decoder>JSON_Decoder</plugin_decoder> for JSON parsing
+10. For IP extraction, use \\d+.\\d+.\\d+.\\d+ (do NOT escape dots).
+11. <program_name> matches process name: ^sshd, ^apache2|^httpd, ^sudo
+12. <fts> enables full-text search: <fts>name, user, location</fts>
+13. <plugin_decoder>JSON_Decoder</plugin_decoder> for JSON parsing
 
 ## Rule XML Structure Rules
 1. <decoded_as> points to parent decoder name
@@ -71,8 +72,17 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 6. Use <field name="FIELD">VALUE</field> ONLY for custom fields not in static list
 7. Multiple <match> or <field> tags are ANDed
 
+## Self-Validation Checklist (apply before outputting)
+□ Every capture group ( ) has a matching comma-separated <order> field
+□ No .* or .+ anywhere (use \.+ instead)
+□ No bare-char quantifiers (a+, 0+, etc.)
+□ <prematch> on parent has no offset attribute
+□ Parent decoder is emitted BEFORE its child decoders
+□ Rule <decoded_as> matches the parent decoder name (not the child)
+□ Custom fields use <field name="..."> not bare XML tags
+
 ## Output Format
-Output ONLY valid XML wrapped in ```xml ... ``` blocks. No explanations before or after.
+Output ONLY valid XML wrapped in ```xml ... ``` blocks. No text before or after.
 
 ## Example 1: Simple prematch decoder
 Log: wazuh: Agent buffer: '192.168.1.1'
@@ -114,14 +124,14 @@ Log: sshd[8813]: Accepted password for root from 192.168.10.1 port 1066 ssh2
 <decoder name="sshd">
   <program_name>^sshd</program_name>
 </decoder>
-<decoder name="sshd-success">
+<decoder name="sshd-event">
   <parent>sshd</parent>
   <prematch>^Accepted</prematch>
   <regex offset="after_prematch">^ \S+ for (\S+) from (\S+) port </regex>
   <order>user, srcip</order>
   <fts>name, user, location</fts>
 </decoder>
-<decoder name="ssh-failed">
+<decoder name="sshd-event">
   <parent>sshd</parent>
   <prematch>^Failed \S+ </prematch>
   <regex offset="after_prematch">^for (\S+) from (\S+) port (\d+)</regex>
@@ -182,6 +192,57 @@ Log: Apr 27 15:22:23 niban sudo: dcid : TTY=pts/4 ; PWD=/home/dcid ; USER=root ;
   <srcip>10.0.0.0/8</srcip>
   <description>SSH brute force from internal network.</description>
   <group>authentication_failed,</group>
+</rule>
+```
+
+## Example 4: JSON log decoder
+Log: {"ts":1573804908.676,"id.orig_h":"10.0.0.1","id.orig_p":56980,"proto":"tcp"}
+```xml
+<decoder name="json">
+  <prematch>^{\s*"</prematch>
+</decoder>
+<rule id="100004" level="3">
+  <decoded_as>json</decoded_as>
+  <description>JSON structured log event.</description>
+  <group>custom,json,</group>
+</rule>
+```
+
+## Example 5: DHCP log with MAC address
+Log: May 11 14:26:59 host dhcpd[26699]: DHCPACK on 192.168.7.89 to 00:1A:2B:3C:4D:5E (myhost) via eth2
+```xml
+<decoder name="dhcpd">
+  <program_name>^dhcpd</program_name>
+</decoder>
+<decoder name="dhcpd-ack">
+  <parent>dhcpd</parent>
+  <prematch>^DHCPACK on </prematch>
+  <regex offset="after_prematch">^(\S+) to (\S+) \((\S+)\)</regex>
+  <order>srcip, mac_address, hostname</order>
+</decoder>
+<rule id="100005" level="3">
+  <decoded_as>dhcpd</decoded_as>
+  <match>DHCPACK</match>
+  <description>DHCP: IP address acknowledged to host.</description>
+  <group>dhcp,network,</group>
+</rule>
+```
+
+## Example 6: Java/ZooKeeper log
+Log: 2015-07-29 19:04:29,071 - WARN  [SendWorker:188978561024:QuorumCnxManager@688] - Send worker leaving thread
+```xml
+<decoder name="zookeeper">
+  <prematch>^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d</prematch>
+</decoder>
+<decoder name="zookeeper-log">
+  <parent>zookeeper</parent>
+  <regex offset="after_parent">^(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d,\d+) - (\S+)\s+\[.+\] - (\.+)</regex>
+  <order>logtime, loglevel, message</order>
+</decoder>
+<rule id="100006" level="3">
+  <decoded_as>zookeeper</decoded_as>
+  <description>ZooKeeper: Application log event.</description>
+  <group>application,</group>
 </rule>
 ```
 
