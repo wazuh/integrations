@@ -70,7 +70,14 @@ REJECTED_FEEDBACK_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback_rejec
 # ── AI / LLM config ──
 # Priority: Ollama (local) > DashScope > OpenRouter
 # Ollama / local OpenAI-compatible endpoint (no rate limits)
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "")
+# Default to localhost Ollama so it works without any env var when Ollama is running locally.
+# Accepts both http://localhost:11434 and http://localhost:11434/v1 — the /v1 suffix is
+# normalized in the URL construction below to prevent double-/v1 404 errors.
+_OLLAMA_RAW_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+# Normalise: strip trailing /v1 so we always build the full path ourselves
+OLLAMA_BASE_URL = _OLLAMA_RAW_URL.rstrip("/")
+if OLLAMA_BASE_URL.endswith("/v1"):
+    OLLAMA_BASE_URL = OLLAMA_BASE_URL[:-3].rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "wazuh-decoder")
 
 # OpenRouter
@@ -3867,14 +3874,14 @@ Do NOT add/remove child decoders. Each field in exactly one <order>. Improve reg
             "NO explanations — ONLY XML blocks."
         )
 
-    # ── Decoder rules (only if generating decoders) ──
     decoder_rules = ""
     if gen_mode in ("decoder_only", "both") and not programmatic_xml:
         decoder_rules = """## Decoder Rules
 - Parent: <program_name> if program exists, else <prematch>
 - Child: <parent>, <regex>, <order> — one child per field
+- Multiple child decoders for the same event MUST use the exact same name
 - Osregex: \\d+ digits, \\S+ non-space, \\.+ any char
-- IPs: \\d+.\\d+.\\d+.\\d+, numbers: \\d+
+- IPs: \\d+.\\d+.\\d+.\\d+ (do NOT escape dots), numbers: \\d+
 - Do NOT add <type>/<fts>/<plugin_decoder> unless needed"""
 
     # ── Rule section (only if generating rules) ──
@@ -3907,44 +3914,57 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
 
     async def _stream_from_api(url: str, payload: dict, headers: dict, max_retries: int = 3) -> AsyncIterator[bytes]:
         for attempt in range(max_retries):
-            async with httpx.AsyncClient(timeout=120) as client:
-                async with client.stream("POST", url, json=payload, headers=headers) as response:
-                    if response.status_code == 429:
-                        retry_after = int(response.headers.get("Retry-After", 5))
-                        backoff = retry_after * (2 ** attempt)
-                        if attempt < max_retries - 1:
-                            yield f"[Rate limited. Retrying in {backoff}s... (attempt {attempt + 1}/{max_retries})]\n".encode()
-                            await asyncio.sleep(backoff)
-                            continue
-                        else:
-                            yield f"ERROR 429: Rate limit exceeded after {max_retries} retries. Try again later.".encode()
+            try:
+                # 60s timeout for streaming requests (models might take a while to load into memory on the first request)
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    async with client.stream("POST", url, json=payload, headers=headers) as response:
+                        if response.status_code == 429:
+                            retry_after = int(response.headers.get("Retry-After", 5))
+                            backoff = retry_after * (2 ** attempt)
+                            if attempt < max_retries - 1:
+                                yield f"[Rate limited. Retrying in {backoff}s... (attempt {attempt + 1}/{max_retries})]\n".encode()
+                                await asyncio.sleep(backoff)
+                                continue
+                            else:
+                                yield f"ERROR 429: Rate limit exceeded after {max_retries} retries. Try again later.".encode()
+                                return
+                        if response.status_code != 200:
+                            body = await response.aread()
+                            yield f"ERROR {response.status_code}: {body.decode()}".encode()
                             return
-                    if response.status_code != 200:
-                        body = await response.aread()
-                        yield f"ERROR {response.status_code}: {body.decode()}".encode()
-                        return
-                    async for line in response.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        data = line[6:]
-                        if data.strip() == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(data)
-                            token = chunk["choices"][0]["delta"].get("content", "")
-                            if token:
-                                yield token.encode()
-                        except Exception:
-                            continue
-            break
+                        async for line in response.aiter_lines():
+                            if not line.startswith("data: "):
+                                continue
+                            data = line[6:]
+                            if data.strip() == "[DONE]":
+                                break
+                            try:
+                                chunk = json.loads(data)
+                                token = chunk["choices"][0]["delta"].get("content", "")
+                                if token:
+                                    yield token.encode()
+                            except Exception:
+                                continue
+                break  # Success, exit retry loop
+            except httpx.ReadTimeout:
+                if attempt < max_retries - 1:
+                    yield f"[AI is taking too long to respond. Retrying... (attempt {attempt + 1}/{max_retries})]\n".encode()
+                    await asyncio.sleep(2)
+                    continue
+                else:
+                    yield f"ERROR: The AI model timed out after {max_retries} attempts. It may still be loading into memory. Please try again in a few seconds.".encode()
+                    return
+            except Exception as e:
+                yield f"ERROR: Network or server error connecting to AI provider: {str(e)}".encode()
+                return
 
     # 1) Ollama / local model (no rate limits) — use system+user roles
     if OLLAMA_BASE_URL:
         payload = {
             "model": OLLAMA_MODEL,
             "temperature": temperature,
-            "top_k": 20,
-            "repeat_penalty": 1.15,
+            "top_k": 15,
+            "repeat_penalty": 1.20,
             "num_predict": 4096,
             "stream": True,
             "messages": [
@@ -3953,6 +3973,7 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
             ],
         }
         headers = {"Content-Type": "application/json"}
+        # Always build as base/v1/chat/completions (OLLAMA_BASE_URL has /v1 stripped above)
         url = f"{OLLAMA_BASE_URL}/v1/chat/completions"
         async for chunk in _stream_from_api(url, payload, headers, max_retries=2):
             yield chunk
