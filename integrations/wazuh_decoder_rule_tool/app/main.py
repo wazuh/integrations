@@ -3881,8 +3881,8 @@ Do NOT add/remove child decoders. Each field in exactly one <order>. Improve reg
 - Child: <parent>, <regex>, <order> — one child per field
 - Multiple child decoders for the same event MUST use the exact same name
 - Osregex: \\d+ digits, \\S+ non-space, \\.+ any char
-- !!! CRITICAL: '.' is LITERAL in OS_Regex — NEVER escape it. IPs: \\d+.\\d+.\\d+.\\d+ (plain dots)
-    WRONG: \\d+\\.\\d+\\.\\d+\\.\\d+    RIGHT: \\d+.\\d+.\\d+.\\d+
+- ⛔ IP regex: use PLAIN dots — \\d+.\\d+.\\d+.\\d+ (CORRECT).
+    NEVER use \\d+\\.\\d+\\.\\d+\\.\\d+ — \\. matches ANY char in OS_Regex.
 - numbers: \\d+
 - Do NOT add <type>/<fts>/<plugin_decoder> unless needed"""
 
@@ -4131,7 +4131,7 @@ def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
     if not decoder_xml:
         return decoder_xml
     import re as _re
-    return _re.sub(r'\\(\\.)', r'\1', decoder_xml)
+    return _re.sub(r'\\\.', '.', decoder_xml)
 
 
 def _sanitize_rule_xml_static_fields(rule_xml: str) -> str:

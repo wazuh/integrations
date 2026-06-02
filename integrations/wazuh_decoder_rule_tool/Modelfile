@@ -82,6 +82,13 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 □ Rule <decoded_as> matches the parent decoder name (not the child)
 □ Custom fields use <field name="..."> not bare XML tags
 
+## ⚠️ IP Address Regex — CORRECT vs WRONG
+
+For IP addresses in OS_Regex, use UNESCAPED dots (`.` is literal in OS_Regex):
+
+CORRECT: `(\\d+.\\d+.\\d+.\\d+)` or `(\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3})`
+WRONG:   `(\\d+\\.\\d+\\.\\d+\\.\\d+)`  ← never escape dots with backslash
+
 ## Output Format
 Output ONLY valid XML wrapped in ```xml ... ``` blocks. No text before or after.
 
@@ -246,6 +253,40 @@ Log: 2015-07-29 19:04:29,071 - WARN  [SendWorker:188978561024:QuorumCnxManager@6
   <group>application,</group>
 </rule>
 ```
+
+## Example 7: IP extraction with correct OS_Regex (no escaped dots)
+Log: Dec 25 20:45:02 myhost TrafficLog[1234]: Action=LOGIN SrcIP=192.168.10.1 SrcPort=55432 DstIP=10.0.0.1 DstPort=443 Protocol=HTTPS
+```xml
+<decoder name="trafficlog">
+  <program_name>^TrafficLog</program_name>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>Action=(\w+) SrcIP=(\d+.\d+.\d+.\d+)</regex>
+  <order>action, srcip</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>DstIP=(\d+.\d+.\d+.\d+)</regex>
+  <order>dstip</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>SrcPort=(\d+)</regex>
+  <order>srcport</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>DstPort=(\d+)</regex>
+  <order>dstport</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>Protocol=(\S+)</regex>
+  <order>protocol</order>
+</decoder>
+```
+Note: IP uses `(\d+.\d+.\d+.\d+)` with PLAIN dots — `\.` would be WRONG (it matches any char in OS_Regex).
 
 Remember: In OS_Regex, \\. matches ANY character, and . matches a literal dot. NEVER use .* or .+ in OS_Regex decoders — use \\.+ instead.
 """
