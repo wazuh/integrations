@@ -13,6 +13,11 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
   });
 });
 
+/* ══ OS_Regex sanitization — strip \. → . (Wazuh OS_Regex uses literal dots) ══ */
+function sanitizeOsRegex(xml) {
+  return xml.replace(/\\./g, '.');
+}
+
 /* ══ Tabs ══ */
 // Removed decoder/rule generator tabs; keeping switchTab for future use
 function switchTab(tabId) {
@@ -441,8 +446,8 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
     const decoderMatch = fullText.match(/```xml\s*([\s\S]*?decoder[\s\S]*?)```/i) || fullText.match(/<decoder[\s\S]*?<\/decoder>/i);
     const ruleMatch = fullText.match(/```xml\s*([\s\S]*?rule[\s\S]*?)```/i) || fullText.match(/<group[\s\S]*?<\/group>/i);
 
-    const decoderXml = decoderMatch ? (decoderMatch[1] || decoderMatch[0]).trim() : '';
-    const ruleXml = ruleMatch ? (ruleMatch[1] || ruleMatch[0]).trim() : '';
+    const decoderXml = sanitizeOsRegex(decoderMatch ? (decoderMatch[1] || decoderMatch[0]).trim() : '');
+    const ruleXml = sanitizeOsRegex(ruleMatch ? (ruleMatch[1] || ruleMatch[0]).trim() : '');
 
     if (decoderXml || ruleXml) {
       document.getElementById('aiDecoderXml').innerHTML = highlightXml(decoderXml || '— no decoder block found —');
@@ -512,9 +517,11 @@ document.getElementById('aiGenerateValidateBtn').addEventListener('click', async
 
     // Show XML output
     if (result.decoder_xml || result.rule_xml) {
-      document.getElementById('aiDecoderXml').innerHTML = highlightXml(result.decoder_xml || '— no decoder —');
-      document.getElementById('aiRuleXml').innerHTML = highlightXml(result.rule_xml || '— no rule —');
-      storeAIXml(result.decoder_xml || '', result.rule_xml || '');
+      const decXml = sanitizeOsRegex(result.decoder_xml || '— no decoder —');
+      const rulXml = sanitizeOsRegex(result.rule_xml || '— no rule —');
+      document.getElementById('aiDecoderXml').innerHTML = highlightXml(decXml);
+      document.getElementById('aiRuleXml').innerHTML = highlightXml(rulXml);
+      storeAIXml(decXml, rulXml);
       xmlOut.style.display = 'block';
       toast(validated ? 'success' : 'info',
         validated ? 'Validated decoder generated!' : `Best attempt after ${result.attempts} tries`,
