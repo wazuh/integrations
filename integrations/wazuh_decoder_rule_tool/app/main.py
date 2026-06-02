@@ -3881,7 +3881,9 @@ Do NOT add/remove child decoders. Each field in exactly one <order>. Improve reg
 - Child: <parent>, <regex>, <order> — one child per field
 - Multiple child decoders for the same event MUST use the exact same name
 - Osregex: \\d+ digits, \\S+ non-space, \\.+ any char
-- IPs: \\d+.\\d+.\\d+.\\d+ (do NOT escape dots), numbers: \\d+
+- !!! CRITICAL: '.' is LITERAL in OS_Regex — NEVER escape it. IPs: \\d+.\\d+.\\d+.\\d+ (plain dots)
+    WRONG: \\d+\\.\\d+\\.\\d+\\.\\d+    RIGHT: \\d+.\\d+.\\d+.\\d+
+- numbers: \\d+
 - Do NOT add <type>/<fts>/<plugin_decoder> unless needed"""
 
     # ── Rule section (only if generating rules) ──
@@ -4118,7 +4120,18 @@ def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
         m = _re.search(r'(<group[\s\S]*?</group>)', full_text)
         if m:
             rule_xml = m.group(1).strip()
+    decoder_xml = _sanitize_decoder_xml_osregex(decoder_xml)
     return decoder_xml, rule_xml
+
+
+def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
+    """Wazuh OS_Regex treats '.' as literal, not as wildcard.
+    AI models routinely escape dots (\\.) because they are trained on PCRE.
+    This strips the backslash before dots in regex attributes to match OS_Regex syntax."""
+    if not decoder_xml:
+        return decoder_xml
+    import re as _re
+    return _re.sub(r'\\(\\.)', r'\1', decoder_xml)
 
 
 def _sanitize_rule_xml_static_fields(rule_xml: str) -> str:
@@ -4294,7 +4307,7 @@ async def ai_generate_validated(request: AIGenerateRequest):
             correction_context += "Fix the regex patterns to match these logs. Output corrected XML only."
 
     return JSONResponse({
-        "decoder_xml": best_decoder_xml,
+        "decoder_xml": _sanitize_decoder_xml_osregex(best_decoder_xml),
         "rule_xml": best_rule_xml,
         "validation": best_validation,
         "attempts": attempt + 1,
