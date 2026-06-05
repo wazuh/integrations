@@ -507,8 +507,8 @@ async def llm_generate_dashboard_plan(index_pattern: str, viz_type: str, require
     sys_prompt = (
         "You are generating a JSON plan for an OpenSearch Dashboards visualization.\n"
         "Rules:\n"
-        "- Output ONLY valid JSON object.
-- CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON object. Do not include any explanations, tutorial steps, or markdown formatting.\n"
+        "- Output ONLY valid JSON object.\n"
+        "- CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON object. Do not include any explanations, tutorial steps, or markdown formatting.\n"
         "- Use KQL for 'query' if filtering is needed, else empty string.\n"
         "- time_from/time_to should be relative strings like 'now-24h' and 'now'.\n"
         "- For pie/bar/table: choose a 'field' to do a TOP-N terms aggregation.\n"
@@ -552,8 +552,8 @@ async def llm_fix_dashboard_plan(index_pattern: str, plan: Dict[str, Any], valid
         "You are an expert at fixing OpenSearch Dashboards visualization JSON plans.\n"
         "The previous plan failed field validation. You must fix the fields based on the valid available fields.\n\n"
         "Rules:\n"
-        "- Output ONLY valid JSON object representing the fixed plan.
-- CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON object. Do not include any explanations, tutorial steps, or markdown formatting.\n"
+        "- Output ONLY valid JSON object representing the fixed plan.\n"
+        "- CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON object. Do not include any explanations, tutorial steps, or markdown formatting.\n"
         f"- Here is the validation error: {validation_msg}\n"
         f"- ONLY use these available fields: {fields_str}\n"
         "- If the query filter might be too strict, make the KQL query more lenient by using wildcards (e.g., `rule.groups: *auth*`).\n"
@@ -600,8 +600,8 @@ async def llm_generate_full_dashboard_plan(index_pattern: str, requirement: str)
         "The user will describe a use case (like 'brute force attack dashboard' or 'Google Cloud Alerts').\n"
         "CRITICAL: Do NOT just generate generic 'Total Count' or 'Top Source IPs' charts for every request. You MUST carefully analyze the provided 'Sample Document' and select the most unique, informative, and relevant fields for THAT specific log type. Create 5 to 8 highly specific visualizations.\n\n"
         "Rules:\n"
-        "- Output ONLY a valid JSON Array of objects.
-- CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON array. Do not include any explanations, tutorial steps, or markdown formatting.\n"
+        "- Output ONLY a valid JSON Array of objects.\n"
+        "- CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON array. Do not include any explanations, tutorial steps, or markdown formatting.\n"
         "- You MUST include at least one 'table' visualization in every dashboard to show raw details, using the most relevant specific fields for the log type (e.g., 'data.gcp.resource.name' or 'syscheck.path' instead of generic 'agent.name').\n"
         "- Vary the `viz_type` (e.g. pie, bar, table, line, metric). Use 'map' ONLY if geographic data is highly relevant to the logs.\n"
         "- Be highly creative and specific. If the logs are GCP, show Top GCP Severities, Top Resources, Affected Users, etc. If it's FIM, show Top File Paths, File Actions, etc. Use the sample document to find the absolute best fields!\n"
