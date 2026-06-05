@@ -415,22 +415,18 @@ def build_multi_dashboard_payload(title: str, visualizations: List[Dict[str, Any
     panels = []
     references = []
     
-    x, y = 0, 0
-    max_y_in_row = 0
+    x = 0
+    col_heights = [0] * 48
     
     for i, vis in enumerate(visualizations):
         panel_id = str(uuid.uuid4())
         vis_id = vis.get("vis_id", "")
         viz_type = vis.get("viz_type", "")
-        
-        # Decide grid size based on visualization type
         plan = vis.get("plan", {})
         
-        # Use LLM suggested dimensions if available, otherwise fallback to defaults
         if "grid_w" in plan and "grid_h" in plan:
             w = int(plan["grid_w"])
             h = int(plan["grid_h"])
-            # Enforce sane height bounds to prevent overstretching
             if viz_type == "metric":
                 h = min(h, 8)
             elif viz_type in ("line", "area", "map", "pie", "bar"):
@@ -442,19 +438,16 @@ def build_multi_dashboard_payload(title: str, visualizations: List[Dict[str, Any
                 w, h = 48, 14
             elif viz_type == "table":
                 w, h = 48, 18
-            elif viz_type in ("pie", "bar", "map"):
-                w, h = 24, 14
             else:
                 w, h = 24, 14
 
-        # Ensure bounds
         w = max(1, min(w, 48))
         h = max(1, h)
 
         if x + w > 48:
             x = 0
-            y += max_y_in_row
-            max_y_in_row = 0
+            
+        y = max(col_heights[x : x+w])
             
         panels.append({
             "version": "2.19.0",
@@ -470,8 +463,12 @@ def build_multi_dashboard_payload(title: str, visualizations: List[Dict[str, Any
             "id": vis_id,
         })
         
+        for c in range(x, x+w):
+            col_heights[c] = y + h
+            
         x += w
-        max_y_in_row = max(max_y_in_row, h)
+        if x >= 48:
+            x = 0
 
     attrs = {
         "title": title,
@@ -604,7 +601,8 @@ async def llm_generate_full_dashboard_plan(index_pattern: str, requirement: str)
         "- CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON array. Do not include any explanations, tutorial steps, or markdown formatting.\n"
         "- You MUST include at least one 'table' visualization in every dashboard to show raw details, using the most relevant specific fields for the log type (e.g., 'data.gcp.resource.name' or 'syscheck.path' instead of generic 'agent.name').\n"
         "- Vary the `viz_type` (e.g. pie, bar, table, line, metric). Use 'map' ONLY if geographic data is highly relevant to the logs.\n"
-        "- Be highly creative and specific. If the logs are GCP, show Top GCP Severities, Top Resources, Affected Users, etc. If it's FIM, show Top File Paths, File Actions, etc. Use the sample document to find the absolute best fields!\n"
+        "- Be highly creative and specific. If the logs are GCP, show Top GCP Severities, Top Resources, Affected Users, etc. If it's FIM, show Top File Paths, File Actions, etc. Use the sample document to find the absolute best fields!
+- CRITICAL FIELD MATCHING: Do NOT hallucinate fields or mix fields from different platforms! If the topic is 'office365', ONLY use 'data.office365.*' fields. If 'aws', use 'data.aws.*'. ALWAYS cross-reference the exact field names with the 'Sample Document'!\n"
         "- CRITICAL RULE FOR FILTERING: If the index is generic (like 'wazuh-alerts-*'), you MUST add a KQL `query` filter to EVERY visualization to restrict the data to the requested topic. You MUST base this filter on `rule.groups` (e.g., `rule.groups: *office365*`, `rule.groups: *gcp*`, `rule.groups: *syscheck*`). WARNING: The 'Sample Document' might contain red herrings (like an 'Active Window' log showing the user's browser title). IGNORE active window logs unless specifically requested! Force the query to filter the actual log group!\n"
         "- Use highly descriptive and specific titles (e.g., 'Top GCP Resources Accessed', 'Authentication Failures Timeline', 'Most Modified File Paths').\n"
         "- `time_from`/`time_to` should be relative strings like 'now-24h' and 'now', unless specified otherwise.\n"
