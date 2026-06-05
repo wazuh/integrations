@@ -19,6 +19,54 @@ set -a
 source "$ENV_FILE"
 set +a
 
+# Handle deployment types (dashboard, indexer, all-in-one)
+DEPLOYMENT_TYPE="${DEPLOYMENT_TYPE:-all-in-one}"
+if [[ "$DEPLOYMENT_TYPE" == "dashboard" ]]; then
+  export INSTALL_MCP_SERVER="no"
+  export INSTALL_MCP_GATEWAY="no"
+  export CONFIGURE_ML_COMMONS="no"
+  export REGISTER_MODEL_AND_AGENT="no"
+  export SET_ROOT_AGENT="no"
+  export INSTALL_DASHBOARD_PLUGINS="yes"
+elif [[ "$DEPLOYMENT_TYPE" == "indexer" ]]; then
+  export INSTALL_MCP_SERVER="yes"
+  export INSTALL_MCP_GATEWAY="yes"
+  export CONFIGURE_ML_COMMONS="yes"
+  export REGISTER_MODEL_AND_AGENT="yes"
+  export SET_ROOT_AGENT="yes"
+  export INSTALL_DASHBOARD_PLUGINS="no"
+fi
+
+
+# Auto-map single-source variables to required component variables
+export OPENSEARCH_URL="https://${WAZUH_INDEXER_IP}:9200"
+export OPENSEARCH_USER="${WAZUH_INDEXER_USER:-admin}"
+export OPENSEARCH_PASS="${WAZUH_INDEXER_PASS}"
+export OPENSEARCH_VERIFY_TLS="${WAZUH_INDEXER_VERIFY_TLS:-false}"
+
+export OPENSEARCH_USERNAME="${WAZUH_INDEXER_USER:-admin}"
+export OPENSEARCH_PASSWORD="${WAZUH_INDEXER_PASS}"
+export OPENSEARCH_SSL_VERIFY="${WAZUH_INDEXER_VERIFY_TLS:-false}"
+
+export WAZUH_API_URL="https://${WAZUH_MANAGER_IP}:55000"
+export WAZUH_API_USER="${WAZUH_MANAGER_USER:-wazuh}"
+export WAZUH_API_PASS="${WAZUH_MANAGER_PASS}"
+export WAZUH_API_VERIFY_TLS="${WAZUH_MANAGER_VERIFY_TLS:-false}"
+
+export STAGING_WAZUH_API_URL="https://${WAZUH_MANAGER_IP}:55000"
+export STAGING_WAZUH_API_USER="${WAZUH_MANAGER_USER:-wazuh}"
+export STAGING_WAZUH_API_PASS="${WAZUH_MANAGER_PASS}"
+export STAGING_WAZUH_API_VERIFY_TLS="${WAZUH_MANAGER_VERIFY_TLS:-false}"
+
+export OPENSEARCH_DASHBOARD_URL="https://${WAZUH_DASHBOARD_IP}:443"
+export OPENSEARCH_DASHBOARD_USER="${WAZUH_DASHBOARD_USER:-admin}"
+export OPENSEARCH_DASHBOARD_PASS="${WAZUH_DASHBOARD_PASS}"
+export OPENSEARCH_DASHBOARD_VERIFY_TLS="${WAZUH_DASHBOARD_VERIFY_TLS:-false}"
+
+export OSD_URL="https://${WAZUH_INDEXER_PUBLIC_IP:-$WAZUH_DASHBOARD_IP}"
+export OSD_USER="${WAZUH_DASHBOARD_USER:-admin}"
+export OSD_PASS="${WAZUH_DASHBOARD_PASS}"
+export OSD_VERIFY_TLS="${WAZUH_DASHBOARD_VERIFY_TLS:-false}"
 # Standard defaults if not defined in the environment file
 AI_ASSISTANT_DIR="${AI_ASSISTANT_DIR:-/opt/AI_assistant}"
 WAZUH_DASHBOARD_PLUGINS_DIR="${WAZUH_DASHBOARD_PLUGINS_DIR:-/usr/share/wazuh-dashboard/plugins}"

@@ -99,11 +99,20 @@ The installation and configuration of all components (System Preparation, OpenSe
    # Edit ./ai-assistant.env and fill in your keys, IP addresses, credentials, etc.
    nano ./ai-assistant.env
    ```
+   
+   **Important Environment File Variables:**
+   - `DEPLOYMENT_TYPE`: Set to `"all-in-one"` (default), `"indexer"`, or `"dashboard"` depending on the node you are installing on.
+   - `WAZUH_INDEXER_IP`: Set to `127.0.0.1` if installing directly on the indexer, or its IP if distributed.
+   - `WAZUH_INDEXER_PUBLIC_IP`: The public IP of your indexer (used for PDF generation links).
+   - `WAZUH_MANAGER_IP` & `WAZUH_DASHBOARD_IP`: The IP addresses of your Wazuh Manager and Dashboard servers.
+   - `OPENAI_API_KEY` / `GEMINI_API_KEY` / AWS Credentials: Add your preferred LLM provider credentials.
+   - Update the respective `..._USER` and `..._PASS` fields with your actual Wazuh credentials.
 
 3. **Run the installer script** as root:
    ```bash
    sudo bash install_ai_assistant.sh ./ai-assistant.env
    ```
+   > **Note for Distributed Deployments:** If your Wazuh Indexer and Dashboard run on separate servers, you must run this installation process on **both** nodes. First run it on the Indexer with `DEPLOYMENT_TYPE="indexer"`, then copy the `/opt/AI_assistant` folder and your `.env` file to the Dashboard server, change the setting to `DEPLOYMENT_TYPE="dashboard"`, and run the script again.
 
 The script will automatically perform:
 - System package installations (supporting Amazon Linux, RHEL, CentOS, Ubuntu).
@@ -183,8 +192,8 @@ Use these to validate end-to-end behavior and the reporting format:
 
 ![alt text](images/image-9.png)
 
-
 **Create Wazuh indexer monitor:**
+
 - Send slack alert for authentication failed attempts from India
 ![alt text](images/image-10.png)
 
