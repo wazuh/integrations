@@ -9,8 +9,38 @@ from .opensearch_api import (
     indexer_cat_indices,
     indexer_field_caps,
     osd_request,
-    get_all_fields_for_index
+    get_all_fields_for_index,
+    indexer_request
 )
+from .alert_plan import _extract_search_keywords_llm
+
+async def _get_sample_docs(index_pattern: str, topic: str) -> str:
+    keywords = await _extract_search_keywords_llm(topic)
+    sample_doc_str = "{}"
+    if keywords:
+        q = {
+            "size": 5,
+            "query": {
+                "query_string": {
+                    "query": keywords,
+                    "default_operator": "OR",
+                    "lenient": True
+                }
+            }
+        }
+        try:
+            sc, txt = await indexer_request("POST", f"/{index_pattern}/_search", json_body=q)
+            if 200 <= sc < 300:
+                j = json.loads(txt)
+                hits = j.get("hits", {}).get("hits", [])
+                samples = []
+                for h in hits:
+                    samples.append(h.get("_source", {}))
+                if samples:
+                    sample_doc_str = json.dumps(samples, indent=2)
+        except Exception:
+            pass
+    return sample_doc_str
 
 def _last_json_block(text: str) -> str:
     m = re.search(r"\{.*\}\s*$", text or "", re.S)
@@ -19,6 +49,8 @@ def _last_json_block(text: str) -> str:
 def field_exists_in_field_caps(caps: Dict[str, Any], field: str) -> bool:
     f = (caps.get("fields") or {}).get(field)
     if not f:
+        return False
+    if len(f) > 1:
         return False
     # Ensure at least one type is aggregatable since visualizations use bucket aggregations
     for ext_type, details in f.items():
@@ -180,6 +212,40 @@ def build_vis_payload(
                 "addTooltip": True,
                 "addLegend": False,
                 "legendPosition": "right",
+                "categoryAxes": [
+                    {
+                        "id": "CategoryAxis-1",
+                        "type": "category",
+                        "position": "bottom",
+                        "show": True,
+                        "style": {},
+                        "scale": {"type": "linear"},
+                        "labels": {
+                            "show": True,
+                            "truncate": 100,
+                            "rotate": 45,
+                            "filter": True
+                        },
+                        "title": {}
+                    }
+                ],
+                "valueAxes": [
+                    {
+                        "id": "ValueAxis-1",
+                        "name": "LeftAxis-1",
+                        "type": "value",
+                        "position": "left",
+                        "show": True,
+                        "style": {},
+                        "scale": {"type": "linear", "mode": "normal"},
+                        "labels": {"show": True, "rotate": 0, "filter": False, "truncate": 100},
+                        "title": {"text": "Count"}
+                    }
+                ],
+                "grid": {
+                    "categoryLines": False,
+                    "valueAxis": "ValueAxis-1"
+                }
             },
             "aggs": [
                 {"id": "1", "enabled": True, "type": "count", "schema": "metric", "params": {}},
@@ -210,15 +276,26 @@ def build_vis_payload(
             )
 
     elif vis_type == "metric":
+        if field:
+            aggs = [
+                {
+                    "id": "1", 
+                    "enabled": True, 
+                    "type": "cardinality", 
+                    "schema": "metric", 
+                    "params": {"field": field, "customLabel": "Unique Count"}
+                }
+            ]
+        else:
+            aggs = [{"id": "1", "enabled": True, "type": "count", "schema": "metric", "params": {}}]
+
         vis_state = {
             "title": title,
             "type": "metric",
             "params": {
                 "addTooltip": True,
             },
-            "aggs": [
-                {"id": "1", "enabled": True, "type": "count", "schema": "metric", "params": {}},
-            ],
+            "aggs": aggs,
         }
 
     elif vis_type == "table":
@@ -247,7 +324,7 @@ def build_vis_payload(
             "type": "table",
             "params": {
                 "perPage": 10,
-                "showPartialRows": False,
+                "showPartialRows": True,
                 "showMetricsAtAllLevels": False,
                 "sort": {"columnIndex": 1, "direction": "desc"},
             },
@@ -322,20 +399,51 @@ def build_dashboard_payload(title: str, vis_id: str) -> Dict[str, Any]:
     }
     return {"attributes": attrs, "references": references}
 
-def build_multi_dashboard_payload(title: str, vis_ids: List[str]) -> Dict[str, Any]:
+def build_multi_dashboard_payload(title: str, visualizations: List[Dict[str, Any]]) -> Dict[str, Any]:
     panels = []
     references = []
     
-    # Simple grid layout logic (2 columns wide, 48 grid units available total)
     x, y = 0, 0
-    w, h = 48, 15 # default full width
+    max_y_in_row = 0
     
-    if len(vis_ids) > 1:
-        w = 24 # split into 2 columns if multiple charts
-
-    for i, vis_id in enumerate(vis_ids):
+    for i, vis in enumerate(visualizations):
         panel_id = str(uuid.uuid4())
+        vis_id = vis.get("vis_id", "")
+        viz_type = vis.get("viz_type", "")
         
+        # Decide grid size based on visualization type
+        plan = vis.get("plan", {})
+        
+        # Use LLM suggested dimensions if available, otherwise fallback to defaults
+        if "grid_w" in plan and "grid_h" in plan:
+            w = int(plan["grid_w"])
+            h = int(plan["grid_h"])
+            # Enforce sane height bounds to prevent overstretching
+            if viz_type == "metric":
+                h = min(h, 8)
+            elif viz_type in ("line", "area", "map", "pie", "bar"):
+                h = min(h, 15)
+        else:
+            if viz_type == "metric":
+                w, h = 48, 8
+            elif viz_type in ("line", "area"):
+                w, h = 48, 14
+            elif viz_type == "table":
+                w, h = 48, 18
+            elif viz_type in ("pie", "bar", "map"):
+                w, h = 24, 14
+            else:
+                w, h = 24, 14
+
+        # Ensure bounds
+        w = max(1, min(w, 48))
+        h = max(1, h)
+
+        if x + w > 48:
+            x = 0
+            y += max_y_in_row
+            max_y_in_row = 0
+            
         panels.append({
             "version": "2.19.0",
             "type": "visualization",
@@ -351,9 +459,7 @@ def build_multi_dashboard_payload(title: str, vis_ids: List[str]) -> Dict[str, A
         })
         
         x += w
-        if x >= 48:
-            x = 0
-            y += h
+        max_y_in_row = max(max_y_in_row, h)
 
     attrs = {
         "title": title,
@@ -423,39 +529,96 @@ async def llm_generate_dashboard_plan(index_pattern: str, viz_type: str, require
 
     return plan
 
+async def llm_fix_dashboard_plan(index_pattern: str, plan: Dict[str, Any], validation_msg: str, requirement: str) -> Dict[str, Any]:
+    llm = _build_llm()
+    fields_list = await get_all_fields_for_index(index_pattern)
+    fields_str = ", ".join(fields_list)
+    sample_doc_str = await _get_sample_docs(index_pattern, requirement)
+    
+    sys_prompt = (
+        "You are an expert at fixing OpenSearch Dashboards visualization JSON plans.\n"
+        "The previous plan failed field validation. You must fix the fields based on the valid available fields.\n\n"
+        "Rules:\n"
+        "- Output ONLY valid JSON object representing the fixed plan.\n"
+        f"- Here is the validation error: {validation_msg}\n"
+        f"- ONLY use these available fields: {fields_str}\n"
+        "- If the query filter might be too strict, make the KQL query more lenient by using wildcards (e.g., `rule.groups: *auth*`).\n"
+        "- Keep the rest of the plan intact if possible.\n"
+    )
+    
+    user = (
+        f"Index pattern: {index_pattern}\n"
+        f"Requirement: {requirement}\n"
+        f"Sample Document: {sample_doc_str}\n"
+        f"Previous Plan: {json.dumps(plan)}\n"
+        "Return the corrected JSON plan:"
+    )
+    
+    msg = await asyncio.to_thread(llm.invoke, sys_prompt + "\n" + user)
+    raw = getattr(msg, "content", "") or ""
+    
+    try:
+        fixed_plan = json.loads(_last_json_block(raw))
+    except Exception:
+        return plan # fallback if LLM fails
+
+    # Ensure defaults are maintained
+    fixed_plan.setdefault("query", plan.get("query", ""))
+    fixed_plan.setdefault("time_from", plan.get("time_from", "now-1d"))
+    fixed_plan.setdefault("time_to", plan.get("time_to", "now"))
+    fixed_plan.setdefault("top_n", plan.get("top_n", 5))
+    fixed_plan.setdefault("interval", plan.get("interval", "auto"))
+    if plan.get("viz_title"):
+        fixed_plan.setdefault("viz_title", plan.get("viz_title"))
+    if plan.get("viz_type"):
+        fixed_plan.setdefault("viz_type", plan.get("viz_type"))
+
+    return fixed_plan
+
 async def llm_generate_full_dashboard_plan(index_pattern: str, requirement: str) -> List[Dict[str, Any]]:
     llm = _build_llm()
     fields_list = await get_all_fields_for_index(index_pattern)
     fields_str = ", ".join(fields_list)
+    sample_doc_str = await _get_sample_docs(index_pattern, requirement)
     
     sys_prompt = (
-        "You are generating a JSON array of configuration plans for a comprehensive OpenSearch Dashboard.\n"
-        "The user will describe a use case (like 'brute force attack dashboard'). You must generate 4 to 6 different "
-        "visualizations that give a full picture of the data for this requirement.\n\n"
+        "You are generating a JSON array of configuration plans for a highly tailored OpenSearch Dashboard.\n"
+        "The user will describe a use case (like 'brute force attack dashboard' or 'Google Cloud Alerts').\n"
+        "CRITICAL: Do NOT just generate generic 'Total Count' or 'Top Source IPs' charts for every request. You MUST carefully analyze the provided 'Sample Document' and select the most unique, informative, and relevant fields for THAT specific log type. Create 5 to 8 highly specific visualizations.\n\n"
         "Rules:\n"
         "- Output ONLY a valid JSON Array of objects.\n"
-        "- You MUST include at least one 'table' visualization in every dashboard to show raw details.\n"
-        "- Vary the `viz_type` (e.g. at least one 'pie', 'bar', 'table', 'line', 'metric'). You may include at most ONE 'map' visualization.\n"
-        "- The 'query' MUST contain KQL filtering if the requirement demands it (e.g. `rule.mitre.tactic: \"Brute Force\"` or `rule.groups: \"sshd\"`), but leave it as `\"\"` for general views without a specific filter.\n"
-        "- Use proper titles. e.g for brute force: 'Top Source IPs', 'Timeline', 'Targeted Agents Details'.\n"
-        "- `time_from`/`time_to` should be relative strings like 'now-7d' and 'now', unless specified otherwise.\n"
+        "- You MUST include at least one 'table' visualization in every dashboard to show raw details, using the most relevant specific fields for the log type (e.g., 'data.gcp.resource.name' or 'syscheck.path' instead of generic 'agent.name').\n"
+        "- Vary the `viz_type` (e.g. pie, bar, table, line, metric). Use 'map' ONLY if geographic data is highly relevant to the logs.\n"
+        "- Be highly creative and specific. If the logs are GCP, show Top GCP Severities, Top Resources, Affected Users, etc. If it's FIM, show Top File Paths, File Actions, etc. Use the sample document to find the absolute best fields!\n"
+        "- CRITICAL RULE FOR FILTERING: If the index is generic (like 'wazuh-alerts-*'), you MUST add a KQL `query` filter to EVERY visualization to restrict the data to the requested topic. You MUST base this filter on `rule.groups` (e.g., `rule.groups: *office365*`, `rule.groups: *gcp*`, `rule.groups: *syscheck*`). WARNING: The 'Sample Document' might contain red herrings (like an 'Active Window' log showing the user's browser title). IGNORE active window logs unless specifically requested! Force the query to filter the actual log group!\n"
+        "- Use highly descriptive and specific titles (e.g., 'Top GCP Resources Accessed', 'Authentication Failures Timeline', 'Most Modified File Paths').\n"
+        "- `time_from`/`time_to` should be relative strings like 'now-24h' and 'now', unless specified otherwise.\n"
         "- For pie/bar: specify the top-level 'field' to aggregate on (e.g. 'agent.name', 'data.srcip', 'data.srcuser', 'rule.description').\n"
+        "- For metric: omit 'field' for a total document count. To count unique values (e.g. unique IPs), specify the 'field' property.\n"
         "- For table: specify a list of string fields in 'table_fields' (e.g. ['agent.name', 'data.srcip', 'rule.description']). Do NOT include time fields like '@timestamp'.\n"
         "- For map: specify 'field' as exactly 'GeoLocation.location' (the native Wazuh geo_point field).\n"
         "- For line: specify 'split_field' if you want multiple series lines.\n"
+        "- For layout: specify `grid_w` (width, 1 to 48) and `grid_h` (height). IMPORTANT to avoid empty space and overstretching:\n"
+        "   * Metrics MUST be very short (grid_h: 6 to 8). You can make them wide (grid_w: 48) or place multiple metrics side-by-side.\n"
+        "   * Pie/Bar charts should be medium size (grid_w: 24, grid_h: 12 to 14).\n"
+        "   * Line/Area graphs should be wide but NOT tall (grid_w: 48, grid_h: 12 to 14).\n"
+        "   * Maps should be (grid_w: 24, grid_h: 14) or (grid_w: 48, grid_h: 14).\n"
+        "   * Tables should be wide (grid_w: 48, grid_h: 15 to 18).\n"
+        "   * Try to keep elements in the same row the same height so no blank vertical spaces appear.\n"
         f"- Prefer these fields (if relevant): {fields_str}\n"
         "- Return ONLY the JSON Array.\n"
         "\n"
         "Example payload:\n"
         "[\n"
-        "  {\"viz_title\": \"Timeline of Activity\", \"viz_type\": \"line\", \"query\": \"rule.groups: authentication_failed\", \"time_from\": \"now-24h\", \"time_to\": \"now\"},\n"
-        "  {\"viz_title\": \"Recent Alerts\", \"viz_type\": \"table\", \"table_fields\": [\"agent.name\", \"data.srcip\", \"rule.description\", \"data.srcuser\"], \"top_n\": 10, \"query\": \"rule.groups: authentication_failed\", \"time_from\": \"now-24h\", \"time_to\": \"now\"}\n"
+        "  {\"viz_title\": \"Timeline of Activity\", \"viz_type\": \"line\", \"query\": \"rule.groups: authentication_failed\", \"time_from\": \"now-24h\", \"time_to\": \"now\", \"grid_w\": 48, \"grid_h\": 16},\n"
+        "  {\"viz_title\": \"Recent Alerts\", \"viz_type\": \"table\", \"table_fields\": [\"agent.name\", \"data.srcip\", \"rule.description\", \"data.srcuser\"], \"top_n\": 10, \"query\": \"rule.groups: authentication_failed\", \"time_from\": \"now-24h\", \"time_to\": \"now\", \"grid_w\": 48, \"grid_h\": 20}\n"
         "]"
     )
 
     user = (
         f"Index pattern: {index_pattern}\n"
         f"Design a full multi-visualization dashboard for this requirement:\n{requirement}\n"
+        f"Sample Document: {sample_doc_str}\n"
     )
 
     msg = await asyncio.to_thread(llm.invoke, sys_prompt + "\n" + user)
@@ -467,7 +630,7 @@ async def llm_generate_full_dashboard_plan(index_pattern: str, requirement: str)
         
     for plan in plans:
         plan.setdefault("query", "")
-        plan.setdefault("time_from", "now-7d")
+        plan.setdefault("time_from", "now-24h")
         plan.setdefault("time_to", "now")
         plan.setdefault("top_n", 5)
         plan.setdefault("interval", "auto")
@@ -491,7 +654,7 @@ async def llm_generate_full_dashboard_plan(index_pattern: str, requirement: str)
             "table_fields": ["agent.name", "data.srcip", "data.srcuser", "rule.description"],
             "top_n": 50,
             "query": plans[0].get("query", ""),
-            "time_from": plans[0].get("time_from", "now-7d"),
+            "time_from": plans[0].get("time_from", "now-24h"),
             "time_to": plans[0].get("time_to", "now"),
             "interval": "auto"
         })

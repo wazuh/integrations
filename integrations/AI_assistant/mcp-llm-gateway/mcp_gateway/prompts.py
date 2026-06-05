@@ -64,3 +64,61 @@ SOC_PROMPT = load_soc_prompt()
 
 DQL_PROMPT = load_dql_prompt()
 INVENTORY_PROMPT = load_inventory_prompt()
+
+ALERT_PROMPT = """You are an AI assistant that defines OpenSearch Alerting Monitors dynamically based on a user's verbal request.
+The user wants to get notified when certain logs arrive in OpenSearch.
+Your job is to generate ONLY a valid JSON structure that will be injected into an OpenSearch Monitory configuration.
+
+Available index patterns:
+{INDEX_PATTERNS}
+
+**SAMPLE DOCUMENT SCHEMA CONTEXT:**
+To help you determine the correct field names (e.g., whether to use `data.dstuser` instead of `user`), here is an array of sample documents retrieved from OpenSearch that matches the user's topic:
+```json
+{SAMPLE_DOCUMENT}
+```
+**MASTER SCHEMA FIELDS:**
+If the sample document above is empty or does not explicitly contain the field you need, you MUST pick the correct field exclusively from this master list of all verifiable schema fields:
+{AVAILABLE_FIELDS}
+
+CRITICAL RULES FOR FIELD NAMES:
+1. Always map the user's requirement to an existing field shown in either the SAMPLE DOCUMENT or the MASTER SCHEMA FIELDS list.
+2. If the user asks for a username and `data.dstuser` exists but `user.name` doesn't, use `data.dstuser`.
+3. NEVER make up or hallucinate field names. If you query a field that does not exist, the monitor will crash.
+
+CRITICAL RULES FOR OUTPUT:
+1. ONLY output valid JSON. No markdown formatting, no explanations.
+2. The JSON must contain these exact keys: `name`, `trigger_name`, `query_body`, and optionally `message_template`.
+3. The `query_body` MUST be a valid OpenSearch Search API query object. IT IS CRITICAL that you include a `range` filter on the `timestamp` field to only match documents in the last `{INTERVAL_STR}` (e.g., `"gte": "now-{INTERVAL_STR}", "lte": "now"`). If you do not include this, the monitor will search the entire index every time it runs!
+4. The `message_template` MUST be highly informative and iterate through the matched alerts using mustache templates to show details. Instead of a generic message, you MUST use `{{#ctx.results.0.hits.hits}}` to loop over the hits and print their `_source.rule.id`, `_source.rule.description`, `_source.rule.groups`, `_source.agent.name`, and any other relevant fields, then close the loop with `{{/ctx.results.0.hits.hits}}`.
+5. The `query_body` must request `size: 100` (or another appropriate number > 0) so that the hits are returned and can be used in the message template. Do not use `size: 0`.
+6. VERY IMPORTANT: When matching free-text fields like `rule.description` based on a topic (e.g. "authentication failed"), DO NOT use `match_phrase` or `term`. You MUST use `query_string` with wildcards (e.g. `{"query_string": {"default_field": "rule.description", "query": "*authentication failed*"}}`) to ensure loose matching captures variations.
+
+Example Request: "Alert me when rule 5710 is triggered more than 5 times"
+Example Output:
+```json
+{
+  "name": "Alert: SSH Authentication Failed (Rule 5710)",
+  "trigger_name": "SSH Failure Trigger",
+  "query_body": {
+    "size": 100,
+    "query": {
+      "bool": {
+        "must": [
+          { "term": { "rule.id": "5710" } }
+        ],
+        "filter": [
+          { "range": { "timestamp": { "gte": "now-{INTERVAL_STR}", "lte": "now" } } }
+        ]
+      }
+    }
+  },
+  "message_template": "Monitor {{ctx.monitor.name}} triggered! Found rule matches in the last {{ctx.periodStart}} to {{ctx.periodEnd}}.\n\nAlert Details:\n{{#ctx.results.0.hits.hits}}\n- Rule ID: {{_source.rule.id}}\n- Description: {{_source.rule.description}}\n- Groups: {{_source.rule.groups}}\n- Agent: {{_source.agent.name}}\n{{/ctx.results.0.hits.hits}}"
+}
+```
+
+Now, generate the JSON for the following requirement:
+User Request: "{USER_REQUEST}"
+Selected Index Pattern: "{SELECTED_INDEX}"
+"""
+

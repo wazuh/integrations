@@ -141,6 +141,8 @@ async def get_all_fields_for_index(index_pattern: str) -> List[str]:
             data = json.loads(txt)
             good_fields = []
             for f, details in data.get("fields", {}).items():
+                if len(details) > 1:
+                    continue
                 is_good = False
                 for k, v in details.items():
                     if v.get("searchable") and (k in ["keyword", "ip", "boolean", "long", "integer", "float", "double", "date"]):
@@ -160,3 +162,66 @@ async def get_all_fields_for_index(index_pattern: str) -> List[str]:
         "agent.name", "agent.id", "rule.id", "rule.level", "rule.groups",
         "rule.description", "data.srcip", "data.dstip", "@timestamp", "timestamp"
     ]
+
+async def _ensure_default_smtp_account() -> None:
+    import os
+    sc, txt = await indexer_request("GET", "/_plugins/_notifications/configs/default")
+    if sc == 200:
+        return
+    payload = {
+        "config_id": "default",
+        "config": {
+            "name": "default",
+            "description": "Auto-created SMTP Account",
+            "config_type": "smtp_account",
+            "is_enabled": True,
+            "smtp_account": {
+                "host": os.getenv("SMTP_HOST", "smtp.gmail.com"),
+                "port": int(os.getenv("SMTP_PORT", 587)),
+                "method": "start_tls",
+                "from_address": os.getenv("SMTP_FROM", "placeholder@example.com")
+            }
+        }
+    }
+    await indexer_request("POST", "/_plugins/_notifications/configs", json_body=payload)
+
+async def indexer_create_notification_config(name: str, config_type: str, slack_url: str = None, email_sender: str = None, email_receiver: str = None) -> Tuple[bool, str]:
+    payload = {
+        "config": {
+            "name": name,
+            "description": name,
+            "config_type": config_type,
+            "is_enabled": True
+        }
+    }
+    if config_type == "slack" and slack_url:
+        payload["config"]["slack"] = {"url": slack_url}
+    elif config_type == "email" and email_receiver:
+        await _ensure_default_smtp_account()
+        payload["config"]["email"] = {
+            "email_account_id": "default",
+            "recipient_list": [{"recipient": email_receiver}]
+        }
+    sc, txt = await indexer_request("POST", "/_plugins/_notifications/configs", json_body=payload)
+    if 200 <= sc < 300:
+        try:
+            j = json.loads(txt)
+            return True, str(j.get("config_id") or "")
+        except Exception:
+            return True, txt
+            
+    print(f"OS_NOTIF_ERROR: status={sc} body={txt}", flush=True)
+    return False, txt
+
+async def indexer_create_monitor(monitor_payload: dict) -> Tuple[bool, str]:
+    sc, txt = await indexer_request("POST", "/_plugins/_alerting/monitors", json_body=monitor_payload)
+    if 200 <= sc < 300:
+        try:
+            j = json.loads(txt)
+            return True, str(j.get("_id") or "")
+        except Exception:
+            return True, txt
+            
+    print(f"OS_MONITOR_ERROR: status={sc} body={txt}", flush=True)
+    return False, txt
+

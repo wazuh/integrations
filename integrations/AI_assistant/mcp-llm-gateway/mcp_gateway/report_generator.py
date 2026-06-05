@@ -11,6 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Tabl
 from datetime import datetime, timezone
 import json
 import asyncio
+import uuid
 
 from .config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, REPORT_PROMPT_PATH
 from .opensearch_api import indexer_request
@@ -66,7 +67,7 @@ async def fetch_report_data(index_pattern: str, query: str, time_from: str, time
                 }
 
     body = {
-        "size": 100,
+        "size": 1000,
         "query": {
             "bool": {
                 "must": [],
@@ -85,9 +86,42 @@ async def fetch_report_data(index_pattern: str, query: str, time_from: str, time
             "query_string": {"query": query}
         })
         
-    status, result = await indexer_request("POST", f"/{index_pattern}/_search", json_body=body)
+    status, result = await indexer_request("POST", f"/{index_pattern}/_search", params={"scroll": "1m"}, json_body=body)
     if status == 200:
-        return json.loads(result)
+        initial_data = json.loads(result)
+        all_hits = list(initial_data.get("hits", {}).get("hits", []))
+        scroll_id = initial_data.get("_scroll_id")
+        
+        while scroll_id:
+            scroll_body = {
+                "scroll": "1m",
+                "scroll_id": scroll_id
+            }
+            s_status, scroll_result = await indexer_request("POST", "/_search/scroll", json_body=scroll_body)
+            if s_status == 200:
+                scroll_data = json.loads(scroll_result)
+                new_hits = scroll_data.get("hits", {}).get("hits", [])
+                if not new_hits:
+                    break
+                all_hits.extend(new_hits)
+                scroll_id = scroll_data.get("_scroll_id")
+            else:
+                break
+                
+        initial_data["hits"]["hits"] = all_hits
+        if isinstance(initial_data["hits"].get("total"), dict):
+            initial_data["hits"]["total"]["value"] = len(all_hits)
+        else:
+            initial_data["hits"]["total"] = len(all_hits)
+            
+        if scroll_id:
+            try:
+                await indexer_request("DELETE", f"/_search/scroll/{scroll_id}")
+            except Exception:
+                pass
+                
+        return initial_data
+        
     return {}
 
 def create_chart_image(data: dict, agg_name: str, viz_config: dict) -> str:
@@ -153,7 +187,7 @@ def create_chart_image(data: dict, agg_name: str, viz_config: dict) -> str:
             
     plt.tight_layout()
     
-    img_path = f"/tmp/chart_{agg_name}.png"
+    img_path = f"/tmp/chart_{agg_name}_{uuid.uuid4().hex[:8]}.png"
     plt.savefig(img_path, format='png', dpi=120, bbox_inches='tight', facecolor=fig.get_facecolor(), transparent=False)
     plt.close()
     return img_path
@@ -223,7 +257,7 @@ def build_pdf(filepath: str, title: str, data: dict, chart_paths: list, summary:
     # Data Table (Recent 10 events)
     hits = data.get("hits", {}).get("hits", [])
     if hits:
-        elements.append(Paragraph("<b>Recent Events Sample:</b>", heading_style))
+        elements.append(Paragraph("<b>Detailed Events List:</b>", heading_style))
         elements.append(Spacer(1, 10))
         
         is_vuln = "vulnerability" in hits[0].get("_source", {})
@@ -234,14 +268,14 @@ def build_pdf(filepath: str, title: str, data: dict, chart_paths: list, summary:
             
         desc_style = ParagraphStyle(name='TableDesc', parent=styles['Normal'], fontSize=7, leading=8)
 
-        for h in hits[:10]:
+        for h in hits:
             src = h.get("_source", {})
             if is_vuln:
                 ts = src.get("vulnerability", {}).get("detected_at", src.get("@timestamp", ""))
                 agent = src.get("agent", {}).get("name", "Unknown")
-                cve = src.get("vulnerability", {}).get("cve", "Unknown")
+                cve = src.get("vulnerability", {}).get("id", src.get("vulnerability", {}).get("cve", "Unknown"))
                 level = str(src.get("vulnerability", {}).get("severity", ""))
-                desc = src.get("vulnerability", {}).get("description", "")
+                desc = str(src.get("vulnerability", {}).get("description", "")).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 table_data.append([str(ts)[:19], agent, cve, level, Paragraph(desc, desc_style)])
             else:
                 ts = src.get("@timestamp", src.get("vulnerability", {}).get("detected_at", ""))

@@ -1,6 +1,8 @@
 import os
 
-GATEWAY_API_KEY = os.getenv("GATEWAY_API_KEY", "secret")
+GATEWAY_API_KEY = os.getenv("GATEWAY_API_KEY")
+if not GATEWAY_API_KEY or GATEWAY_API_KEY == "secret":
+    raise ValueError("GATEWAY_API_KEY is missing or set to the default 'secret'. Please configure a secure key.")
 PORT = int(os.getenv("PORT", "9912"))
 VERBOSE = os.getenv("VERBOSE", "false").lower() == "true"
 DEBUG_ACTION_OUTPUT = os.getenv("DEBUG_ACTION_OUTPUT", "false").lower() == "true"

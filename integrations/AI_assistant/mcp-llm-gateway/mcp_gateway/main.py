@@ -17,8 +17,7 @@ from .config import (
     MCP_SSE_URL, OPENSEARCH_DASHBOARD_URL, OPENSEARCH_DASHBOARD_BASEPATH,
     OPENSEARCH_DASHBOARD_SPACE, OPENSEARCH_DASHBOARD_VERIFY_TLS,
     OPENSEARCH_DASHBOARD_CA_FILE, OPENSEARCH_DASHBOARD_USER, OPENSEARCH_DASHBOARD_PASS,
-    WAZUH_INDEXER_URL, WAZUH_INDEXER_VERIFY_TLS,
-    WAZUH_INDEXER_CA_FILE, AUTO_CREATE_INDEX_PATTERN, PUBLIC_GATEWAY_URL
+    WAZUH_INDEXER_CA_FILE, AUTO_CREATE_INDEX_PATTERN, PUBLIC_GATEWAY_URL, SMTP_FROM
 )
 from .models import PredictBody, PendingAction, WizardState
 from .state import PENDING, PENDING_LOCK, WIZARDS, WIZARDS_LOCK, _cleanup_pending, _cleanup_wizards
@@ -30,14 +29,16 @@ from .wazuh_api import (
 )
 from .opensearch_api import (
     osd_request, osd_find_index_pattern_id_by_title, osd_create_index_pattern,
-    indexer_request, _indexer_configured
+    indexer_request, _indexer_configured,
+    indexer_create_notification_config, indexer_create_monitor
 )
+from .alert_plan import llm_generate_alert_monitor
 from .dashboard_plan import (
     llm_generate_dashboard_plan, discover_available_index_patterns,
     validate_plan_fields, guess_time_field_for_index, build_vis_payload,
     build_dashboard_payload, build_multi_dashboard_payload, 
     llm_generate_full_dashboard_plan, osd_create_visualization, osd_create_dashboard,
-    _last_json_block
+    _last_json_block, llm_fix_dashboard_plan
 )
 from .formatters import (
     _parse_timeframe_to_seconds, _parse_wazuh_iso, _fmt_age,
@@ -166,6 +167,7 @@ Valid actions:
 - "create_dashboard_pie" (needs 'index_pattern_title' string, default 'wazuh-alerts-*' unless user specified or inferred like above. Needs 'field' string like 'agent.name', 'top_n' integer default 5)
 - "generate_full_dashboard" (triggers when user asks for a full dashboard about a specific topic. Needs 'topic' string describing the requirement and 'index_pattern_title' inferred as above, default 'wazuh-alerts-*')
 - "generate_email_report" (triggers when user asks to send or email a pdf report. Needs 'topic' string describing the requirement and 'index_pattern_title' inferred as above, default 'wazuh-alerts-*')
+- "create_alert" (triggers when user asks to create an alert, notification, or monitor. Extract 'topic' describing the condition (like rule id 5710, or ssh failed login) and optionally 'alert_type' like 'slack' or 'email'. Finally extract 'index_pattern_title' ONLY IF the user explicitly specifies an index name in their request. If no specific index is requested, set 'index_pattern_title' to 'auto'.)
 - "mcp_query" (if the user is asking a question about logs, alerts, vulnerabilities, or asking to search/analyze data using OpenSearch)
 - "unknown" (if they are just chatting, asking a general non-security question, or lack required parameters for a specific action)
 
@@ -275,7 +277,11 @@ async def health():
     return {"summary": summary, "status": status, "details": details}
 
 @app.get("/download/report/{report_id}", summary="Download a generated PDF report")
-async def download_report(report_id: str):
+async def download_report(report_id: str, token: Optional[str] = None, x_api_key: Optional[str] = Header(default=None)):
+    key = x_api_key or token
+    if GATEWAY_API_KEY and key != GATEWAY_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
     # Ensure the report string contains expected characters to avoid path traversal
     if not re.match(r"^[a-zA-Z0-9_-]+\.pdf$", report_id):
         raise HTTPException(status_code=400, detail="Invalid report format.")
@@ -391,8 +397,7 @@ async def analyze(
                     return {"output": {"message": "Failed to create any visualizations for the dashboard."}}
                 
                 # 2. Rebuild the master dashboard payload with only the successful text ones
-                valid_vis_ids = [v["vis_id"] for v in created_vis]
-                final_dash_payload = build_multi_dashboard_payload(payload["dash_title"], valid_vis_ids)
+                final_dash_payload = build_multi_dashboard_payload(payload["dash_title"], created_vis)
 
                 ok_dash, dash_resp = await osd_create_dashboard(payload["dash_id"], final_dash_payload)
                 async with PENDING_LOCK:
@@ -409,7 +414,7 @@ async def analyze(
             except Exception as e:
                 async with PENDING_LOCK:
                     PENDING.pop(sid, None)
-                return {"output": {"message": f"Full Dashboard creation failed: {e}\n{traceback.format_exc()}"}}
+                return {"output": {"message": "Full Dashboard creation failed. Please check server logs."}}
 
         if pending.kind == "send_pdf_report":
             topic = pending.payload["topic"]
@@ -438,6 +443,85 @@ async def analyze(
                 async with PENDING_LOCK:
                     PENDING.pop(sid, None)
                 return {"output": {"message": f"Failed to send PDF report email: {e}"}}
+
+        if pending.kind == "create_alert":
+            topic = pending.payload["topic"]
+            alert_type = pending.payload["alert_type"]
+            idx_title = pending.payload["index_pattern_title"]
+            slack_url = pending.payload.get("slack_url")
+            email_sender = pending.payload.get("email_sender")
+            email_receiver = pending.payload.get("email_receiver")
+            
+            try:
+                dest_name = f"Notify {alert_type} - {_slugify(topic)[:20]}"
+                ok, dest_id = await indexer_create_notification_config(
+                    name=dest_name, 
+                    config_type=alert_type, 
+                    slack_url=slack_url, 
+                    email_sender=email_sender, 
+                    email_receiver=email_receiver
+                )
+                
+                if not ok or not dest_id:
+                    async with PENDING_LOCK:
+                        PENDING.pop(sid, None)
+                    return {"output": {"message": f"Failed to create OpenSearch Notification Config: {dest_id}"}}
+                
+                ok, cmsg, monitor_payload = await llm_generate_alert_monitor(
+                    idx_title, 
+                    topic, 
+                    dest_id, 
+                    force_create=pending.payload.get("force_create", False)
+                )
+                if not ok:
+                    async with PENDING_LOCK:
+                        PENDING.pop(sid, None)
+                    if cmsg.startswith("ASK_USER_CONFIRM_0_HITS:"):
+                        async with WIZARDS_LOCK:
+                            WIZARDS[sid] = WizardState(
+                                kind="alert_confirm_0_hits",
+                                step="wait_for_answer",
+                                created_at=time.time(),
+                                data=pending.payload
+                            )
+                        return {"output": {"message": cmsg.replace("ASK_USER_CONFIRM_0_HITS:", "").strip()}}
+                    elif cmsg.startswith("ASK_USER:"):
+                        async with WIZARDS_LOCK:
+                            WIZARDS[sid] = WizardState(
+                                kind="alert_disambiguate",
+                                step="wait_for_answer",
+                                created_at=time.time(),
+                                data={
+                                    "topic": topic,
+                                    "alert_type": alert_type,
+                                    "index_pattern_title": idx_title,
+                                    "slack_url": slack_url,
+                                    "email_sender": email_sender,
+                                    "email_receiver": email_receiver
+                                }
+                            )
+                        return {"output": {"message": cmsg.replace("ASK_USER:", "").strip()}}
+                    return {"output": {"message": cmsg}}
+                    
+                ok, mon_id = await indexer_create_monitor(monitor_payload)
+                async with PENDING_LOCK:
+                    PENDING.pop(sid, None)
+                    
+                if not ok or not mon_id:
+                    return {"output": {"message": f"Notification channel created ({dest_id}), but failed to create monitor: {mon_id}"}}
+
+                real_idx = monitor_payload.get("inputs", [{}])[0].get("search", {}).get("indices", [idx_title])
+                real_idx_str = ", ".join(real_idx) if isinstance(real_idx, list) else str(real_idx)
+                sched = monitor_payload.get("schedule", {}).get("period", {})
+                interval = sched.get("interval", 1)
+                unit = sched.get("unit", "MINUTES").lower()
+
+                return {"output": {"message": f"Alert successfully created!\n- Monitor ID: `{mon_id}`\n- Action Channel ID: `{dest_id}`\n\nThe system will now monitor for '{topic}' on `{real_idx_str}`.\n\nNote: This monitor was created and scheduled to run every {interval} {unit}."}}
+                
+            except Exception as e:
+                async with PENDING_LOCK:
+                    PENDING.pop(sid, None)
+                return {"output": {"message": f"Failed to create alert: {e}"}}
 
         prod = _prod_api()
         if not prod:
@@ -587,6 +671,8 @@ async def analyze(
             if step == "restart_choose_agent":
                 choice = user_prompt.strip()
                 prod = _prod_api()
+                if not prod:
+                    return {"output": {"message": "Action failed: PROD Wazuh API not configured."}}
                 agents = await _get_agents(prod)
                 agent_obj = _resolve_agent_identifier(choice, agents)
                 
@@ -620,6 +706,8 @@ async def analyze(
             if step == "assign_group_choose_agent":
                 choice = user_prompt.strip()
                 prod = _prod_api()
+                if not prod:
+                    return {"output": {"message": "Action failed: PROD Wazuh API not configured."}}
                 agents = await _get_agents(prod)
                 agent_obj = _resolve_agent_identifier(choice, agents)
                 
@@ -689,6 +777,8 @@ async def analyze(
             if step == "remove_group_choose_agent":
                 choice = user_prompt.strip()
                 prod = _prod_api()
+                if not prod:
+                    return {"output": {"message": "Action failed: PROD Wazuh API not configured."}}
                 agents = await _get_agents(prod)
                 agent_obj = _resolve_agent_identifier(choice, agents)
                 
@@ -743,6 +833,80 @@ async def analyze(
                 
                 return {"output": {"message": f"Do I need to remove agent(s) {', '.join(agent_ids)} from group '{picked}'? If yes type CONFIRM, or NO to cancel."}}
 
+            if step == "alert_choose_type":
+                choice = user_prompt.strip().lower()
+                if "slack" in choice:
+                    alert_type = "slack"
+                elif "email" in choice:
+                    alert_type = "email"
+                else:
+                    return {"output": {"message": "Please type 'slack' or 'email'."}}
+                    
+                wiz.data["alert_type"] = alert_type
+                wiz.step = f"alert_provide_{alert_type}_details"
+                
+                msg = "Please provide the Slack Webhook URL." if alert_type == "slack" else "Please provide the receiver email address."
+                return {"output": {"message": msg}}
+                
+            if step == "alert_provide_slack_details":
+                slack_url = user_prompt.strip()
+                wiz.data["slack_url"] = slack_url
+                
+                async with WIZARDS_LOCK:
+                    WIZARDS.pop(sid, None)
+                async with PENDING_LOCK:
+                    PENDING[sid] = PendingAction("create_alert", wiz.data, time.time())
+                    
+                return {"output": {"message": f"Got it. Do you want me to create the OpenSearch Slack alert for '{wiz.data['topic']}'? Type CONFIRM/yes to proceed or NO to cancel."}}
+                
+            if step == "alert_provide_email_details":
+                email = user_prompt.strip()
+                wiz.data["email_receiver"] = email
+                wiz.data["email_sender"] = SMTP_FROM
+                
+                async with WIZARDS_LOCK:
+                    WIZARDS.pop(sid, None)
+                async with PENDING_LOCK:
+                    PENDING[sid] = PendingAction("create_alert", wiz.data, time.time())
+                    
+                return {"output": {"message": f"Got it. Do you want me to create the OpenSearch Email alert for '{wiz.data['topic']}' (to {email})? Type CONFIRM/yes to proceed or NO to cancel."}}
+
+            if step == "wait_for_answer" and wiz.kind == "alert_disambiguate":
+                user_answer = user_prompt.strip()
+                pdata = dict(wiz.data)
+                
+                new_topic = f"{pdata['topic']} (Clarification: {user_answer})"
+                pdata["topic"] = new_topic
+                
+                async with WIZARDS_LOCK:
+                    WIZARDS.pop(sid, None)
+                    
+                async with PENDING_LOCK:
+                    PENDING[sid] = PendingAction("create_alert", pdata, time.time())
+                
+                return {"output": {"message": f"Got it. Do you want me to create the OpenSearch alert for '{new_topic}'? Type CONFIRM/yes to proceed or NO to cancel."}}
+
+            if step == "wait_for_answer" and wiz.kind == "alert_confirm_0_hits":
+                user_answer = user_prompt.strip()
+                pdata = dict(wiz.data)
+                
+                async with WIZARDS_LOCK:
+                    WIZARDS.pop(sid, None)
+                    
+                if user_answer.upper() == "CONFIRM":
+                    pdata["force_create"] = True
+                    async with PENDING_LOCK:
+                        PENDING[sid] = PendingAction("create_alert", pdata, time.time())
+                    return {"output": {"message": "Proceeding with alert creation despite 0 hits..."}}
+                else:
+                    new_topic = f"{pdata['topic']} (User Feedback/Correction: {user_answer})"
+                    pdata["topic"] = new_topic
+                    pdata["force_create"] = False
+                    async with PENDING_LOCK:
+                        PENDING[sid] = PendingAction("create_alert", pdata, time.time())
+                    return {"output": {"message": f"Got it. Attempting to recreate the alert query with your new parameters: '{user_answer}'..."}}
+
+
             if step == "describe_full_dashboard":
                 user_req = user_prompt.strip()
                 options: List[str] = wiz.data.get("index_options") or []
@@ -794,6 +958,15 @@ async def analyze(
                 for plan in raw_plans:
                     ok_fields, vmsg = await validate_plan_fields(index_title, plan)
                     if not ok_fields:
+                        for attempt in range(2):
+                            try:
+                                plan = await llm_fix_dashboard_plan(index_title, plan, vmsg, topic)
+                                ok_fields, vmsg = await validate_plan_fields(index_title, plan)
+                                if ok_fields:
+                                    break
+                            except Exception:
+                                pass
+                    if not ok_fields:
                         continue
 
                     v_type = plan.get("viz_type", "pie")
@@ -803,11 +976,11 @@ async def analyze(
                     try:
                         vis_payload = build_vis_payload(
                             vis_type=v_type,
-                            title=f"{dash_title} - {v_title}",
+                            title=v_title,
                             index_pattern_id=idx_id,
                             time_field=time_field or "@timestamp",
                             query=plan.get("query", ""),
-                            time_from=plan.get("time_from", "now-7d"),
+                            time_from=plan.get("time_from", "now-24h"),
                             time_to=plan.get("time_to", "now"),
                             field=plan.get("field"),
                             table_fields=plan.get("table_fields"),
@@ -1045,9 +1218,10 @@ async def analyze(
 
         except Exception as e:
             tb = traceback.format_exc()
+            print(f"Wizard error: {tb}")
             async with WIZARDS_LOCK:
                 WIZARDS.pop(sid, None)
-            return {"output": {"message": f"Wizard error: {e}\n\nTRACEBACK:\n{tb}"}}
+            return {"output": {"message": "Wizard error occurred. Please check server logs."}}
 
     intent = await _detect_wazuh_intent_llm(user_prompt)
     if intent and intent.get("action") and intent["action"] not in ("unknown", "mcp_query"):
@@ -1099,6 +1273,15 @@ async def analyze(
                         for plan in raw_plans:
                             ok_fields, vmsg = await validate_plan_fields(matched_idx, plan)
                             if not ok_fields:
+                                for attempt in range(2):
+                                    try:
+                                        plan = await llm_fix_dashboard_plan(matched_idx, plan, vmsg, topic)
+                                        ok_fields, vmsg = await validate_plan_fields(matched_idx, plan)
+                                        if ok_fields:
+                                            break
+                                    except Exception:
+                                        pass
+                            if not ok_fields:
                                 continue
 
                             v_type = plan.get("viz_type", "pie")
@@ -1108,11 +1291,11 @@ async def analyze(
                             try:
                                 vis_payload = build_vis_payload(
                                     vis_type=v_type,
-                                    title=f"{dash_title} - {v_title}",
+                                    title=v_title,
                                     index_pattern_id=idx_id,
                                     time_field=time_field or "@timestamp",
                                     query=plan.get("query", ""),
-                                    time_from=plan.get("time_from", "now-7d"),
+                                    time_from=plan.get("time_from", "now-24h"),
                                     time_to=plan.get("time_to", "now"),
                                     field=plan.get("field"),
                                     table_fields=plan.get("table_fields"),
@@ -1490,6 +1673,15 @@ async def analyze(
             for plan in raw_plans:
                 ok_fields, vmsg = await validate_plan_fields(idx_title, plan)
                 if not ok_fields:
+                    for attempt in range(2):
+                        try:
+                            plan = await llm_fix_dashboard_plan(idx_title, plan, vmsg, topic)
+                            ok_fields, vmsg = await validate_plan_fields(idx_title, plan)
+                            if ok_fields:
+                                break
+                        except Exception:
+                            pass
+                if not ok_fields:
                     continue
                     
                 viz_type = plan.get("viz_type", "pie")
@@ -1499,11 +1691,11 @@ async def analyze(
                 try:
                     vis_payload = build_vis_payload(
                         vis_type=viz_type,
-                        title=f"{dash_title} - {vis_title}",
+                        title=vis_title,
                         index_pattern_id=idx_id,
                         time_field=time_field or "@timestamp",
                         query=plan.get("query", ""),
-                        time_from=plan.get("time_from", "now-7d"),
+                        time_from=plan.get("time_from", "now-24h"),
                         time_to=plan.get("time_to", "now"),
                         field=plan.get("field"),
                         table_fields=plan.get("table_fields"),
@@ -1545,6 +1737,36 @@ async def analyze(
             msg += "\nDo I need to proceed and create this dashboard? Type CONFIRM/yes to proceed, or NO to cancel."
             return {"output": {"message": msg}}
 
+        if action == "create_alert":
+            topic = intent.get("topic", user_prompt)
+            alert_type = intent.get("alert_type")
+            idx_title = intent.get("index_pattern_title", "auto")
+            
+            if alert_type not in ["slack", "email"]:
+                async with WIZARDS_LOCK:
+                    WIZARDS[sid] = WizardState(
+                        step="alert_choose_type",
+                        created_at=time.time(),
+                        data={
+                            "topic": topic,
+                            "index_pattern_title": idx_title
+                        }
+                    )
+                return {"output": {"message": "Shall I send the alert via email or Slack?"}}
+            
+            async with WIZARDS_LOCK:
+                WIZARDS[sid] = WizardState(
+                    step=f"alert_provide_{alert_type}_details",
+                    created_at=time.time(),
+                    data={
+                        "topic": topic,
+                        "index_pattern_title": idx_title,
+                        "alert_type": alert_type
+                    }
+                )
+            msg = "Please provide the Slack Webhook URL." if alert_type == "slack" else "Please provide the receiver email address."
+            return {"output": {"message": msg}}
+
         if action == "generate_email_report":
             topic = str(intent.get("topic") or user_prompt).strip()
             idx_title = intent.get("index_pattern_title") or ALERTS_INDEX
@@ -1560,13 +1782,10 @@ async def analyze(
 
             # 2. Provide the link and ask for email
             if PUBLIC_GATEWAY_URL:
-                download_url = f"{PUBLIC_GATEWAY_URL.rstrip('/')}/download/report/{report_filename}"
+                download_url = f"{PUBLIC_GATEWAY_URL.rstrip('/')}/download/report/{report_filename}?token={GATEWAY_API_KEY}"
             else:
-                import urllib.parse
-                parsed_url = urllib.parse.urlparse(str(request.base_url))
-                # If the request comes through localhost, replace it with the likely external IP to make the link clickable
-                domain = "192.168.0.199:9912" if parsed_url.hostname in ("127.0.0.1", "localhost") else parsed_url.netloc
-                download_url = f"http://{domain}/download/report/{report_filename}"
+                domain = request.headers.get("host", request.url.netloc)
+                download_url = f"http://{domain}/download/report/{report_filename}?token={GATEWAY_API_KEY}"
             
             async with WIZARDS_LOCK:
                 WIZARDS[sid] = WizardState(
@@ -1602,4 +1821,5 @@ async def analyze(
         return {"output": {"message": final_text}}
     except Exception as e:
         tb = traceback.format_exc()
-        return {"output": {"message": f"(AGENT error) {e}\n\nTRACEBACK:\n{tb}"}}
+        print(f"Agent error: {tb}")
+        return {"output": {"message": "An error occurred during agent execution. Please check server logs."}}
