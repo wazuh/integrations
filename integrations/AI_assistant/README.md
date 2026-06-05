@@ -78,8 +78,18 @@ The installation and configuration of all components (System Preparation, OpenSe
 1. **Clone the repository** into `/opt/AI_assistant`:
    ```bash
    cd /opt
-   # Clone or place the repository files in /opt/AI_assistant
-   git clone https://github.com/<USERNAME>/<REPO>.git /opt/AI_assistant
+  
+   # Remove old AI_assistant directory if it already exists
+   rm -rf /opt/AI_assistant
+  
+   # Clone the full repository to a temporary directory
+   git clone https://github.com/bonyjohn05/integrations.git /tmp/integrations
+  
+   # Copy only the AI_assistant directory to /opt/AI_assistant
+   cp -r /tmp/integrations/integrations/AI_assistant /opt/AI_assistant
+  
+   # Remove the temporary cloned repository
+   rm -rf /tmp/integrations
    ```
 
 2. **Prepare the configuration** in the environment file:
