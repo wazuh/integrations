@@ -168,13 +168,14 @@ Valid actions:
 - "generate_full_dashboard" (triggers when user asks for a full dashboard about a specific topic. Needs 'topic' string describing the requirement and 'index_pattern_title' inferred as above, default 'wazuh-alerts-*')
 - "generate_email_report" (triggers when user asks to generate, send, email, or download a pdf report. IMPORTANT: Even with typos like 'sedn' or 'rport', if they mention 'pdf report' or 'report', you MUST trigger this action. Needs 'topic' string describing the requirement, and 'index_pattern_title' inferred as above, default 'wazuh-alerts-*')
 - "create_alert" (triggers when user asks to create an alert, notification, or monitor. Extract 'topic' describing the condition (like rule id 5710, or ssh failed login) and optionally 'alert_type' like 'slack' or 'email'. Finally extract 'index_pattern_title' ONLY IF the user explicitly specifies an index name in their request. If no specific index is requested, set 'index_pattern_title' to 'auto'.)
-- "mcp_query" (if the user is asking a question about logs, alerts, vulnerabilities, or asking to search/analyze data using OpenSearch)
+- "mcp_query" (if the user is asking a question about logs, alerts, vulnerabilities, or asking to search/analyze data using OpenSearch. DO NOT USE THIS IF THE USER ASKS FOR A PDF OR REPORT)
 - "unknown" (if they are just chatting, asking a general non-security question, or lack required parameters for a specific action)
 
 If the user mentions an arbitrary example ID instead of a real ID, try your best to extract it (e.g. if they say "three digits").
 If the intent is clear but exact parameters are confusing, output the best guess.
 
 Return EXACTLY a JSON object with "action" and any required parameters.
+CRITICAL INSTRUCTION: Your entire response must consist solely of the JSON object. Do not include any explanations, tutorial steps, or markdown formatting.
 Example: {{"action": "generate_full_dashboard", "topic": "brute force attacks", "index_pattern_title": "wazuh-alerts-*"}}
 
 User Input: {user_prompt}
