@@ -3860,36 +3860,48 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
                 rl.append(f"  Rule {rs.get('rule_id','?')} (level {rs.get('level','?')}): {rs.get('description','')}")
             rule_ml_context = "Similar rules:\n" + "\n".join(rl) + "\n"
 
+    # ── Reference Regex Patterns (programmatic guidance, NOT XML to echo) ──
+    reference_block = ""
+    regex_order_pairs = analysis.get("regex_order_pairs", [])
+    if regex_order_pairs and effective_fields:
+        ref_lines = ["## Reference Field-to-Pattern Mapping (use these patterns)"]
+        for regex, order_list in regex_order_pairs:
+            for field, example in zip(order_list, field_hints.values() if field_hints else []):
+                ref_lines.append(f"- Field '{field}' (example: '{example}')")
+            for field in order_list:
+                pattern = _infer_osregex_type(field, field_hints.get(field, ""), logs_block)
+                ref_lines.append(f"  → use ({pattern}) in your regex")
+            if regex:
+                ref_lines.append(f"  Combined regex: {regex}")
+        reference_block = "\n".join(ref_lines) + "\n"
+
     if gen_mode == "decoder_only":
         output_instruction = (
-            "## OUTPUT: Generate ONLY decoder XML. NO rule XML. NO explanations.\n"
-            "Wrap in a single ```xml ... ``` block. Do NOT repeat or echo back the prompt — only output new XML."
+            "## OUTPUT: Generate ONLY decoder XML inside one ```xml block.\n"
+            "Do NOT repeat the prompt back — output only the new XML you generate."
         )
     elif gen_mode == "rule_only":
         output_instruction = (
-            "## OUTPUT: Generate ONLY rule XML. NO decoder XML. NO explanations.\n"
-            "Wrap in a single ```xml ... ``` block. Do NOT repeat the prompt."
+            "## OUTPUT: Generate ONLY rule XML inside one ```xml block.\n"
+            "Do NOT repeat the prompt."
         )
     else:
         output_instruction = (
             "## OUTPUT: Decoder XML in one ```xml block, rule XML in a separate ```xml block.\n"
-            "NO explanations — ONLY XML blocks. Do NOT echo the prompt or include reference XML."
+            "Do NOT echo the prompt or include reference material — only your own generated XML."
         )
 
     decoder_rules = """## Decoder Rules
 - Parent: use <program_name> if a program name is detected, otherwise use <prematch>
 - Child: <parent>, <regex>, <order> — one child decoder per set of fields; multiple children share the same decoder name
 - <regex> uses OS_Regex (NOT PCRE)
-- Only the following quantifiers are valid: \\d+, \\w+, \\s+, \\p+, \\.+, \\S+, \\W+, \\D+
-- Bare char quantifiers like .+, a+, 0+ are INVALID — do NOT use them
-- NEVER write (.+) — use (\\S+) for non-space text or (\\.+) for any characters
+- Only valid quantifiers: \\d+, \\w+, \\s+, \\p+, \\.+, \\S+, \\W+, \\D+
+- Bare char quantifiers (.+, a+, 0+) are INVALID — do NOT use them
+- NEVER write (.+) — use (\\S+) for non-space or (\\.+) for any-char
 - NEVER write .* — use \\.+ instead
 - Use \\S+ to match non-space tokens (most common for field values)
-- Use \\.+ to match "any characters including spaces"
-- IP addresses: ALWAYS use \\d+.\\d+.\\d+.\\d+ (plain dots, NO backslash)
-  CORRECT: (\\d+.\\d+.\\d+.\\d+)    WRONG: (\\d+\\.\\d+\\.\\d+\\.\\d+)
-  In OS_Regex '.' is a literal dot; '\\.' means ANY character (opposite of PCRE!)
-- Always match the exact number of capture groups to fields in <order>
+- IP addresses: ALWAYS write (\\d+.\\d+.\\d+.\\d+) — plain dots, NO backslash before dot
+- Capture group count MUST match <order> field count exactly
 - Do NOT add <type>, <fts>, or <plugin_decoder> unless specifically needed"""
 
     rule_section = ""
@@ -3909,6 +3921,7 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
 
 {logtest_block}{parent_strategy}
 {hints_block}{ml_context}{rule_ml_context}
+{reference_block}
 {decoder_rules}
 {rule_section}
 {output_instruction}"""
@@ -4028,8 +4041,10 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
 
 @app.post("/api/ai/generate")
 async def ai_generate(request: AIGenerateRequest):
-    """Stream AI-generated decoder + rule XML using LLM with analysis context only.
-    The AI generates from scratch — no programmatic base XML is included in the prompt."""
+    """Stream AI-generated decoder + rule XML using LLM with analysis context.
+    The AI generates from scratch guided by reference patterns. If the AI response
+    contains no valid decoder XML, falls back to a programmatic decoder built from
+    the user's inputs."""
     try:
         analysis = analyze_logs_impl(
             AnalyzeRequest(
@@ -4044,10 +4059,65 @@ async def ai_generate(request: AIGenerateRequest):
         return PlainTextResponse(f"ERROR: wazuh-logtest is not accessible: {e}")
 
     prompt = _build_ai_prompt(request, analysis)
+    full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
+
+    # Sanitize and check if the response contains valid decoder XML
+    sanitized = _apply_osregex_ip_fix_to_text(full_response)
+    decoder_xml, rule_xml = _extract_xml_from_ai_response(sanitized)
+
+    if not decoder_xml:
+        # AI failed — build a simple programmatic fallback using user inputs
+        fallback = _build_fallback_decoder(request, analysis)
+        if fallback:
+            sanitized = f"```xml\n{fallback}\n```"
+
     return StreamingResponse(
-        _stream_ai_sanitized(prompt, AI_DEFAULT_MODEL, request.temperature),
+        _iter_text(sanitized),
         media_type="text/plain",
     )
+
+
+def _build_fallback_decoder(request: AIGenerateRequest, analysis: Dict[str, Any]) -> Optional[str]:
+    """Build a simple fallback decoder XML when the AI fails to generate valid output.
+    Uses the user's inputs (app_name, logs, field_hints) to build a minimal working decoder."""
+    try:
+        from app.decoder_ml import build_decoder_xml, prematch_osregex_from_current_logs
+        app_name = analysis["app_name"]
+        parsed_entries = analysis.get("logtest_scan", {}).get("parsed_entries", [])
+        programs = [p for entry in parsed_entries for p in [entry.get("program_name")] if p]
+        programs = list(dict.fromkeys(programs))
+        parent_program_name = ("^" + "$|^".join(programs) + "$" if len(programs) > 1 else programs[0]) if programs else None
+        parent_prematch = None
+        first_parsed = parsed_entries[0] if parsed_entries else {}
+        predecoded_program = first_parsed.get("program_name")
+        if not parent_program_name and predecoded_program:
+            parent_program_name = predecoded_program
+        if not parent_program_name:
+            parent_prematch = prematch_osregex_from_current_logs(
+                [s.raw_log for s in request.logs],
+                analysis.get("extracted_program_name"),
+                analysis.get("unique_after_predecoded"),
+            )
+        regex_order_pairs = analysis.get("regex_order_pairs", [])
+        if not regex_order_pairs or not analysis.get("needs_custom_decoder"):
+            return None
+        return build_decoder_xml(
+            app_name=app_name,
+            parent_decoder=app_name,
+            child_decoder_name=f"{app_name}-event",
+            parent_program_name=parent_program_name,
+            parent_prematch=parent_prematch,
+            child_prematch=analysis.get("prematch", ""),
+            include_child_prematch=False,
+            regex_order_pairs=regex_order_pairs,
+        )
+    except Exception:
+        return None
+
+
+def _iter_text(text: str) -> AsyncIterator[bytes]:
+    """Yield a single text as one chunk (for non-streaming endpoints that return StreamingResponse)."""
+    yield text.encode()
 
 
 async def _collect_ai_response(prompt: str, model: str, temperature: float) -> str:
@@ -4070,6 +4140,47 @@ async def _stream_ai_sanitized(prompt: str, model: str, temperature: float) -> A
     # Apply post-processing: fix wrong \d+\.\d+ IP patterns inside XML tags
     sanitized_text = _apply_osregex_ip_fix_to_text(full_text)
     yield sanitized_text.encode()
+
+
+_FIELD_PATTERN_MAP = {
+    "srcip": r"\d+.\d+.\d+.\d+",
+    "dstip": r"\d+.\d+.\d+.\d+",
+    "srcport": r"\d+",
+    "dstport": r"\d+",
+    "protocol": r"\S+",
+    "action": r"\S+",
+    "user": r"\S+",
+    "username": r"\S+",
+    "url": r"\S+",
+    "status": r"\d+",
+    "id": r"\S+",
+    "hostname": r"\S+",
+    "mac_address": r"\S+",
+    "logtime": r"\S+",
+    "loglevel": r"\S+",
+    "message": r"\.+",
+    "data": r"\.+",
+}
+
+
+def _infer_osregex_type(field_name: str, example_value: str, log_context: str) -> str:
+    """Infer the correct OS_Regex pattern type for a given field.
+    Returns a pattern like \\d+.\\d+.\\d+.\\d+ for IPs, \\S+ for tokens, etc."""
+    # Check known field names first
+    lower = field_name.lower().strip()
+    if lower in _FIELD_PATTERN_MAP:
+        return _FIELD_PATTERN_MAP[lower]
+    # Check if the example value looks like an IP
+    if re.match(r'^\d+\.\d+\.\d+\.\d+', example_value):
+        return r"\d+.\d+.\d+.\d+"
+    # Check if the example value looks like a number
+    if example_value.isdigit():
+        return r"\d+"
+    # Check if the example looks like a MAC address
+    if re.match(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', example_value):
+        return r"\S+"
+    # Default: non-space token
+    return r"\S+"
 
 
 def _fix_osregex_bare_dot_quantifier(content: str) -> str:
@@ -4348,6 +4459,12 @@ async def ai_generate_validated(request: AIGenerateRequest):
             for fl in failed_logs[:3]:
                 correction_context += f"  Log: {fl['raw_log']}\n  Matched decoder: {fl.get('decoder_matched', 'none')}\n"
             correction_context += "Fix the regex patterns to match these logs. Output corrected XML only."
+
+    # Fallback: if all retries produced no decoder XML, build programmatic fallback silently
+    if not best_decoder_xml:
+        fallback = _build_fallback_decoder(request, analysis)
+        if fallback:
+            best_decoder_xml = _sanitize_decoder_xml_osregex(fallback)
 
     return JSONResponse({
         "decoder_xml": _sanitize_decoder_xml_osregex(best_decoder_xml),

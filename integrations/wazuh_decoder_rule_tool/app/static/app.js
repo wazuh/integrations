@@ -395,11 +395,8 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
   const btn = document.getElementById('aiGenerateBtn');
   setLoading(btn, true);
   const statusEl = document.getElementById('aiStatus');
-  const outEl = document.getElementById('aiOut');
   const xmlOut = document.getElementById('aiXmlOut');
   statusEl.style.display = 'block';
-  outEl.style.display = 'block';
-  outEl.textContent = '';
   xmlOut.style.display = 'none';
 
   try {
@@ -408,7 +405,6 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
     const extraContext = document.getElementById('aiExtraContext').value.trim();
     const genMode = document.getElementById('generationMode')?.value || 'auto';
 
-    // Hide/show rule section based on generation mode
     const ruleSection = document.getElementById('aiRuleSection');
     if (ruleSection) {
       ruleSection.style.display = genMode === 'decoder_only' ? 'none' : 'block';
@@ -422,24 +418,7 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
 
     if (!res.ok) throw new Error(await res.text());
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = '';
-    let cursor = document.createElement('span');
-    cursor.className = 'ai-cursor';
-    outEl.appendChild(cursor);
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value);
-      fullText += chunk;
-      outEl.textContent = fullText;
-      outEl.appendChild(cursor);
-      outEl.scrollTop = outEl.scrollHeight;
-    }
-
-    cursor.remove();
+    const fullText = await res.text();
     statusEl.style.display = 'none';
 
     // Extract XML blocks from AI response
@@ -456,12 +435,11 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
       xmlOut.style.display = 'block';
       toast('success', 'AI generation complete');
     } else {
-      toast('info', 'AI responded', 'No XML blocks extracted — check raw output above.');
+      toast('info', 'No XML extracted', 'The AI response did not contain valid decoder/rule XML.');
     }
   } catch (e) {
     statusEl.style.display = 'none';
     toast('error', 'AI error', e.message);
-    outEl.textContent = 'Error: ' + e.message;
   } finally {
     setLoading(btn, false);
   }
@@ -472,14 +450,12 @@ document.getElementById('aiGenerateValidateBtn').addEventListener('click', async
   const btn = document.getElementById('aiGenerateValidateBtn');
   setLoading(btn, true);
   const statusEl = document.getElementById('aiStatus');
-  const outEl = document.getElementById('aiOut');
   const xmlOut = document.getElementById('aiXmlOut');
   const validationOut = document.getElementById('aiValidationOut');
   const validationBadge = document.getElementById('validationBadge');
   const validationDetails = document.getElementById('validationDetails');
   statusEl.style.display = 'block';
   statusEl.querySelector('.ai-label').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Generating & validating with wazuh-logtest…';
-  outEl.style.display = 'none';
   xmlOut.style.display = 'none';
   validationOut.style.display = 'none';
 
@@ -489,7 +465,6 @@ document.getElementById('aiGenerateValidateBtn').addEventListener('click', async
     const extraContext = document.getElementById('aiExtraContext').value.trim();
     const genMode = document.getElementById('generationMode')?.value || 'auto';
 
-    // Hide/show rule section based on generation mode
     const ruleSection = document.getElementById('aiRuleSection');
     if (ruleSection) {
       ruleSection.style.display = genMode === 'decoder_only' ? 'none' : 'block';
@@ -538,10 +513,8 @@ document.getElementById('aiGenerateValidateBtn').addEventListener('click', async
 });
 
 document.getElementById('aiClearBtn').addEventListener('click', () => {
-  document.getElementById('aiOut').style.display = 'none';
   document.getElementById('aiXmlOut').style.display = 'none';
   document.getElementById('aiStatus').style.display = 'none';
-  document.getElementById('aiOut').textContent = '';
   const valOut = document.getElementById('aiValidationOut');
   if (valOut) valOut.style.display = 'none';
 });

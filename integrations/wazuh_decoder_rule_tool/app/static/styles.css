@@ -151,8 +151,7 @@ textarea{resize:vertical;font-family:'JetBrains Mono',monospace;font-size:12px;l
 .field-miss{color:var(--danger)}
 .field-name{color:var(--text-dim)}
 
-/* AI stream */
-.ai-stream-block{background:linear-gradient(135deg,rgba(6,182,212,.05),rgba(139,92,246,.05));border:1px solid rgba(6,182,212,.3);border-radius:var(--radius-sm);padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text);min-height:80px;max-height:480px;overflow-y:auto;margin-top:12px}
+/* AI cursor (unused, kept for reference) */
 .ai-cursor{display:inline-block;width:2px;height:1em;background:var(--ai);vertical-align:text-bottom;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 
