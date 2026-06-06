@@ -4061,9 +4061,10 @@ async def ai_generate(request: AIGenerateRequest):
     prompt = _build_ai_prompt(request, analysis)
     full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
 
-    # Sanitize and check if the response contains valid decoder XML
+    # Inject correct programmatic regex patterns into AI's XML structure
+    regex_order_pairs = analysis.get("regex_order_pairs", [])
     sanitized = _apply_osregex_ip_fix_to_text(full_response)
-    decoder_xml, rule_xml = _extract_xml_from_ai_response(sanitized)
+    decoder_xml, rule_xml = _extract_xml_from_ai_response(sanitized, regex_order_pairs)
 
     if not decoder_xml:
         # AI failed — build a simple programmatic fallback using user inputs
@@ -4269,10 +4270,13 @@ def _apply_osregex_ip_fix_to_text(text: str) -> str:
     return fixed
 
 
-def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
-
+def _extract_xml_from_ai_response(
+    full_text: str,
+    regex_order_pairs: Optional[List[Tuple[str, List[str]]]] = None,
+) -> Tuple[str, str]:
     """Extract decoder XML and rule XML from AI response text.
-    Returns (decoder_xml, rule_xml)."""
+    When regex_order_pairs are provided, injects programmatic regex patterns
+    into the decoder XML (AI handles structure, programmatic engine handles regex)."""
     import re as _re
     xml_blocks = _re.findall(r'```xml\s*([\s\S]*?)```', full_text)
     decoder_xml = ""
@@ -4283,7 +4287,6 @@ def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
             decoder_xml = block
         elif ("<rule" in block or "<group" in block) and not rule_xml:
             rule_xml = block
-    # Fallback: try to find bare XML tags
     if not decoder_xml:
         m = _re.search(r'(<decoder[\s\S]*?</decoder>)', full_text)
         if m:
@@ -4292,35 +4295,75 @@ def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
         m = _re.search(r'(<group[\s\S]*?</group>)', full_text)
         if m:
             rule_xml = m.group(1).strip()
-    decoder_xml = _sanitize_decoder_xml_osregex(decoder_xml)
+    decoder_xml = _sanitize_decoder_xml_osregex(decoder_xml, regex_order_pairs)
     return decoder_xml, rule_xml
 
 
-def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
-    """Fix AI-generated regex inside decoder XML to be valid OS_Regex.
-    Applies both IP dot fix (\\d+\\.\\d+ → \\d+.\\d+) and bare dot quantifier fix
-    (.+ → \\.+, (.+) → (\\S+)).
-    """
-    if not decoder_xml:
+def _inject_programmatic_regex(decoder_xml: str, regex_order_pairs: List[Tuple[str, List[str]]]) -> str:
+    """Replace every <regex> tag content in the AI-generated decoder XML with
+    the correct programmatic regex from analysis. The AI handles XML structure
+    (decoder names, hierarchy, order fields), but regex patterns come from the
+    proven programmatic engine."""
+    if not decoder_xml or not regex_order_pairs:
         return decoder_xml
     import re as _re
 
-    def _fix_tag(content: str) -> str:
+    # Build a lookup: set-of-fields → regex
+    field_to_regex = {}
+    for regex, order_list in regex_order_pairs:
+        key = frozenset(f.strip() for f in order_list)
+        field_to_regex[key] = regex
+
+    # Match each <regex> to the next <order> and replace
+    def _replace_regex(m: _re.Match) -> str:
+        tag_open = m.group(1)     # <regex> or <regex offset="...">
+        tag_close = m.group(3)    # </regex>
+        # Find the next <order> tag after this regex
+        rest = decoder_xml[m.end():]
+        order_m = _re.search(r'<order>([^<]+)</order>', rest)
+        if order_m:
+            fields = frozenset(f.strip() for f in order_m.group(1).split(','))
+            correct_regex = field_to_regex.get(fields)
+            if correct_regex:
+                return f'{tag_open}{correct_regex}{tag_close}'
+        # No match — apply bare-minimum sanitization as fallback
+        content = m.group(2)
+        content = _fix_osregex_bare_dot_quantifier(content)
+        content = _fix_osregex_ip_dots(content)
+        return f'{tag_open}{content}{tag_close}'
+
+    return _re.sub(r'(<regex[^>]*>)([\s\S]*?)(</regex>)', _replace_regex, decoder_xml)
+
+
+def _sanitize_decoder_xml_osregex(decoder_xml: str, regex_order_pairs: Optional[List[Tuple[str, List[str]]]] = None) -> str:
+    """Sanitize AI-generated decoder XML. When regex_order_pairs are provided
+    (from analysis), replaces all <regex> content with the correct programmatic
+    patterns. Falls back to bare-minimum band-aid fixes otherwise."""
+    if not decoder_xml:
+        return decoder_xml
+
+    # Try programmatic injection first
+    if regex_order_pairs:
+        result = _inject_programmatic_regex(decoder_xml, regex_order_pairs)
+        if result != decoder_xml:
+            return result
+
+    # Fallback: band-aid fixes only
+    import re as _re
+    def _fix(content: str) -> str:
         content = _fix_osregex_bare_dot_quantifier(content)
         content = _fix_osregex_ip_dots(content)
         return content
-
     sanitized = _re.sub(
         r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
-        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix(m.group(2)) + m.group(3),
         decoder_xml,
     )
-    sanitized = _re.sub(
+    return _re.sub(
         r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
-        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix(m.group(2)) + m.group(3),
         sanitized,
     )
-    return sanitized
 
 
 def _sanitize_rule_xml_static_fields(rule_xml: str) -> str:
@@ -4431,7 +4474,8 @@ async def ai_generate_validated(request: AIGenerateRequest):
             prompt += f"\n\n## CORRECTION (attempt {attempt + 1})\n{correction_context}"
 
         full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
-        decoder_xml, rule_xml = _extract_xml_from_ai_response(full_response)
+        regex_order_pairs = analysis.get("regex_order_pairs", [])
+        decoder_xml, rule_xml = _extract_xml_from_ai_response(full_response, regex_order_pairs)
         rule_xml = _sanitize_rule_xml_static_fields(rule_xml)
 
         best_decoder_xml = decoder_xml or best_decoder_xml
