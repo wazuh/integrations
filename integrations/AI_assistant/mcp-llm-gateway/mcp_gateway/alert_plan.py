@@ -79,9 +79,10 @@ async def _auto_select_index_pattern(topic: str) -> str:
        - `wazuh-alerts-4.x-2026.04.07` -> `wazuh-alerts-*`
        - `wazuh-states-inventory-hardware-wazuh-server` -> `wazuh-states-inventory-hardware-*`
        NEVER return a date or specific cluster name suffix. Always end with `*`.
-    3. DISAMBIGUATION: If the requirement is extremely ambiguous (e.g., "users" could mean auth log alerts or static user inventory), or if you cannot determine the index, you MUST respond EXACTLY with `ASK_USER: <your short clarifying question>`.
+    3. DISAMBIGUATION: Only use `ASK_USER: <question>` if you literally cannot decide WHICH index to use (e.g., "users" could mean auth log alerts or static user inventory). 
+       CRITICAL: If the user explicitly mentions "alert" or "alerts", you already know the index is `wazuh-alerts-*`. DO NOT ask them what type of alerts they want. DO NOT ask for more details. Just return `wazuh-alerts-*` immediately.
     
-    If you are confident, return ONLY the exact wildcard index pattern (e.g. wazuh-alerts-*). Do not include any explanations. If you are unsure, return `ASK_USER: ...`.
+    If you are confident, return ONLY the exact wildcard index pattern (e.g. wazuh-alerts-*). Do not include any explanations.
     """
     try:
         msg = await asyncio.to_thread(llm.invoke, prompt)
