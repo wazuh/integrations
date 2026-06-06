@@ -3735,22 +3735,36 @@ class AIGenerateRequest(BaseModel):
 
 
 _OLLAMA_SYSTEM_PROMPT = """You are a Wazuh SIEM expert. You produce ONLY valid Wazuh decoder and rule XML.
-OS_Regex rules: \\d=digits, \\w=word, \\s=space, \\p=punctuation, \\.=ANY char, \\S=non-space.
-Quantifiers (\\d+, \\w+, \\.+) work ONLY on backslash expressions — never on bare chars.
-. is a literal dot (NOT any char). Use \\.+ for any-char matching.
-Do NOT use .* or .+ in OS_Regex decoders — use \\.+ instead.
+No explanations, no commentary — just XML wrapped in ```xml blocks.
 
-## ⛔ IP ADDRESS REGEX — MOST COMMON MISTAKE
-In Wazuh OS_Regex, the DOT ( . ) is ALWAYS a literal dot character. It is NEVER a wildcard.
-Therefore for IP addresses:
-  CORRECT: (\\d+.\\d+.\\d+.\\d+)   ← plain dots, no backslash before dot
-  WRONG:   (\\d+\\.\\d+\\.\\d+\\.\\d+)  ← NEVER do this, \\. means ANY char in OS_Regex
-This applies everywhere: <regex>, <prematch>, <match> tags.
-NEVER write \\d+\\.\\d+ for an IP segment — always write \\d+.\\d+
+## ⚠️ OS_Regex is NOT PCRE — CRITICAL DIFFERENCES
+Wazuh OS_Regex is fundamentally different from PCRE regex:
+- '.' is a LITERAL dot character (never a wildcard!)
+- '\\.' means ANY character (opposite of PCRE!)
+- Quantifiers (+, *) ONLY work on backslash-escaped sequences like \\d+, \\w+, \\.+
+  They do NOT work on bare characters like .+ a+ 0+
+- '(.+)' is INVALID — write '(\\S+)' for non-space tokens or '(\\.+)' for any-char
+- '.*' is INVALID — use '\\.+' instead
+- No alternation with | inside parentheses — use separate decoder entries
 
-## Decoder Format Example
+## CORRECT vs WRONG patterns
+  CORRECT: (\\S+)                          WRONG: (.+)
+  CORRECT: (\\d+.\\d+.\\d+.\\d+)          WRONG: (\\d+\\.\\d+\\.\\d+\\.\\d+)
+  CORRECT: \\.+ (any-char one-or-more)     WRONG: .+
+  CORRECT: \\.+ (any-char zero-or-more)     WRONG: .*
+  CORRECT: '\\S+'                          WRONG: '.+'
+
+## Valid OS_Regex character classes
+  \\d = digits      \\w = word chars     \\s = space (only ASCII 32)
+  \\. = ANY char     \\S = non-space      \\W = non-word
+  \\D = non-digit    \\p = punctuation    \\t = tab
+
+## Valid quantifiers (apply ONLY to ^ sequences)
+  \\d+ \\w+ \\s+ \\.+ \\S+ \\W+ \\D+ \\p+
+
+## Decoder XML Example
 <decoder name="myapp">
-  <program_name>myapp</program_name>
+  <program_name>^myapp</program_name>
 </decoder>
 <decoder name="myapp-event">
   <parent>myapp</parent>
@@ -3758,7 +3772,7 @@ NEVER write \\d+\\.\\d+ for an IP segment — always write \\d+.\\d+
   <order>user, srcip</order>
 </decoder>
 
-## Rule Format Example
+## Rule XML Example
 <rule id="100001" level="5">
   <if_sid>5710</if_sid>
   <decoded_as>myapp</decoded_as>
@@ -3766,11 +3780,10 @@ NEVER write \\d+\\.\\d+ for an IP segment — always write \\d+.\\d+
   <description>User login failed</description>
 </rule>
 
-If a 'Base Decoder XML' is provided in the prompt, you MUST keep the parent decoder exactly as it is (do NOT change `<program_name>` to `<prematch>`). You must keep the exact same decoder names and parent/child hierarchy. You only improve/fix the child decoders' `<regex>` and `<order>` tags to make them precise.
-Output ONLY XML wrapped in ```xml``` blocks. No explanations, no commentary."""
+Output ONLY XML wrapped in ```xml``` blocks. Do NOT repeat or echo any part of the prompt."""
 
 
-def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], programmatic_xml: Optional[str] = None) -> str:
+def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> str:
     logs_block = "\n".join(s.raw_log for s in request.logs[:5])
     effective_fields = analysis.get("effective_extract_fields") or request.extract_fields
     skipped_fields = analysis.get("skipped_decoded_fields") or []
@@ -3781,18 +3794,15 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], progr
     program = predecoded_program or extracted_program or request.app_name
     log_source = request.log_source_name or program or request.app_name
 
-    # ── Determine effective generation mode ──
     gen_mode = getattr(request, 'generation_mode', 'auto')
     if gen_mode == "auto":
         gen_mode = "both" if has_rule_req else "decoder_only"
 
-    # ── Configuration block ──
     config_lines = [
         f"- App name: {request.app_name}",
         f"- Log source: {log_source}",
         f"- Program name: {program}",
     ]
-    # Strict field enforcement
     if effective_fields:
         config_lines.append(f"- ONLY extract these fields: {', '.join(effective_fields)}")
         config_lines.append("- Do NOT add any extra fields beyond this list")
@@ -3807,7 +3817,6 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], progr
         config_lines.append(f"- Extra context: {request.extra_context}")
     config_block = "\n".join(config_lines)
 
-    # ── Field hints ──
     hints_block = ""
     field_hints = getattr(request, 'field_hints', {})
     if field_hints:
@@ -3815,13 +3824,11 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], progr
         if hints_lines:
             hints_block = "Field value mapping hints:\n" + "\n".join(hints_lines) + "\n"
 
-    # ── Parent strategy ──
     if predecoded_program or extracted_program:
         parent_strategy = f"Parent decoder MUST use <program_name> (program: '{program}')."
     else:
         parent_strategy = "No program name detected. Use <prematch> for parent decoder."
 
-    # ── Logtest context ──
     logtest_summary = analysis.get("wazuh_logtest_summary", {})
     logtest_decoded = analysis.get("logtest_decoded_fields", {})
     logtest_block = ""
@@ -3836,7 +3843,6 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], progr
             f"{decoded_str}"
         )
 
-    # ── ML context (concise) ──
     ml_context = ""
     suggestions = analysis.get("ml_suggestions") or []
     if suggestions[:3]:
@@ -3845,7 +3851,6 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], progr
             ml_lines.append(f"  {s.get('name','?')}: regex={s.get('regex','?')} order={','.join(s.get('order') or [])}")
         ml_context = "Similar Wazuh decoders (reference):\n" + "\n".join(ml_lines) + "\n"
 
-    # ── Rule ML context ──
     rule_ml_context = ""
     if has_rule_req and gen_mode in ("both", "rule_only"):
         rule_suggestions = rule_suggestions_for_requirement(request.rule_requirement, top_k=2)
@@ -3855,54 +3860,46 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any], progr
                 rl.append(f"  Rule {rs.get('rule_id','?')} (level {rs.get('level','?')}): {rs.get('description','')}")
             rule_ml_context = "Similar rules:\n" + "\n".join(rl) + "\n"
 
-    # ── Base XML block ──
-    base_xml_block = ""
-    if programmatic_xml and gen_mode in ("decoder_only", "both"):
-        base_xml_block = f"""
-## Base Decoder XML (verified syntax — improve regex patterns only)
-```xml
-{programmatic_xml}
-```
-Do NOT add/remove child decoders. Each field in exactly one <order>. Improve regex precision only."""
-
-    # ── Output instructions based on mode ──
     if gen_mode == "decoder_only":
         output_instruction = (
             "## OUTPUT: Generate ONLY decoder XML. NO rule XML. NO explanations.\n"
-            "Wrap in a single ```xml ... ``` block."
+            "Wrap in a single ```xml ... ``` block. Do NOT repeat or echo back the prompt — only output new XML."
         )
     elif gen_mode == "rule_only":
         output_instruction = (
             "## OUTPUT: Generate ONLY rule XML. NO decoder XML. NO explanations.\n"
-            "Wrap in a single ```xml ... ``` block."
+            "Wrap in a single ```xml ... ``` block. Do NOT repeat the prompt."
         )
     else:
         output_instruction = (
-            "## OUTPUT: Decoder XML in one ```xml``` block, rule XML in a separate ```xml``` block.\n"
-            "NO explanations — ONLY XML blocks."
+            "## OUTPUT: Decoder XML in one ```xml block, rule XML in a separate ```xml block.\n"
+            "NO explanations — ONLY XML blocks. Do NOT echo the prompt or include reference XML."
         )
 
-    decoder_rules = ""
-    if gen_mode in ("decoder_only", "both") and not programmatic_xml:
-        decoder_rules = """## Decoder Rules
-- Parent: <program_name> if program exists, else <prematch>
-- Child: <parent>, <regex>, <order> — one child per field
-- Multiple child decoders for the same event MUST use the exact same name
-- Osregex: \\d+ digits, \\S+ non-space, \\.+ any char
-- ⛔ IP REGEX RULE (CRITICAL): In OS_Regex the dot is a LITERAL dot, NOT a wildcard.
-    CORRECT: (\\d+.\\d+.\\d+.\\d+)  ← plain dots
-    WRONG:   (\\d+\\.\\d+\\.\\d+\\.\\d+) ← NEVER escape dots before \\d in OS_Regex
-- numbers: \\d+
-- Do NOT add <type>/<fts>/<plugin_decoder> unless needed"""
+    decoder_rules = """## Decoder Rules
+- Parent: use <program_name> if a program name is detected, otherwise use <prematch>
+- Child: <parent>, <regex>, <order> — one child decoder per set of fields; multiple children share the same decoder name
+- <regex> uses OS_Regex (NOT PCRE)
+- Only the following quantifiers are valid: \\d+, \\w+, \\s+, \\p+, \\.+, \\S+, \\W+, \\D+
+- Bare char quantifiers like .+, a+, 0+ are INVALID — do NOT use them
+- NEVER write (.+) — use (\\S+) for non-space text or (\\.+) for any characters
+- NEVER write .* — use \\.+ instead
+- Use \\S+ to match non-space tokens (most common for field values)
+- Use \\.+ to match "any characters including spaces"
+- IP addresses: ALWAYS use \\d+.\\d+.\\d+.\\d+ (plain dots, NO backslash)
+  CORRECT: (\\d+.\\d+.\\d+.\\d+)    WRONG: (\\d+\\.\\d+\\.\\d+\\.\\d+)
+  In OS_Regex '.' is a literal dot; '\\.' means ANY character (opposite of PCRE!)
+- Always match the exact number of capture groups to fields in <order>
+- Do NOT add <type>, <fts>, or <plugin_decoder> unless specifically needed"""
 
-    # ── Rule section (only if generating rules) ──
     rule_section = ""
     if gen_mode in ("rule_only", "both") and has_rule_req:
         rule_section = """## Rule Rules
-- <decoded_as> points to parent decoder name
-- <match> for substring matching (| for OR)
-- Static tags: <srcip>, <dstip>, <srcport>, <dstport>, <action>, <id>, <url>, <status>, <user>
-- <field name="F">V</field> for custom fields only"""
+- <decoded_as> points to the parent decoder name
+- <match> uses sregex: plain substring match, | for OR
+- Static field tags: <srcip>, <dstip>, <srcport>, <dstport>, <action>, <id>, <url>, <status>, <user>
+- Use <field name="F">V</field> only for custom fields NOT in the static list
+- <if_sid> for parent rule chaining"""
 
     return f"""## Log Samples
 {logs_block}
@@ -3911,7 +3908,7 @@ Do NOT add/remove child decoders. Each field in exactly one <order>. Improve reg
 {config_block}
 
 {logtest_block}{parent_strategy}
-{hints_block}{ml_context}{rule_ml_context}{base_xml_block}
+{hints_block}{ml_context}{rule_ml_context}
 {decoder_rules}
 {rule_section}
 {output_instruction}"""
@@ -4031,7 +4028,8 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
 
 @app.post("/api/ai/generate")
 async def ai_generate(request: AIGenerateRequest):
-    """Stream AI-generated decoder + rule XML using LLM with programmatic base generation."""
+    """Stream AI-generated decoder + rule XML using LLM with analysis context only.
+    The AI generates from scratch — no programmatic base XML is included in the prompt."""
     try:
         analysis = analyze_logs_impl(
             AnalyzeRequest(
@@ -4045,54 +4043,7 @@ async def ai_generate(request: AIGenerateRequest):
     except Exception as e:
         return PlainTextResponse(f"ERROR: wazuh-logtest is not accessible: {e}")
 
-    # ── Programmatically generate correct decoder XML (same logic as build_candidate) ──
-    app_name = analysis["app_name"]
-    first_parsed = analysis["logtest_scan"]["parsed_entries"][0] if analysis["logtest_scan"]["parsed_entries"] else {}
-    predecoded_program = first_parsed.get("program_name")
-    needs_custom_decoder = analysis["needs_custom_decoder"]
-    regex_order_pairs = analysis.get("regex_order_pairs", [])
-
-    # Determine parent strategy (program_name vs prematch) — same logic as build_candidate
-    parsed_entries = analysis.get("logtest_scan", {}).get("parsed_entries", [])
-    programs = []
-    for entry in parsed_entries:
-        p = entry.get("program_name")
-        if p and p not in programs:
-            programs.append(p)
-    if programs:
-        if len(programs) > 1:
-            parent_program_name = "^" + "$|^".join(programs) + "$"
-        else:
-            parent_program_name = programs[0]
-    else:
-        parent_program_name = predecoded_program
-
-    parent_prematch = None
-    if not parent_program_name:
-        parent_prematch = prematch_osregex_from_current_logs(
-            [sample.raw_log for sample in request.logs],
-            analysis.get("extracted_program_name"),
-            analysis.get("unique_after_predecoded"),
-        )
-
-    parent_decoder = app_name
-    child_decoder_name = f"{app_name}-event"
-
-    # Build correct decoder XML programmatically
-    decoder_xml = None
-    if needs_custom_decoder and regex_order_pairs:
-        decoder_xml = build_decoder_xml(
-            app_name=app_name,
-            parent_decoder=parent_decoder,
-            child_decoder_name=child_decoder_name,
-            parent_program_name=parent_program_name,
-            parent_prematch=parent_prematch,
-            child_prematch=analysis.get("prematch", ""),
-            include_child_prematch=False,
-            regex_order_pairs=regex_order_pairs,
-        )
-
-    prompt = _build_ai_prompt(request, analysis, programmatic_xml=decoder_xml)
+    prompt = _build_ai_prompt(request, analysis)
     return StreamingResponse(
         _stream_ai_sanitized(prompt, AI_DEFAULT_MODEL, request.temperature),
         media_type="text/plain",
@@ -4121,66 +4072,89 @@ async def _stream_ai_sanitized(prompt: str, model: str, temperature: float) -> A
     yield sanitized_text.encode()
 
 
+def _fix_osregex_bare_dot_quantifier(content: str) -> str:
+    """Fix bare '.' used as a wildcard quantifier in OS_Regex content.
+    In PCRE, '.' means any char and '.+' means one-or-more any char.
+    In OS_Regex, '.' is a LITERAL dot — to mean "any char" you must write '\\.'.
+    And quantifiers only work on backslash-escaped sequences, so '.+' is doubly wrong.
+    
+    Fixes:
+      (.+)  →  (\\S+)    (most common AI mistake — use non-space for field capture)
+      .+    →  \\.+      (convert bare-dot any-char to OS_Regex any-char)
+      .*    →  \\.+      (zero-or-more made one-or-more; .* is useless in OS_Regex)
+    
+    Does NOT touch '\\.+' which is already valid OS_Regex.
+    """
+    import re as _re
+    # Fix (.+) → (\\S+) — the most common AI pattern
+    content = _re.sub(r'\(\.\+\)', r'(\\S+)', content)
+    # Fix .+ → \\.+ (but NOT \\.+ → \\.+, so check no backslash before dot)
+    content = _re.sub(r'(?<!\\)\.\+', r'\\.+', content)
+    # Fix .* → \\.+ (same, avoid double-escaping)
+    content = _re.sub(r'(?<!\\)\.\*', r'\\.+', content)
+    return content
+
+
+def _fix_osregex_ip_dots(content: str) -> str:
+    """Fix escaped dots in IP address regex patterns for Wazuh OS_Regex.
+
+    In Wazuh OS_Regex, '.' is ALWAYS a literal dot. '\.' means ANY character.
+    AI models write \d+\.\d+ (PCRE-style) which is WRONG for OS_Regex.
+    Correct form: \d+.\d+.\d+.\d+ (plain dots, no backslash before dot).
+
+    Uses plain string.replace() — no regex backslash confusion.
+    Loops until stable to handle all dots in \d+\.\d+\.\d+\.\d+.
+    Does NOT touch \. followed by + or * (those are valid any-char quantifiers).
+    """
+    prev = None
+    while content != prev:
+        prev = content
+        # Replace \d+\.\d  →  \d+.\d  (IP dot between digit groups with quantifier)
+        content = content.replace('\\d+\\.\\d', '\\d+.\\d')
+        # Replace \d\.\d   →  \d.\d   (IP dot between bare digit groups)
+        content = content.replace('\\d\\.\\d', '\\d.\\d')
+        # Also fix \d*\.\d patterns
+        content = content.replace('\\d*\\.\\d', '\\d*.\\d')
+    return content
+
+
 def _apply_osregex_ip_fix_to_text(text: str) -> str:
-    """Fix the #1 most common AI mistake in Wazuh OS_Regex decoder generation:
-    Writing \\d+\\.\\d+\\.\\d+\\.\\d+ for IP addresses instead of \\d+.\\d+.\\d+.\\d+.
-
-    In Wazuh OS_Regex:
-      '.'  = literal dot  (not a wildcard)
-      '\\.' = ANY character (not a literal dot — opposite of PCRE!)
-
-    So \\d+\\.\\d+ will NOT match '192.168.1.1' — it matches digits + anything + digits.
-    The correct form is \\d+.\\d+ (plain dot = literal dot in OS_Regex).
-
-    This function applies the fix to the full raw AI response text, targeting both:
-      - Content inside <regex>...</regex> tags
-      - Content inside <prematch>...</prematch> tags
-      - Content inside ```xml ... ``` fenced code blocks
-
-    It does NOT touch \\. when followed by + or * (\\. + = valid any-char quantifier).
+    """Apply OS_Regex sanitization to the full raw AI response text.
+    Fixes bare dot quantifiers (.+ → \\.+, (.+) → (\\S+)) and IP escaped-dot
+    patterns (\\d+\\.\\d+ → \\d+.\\d+) inside <regex>, <prematch>, and ```xml blocks.
     """
     import re as _re
 
-    def _fix_ip_dots(content: str) -> str:
-        """Fix \\d+\\.\\d+ → \\d+.\\d+ in a piece of text. Loop until stable."""
-        # Match literal backslash+dot between \\d quantifiers, but NOT \\. followed by +/*
-        pattern = r'(\\d(?:\{[^}]+\}|[+*])?)\\\.(?![+*])(\\d)'
-        prev = None
-        result = content
-        while result != prev:
-            prev = result
-            result = _re.sub(pattern, r'\g<1>.\g<2>', result)
-        return result
+    def _fix_tag(content: str) -> str:
+        content = _fix_osregex_bare_dot_quantifier(content)
+        content = _fix_osregex_ip_dots(content)
+        return content
 
-    # Strategy: fix inside <regex> and <prematch> tags, AND inside ```xml blocks
-    # First pass: fix inside XML tags
     fixed = _re.sub(
         r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
-        lambda m: m.group(1) + _fix_ip_dots(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
         text,
     )
     fixed = _re.sub(
         r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
-        lambda m: m.group(1) + _fix_ip_dots(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
         fixed,
     )
-    # Second pass: fix inside ```xml ... ``` fenced code blocks (catches the raw output)
-    def fix_xml_block(m: _re.Match) -> str:
-        block_content = m.group(1)
-        # Apply tag-level fixes again on the block content
-        fixed_block = _re.sub(
+    def _fix_xml_fence(m: _re.Match) -> str:
+        block = m.group(1)
+        block = _re.sub(
             r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
-            lambda bm: bm.group(1) + _fix_ip_dots(bm.group(2)) + bm.group(3),
-            block_content,
+            lambda bm: bm.group(1) + _fix_tag(bm.group(2)) + bm.group(3),
+            block,
         )
-        fixed_block = _re.sub(
+        block = _re.sub(
             r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
-            lambda bm: bm.group(1) + _fix_ip_dots(bm.group(2)) + bm.group(3),
-            fixed_block,
+            lambda bm: bm.group(1) + _fix_tag(bm.group(2)) + bm.group(3),
+            block,
         )
-        return f'```xml{fixed_block}```'
+        return f'```xml{block}```'
 
-    fixed = _re.sub(r'```xml([\s\S]*?)```', fix_xml_block, fixed)
+    fixed = _re.sub(r'```xml([\s\S]*?)```', _fix_xml_fence, fixed)
     return fixed
 
 
@@ -4212,50 +4186,27 @@ def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
 
 
 def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
-    """Wazuh OS_Regex treats '.' as a LITERAL dot, not as a wildcard.
-    AI models trained on PCRE routinely write \\d+\\.\\d+ for IPs, which is WRONG.
-    In OS_Regex, \\. means ANY character (like PCRE's dot), NOT a literal dot.
-    A bare dot '.' IS the literal dot in OS_Regex.
-
-    This function sanitizes the most common AI mistake:
-      \\d+\\.\\d+\\.\\d+\\.\\d+  →  \\d+.\\d+.\\d+.\\d+
-    Only fixes \\. that appears between \\d quantifiers (IP address patterns),
-    NOT other uses of \\. (e.g. \\.+ which means 'one-or-more of any char').
+    """Fix AI-generated regex inside decoder XML to be valid OS_Regex.
+    Applies both IP dot fix (\\d+\\.\\d+ → \\d+.\\d+) and bare dot quantifier fix
+    (.+ → \\.+, (.+) → (\\S+)).
     """
     if not decoder_xml:
         return decoder_xml
     import re as _re
 
-    def fix_regex_tag(tag_content: str) -> str:
-        # Fix the most common AI mistake for IP addresses in Wazuh OS_Regex:
-        # AI writes \d+\.\d+\.\d+\.\d+ but correct form is \d+.\d+.\d+.\d+
-        # In OS_Regex, a bare dot '.' is a literal dot. '\.' means ANY character.
-        #
-        # In the XML text, \d is stored as two chars: backslash+d (repr: \\d).
-        # Pattern r'\\d' matches literal backslash+d in the text.
-        # Pattern r'\\.' matches literal backslash+dot in the text.
-        # We do NOT fix \. when followed by + or * (e.g. \.+ = any-char quantifier).
-        #
-        # We loop because re.sub is non-overlapping and misses every other dot
-        # in \d+\.\d+\.\d+\.\d+ in a single pass.
-        pattern = r'(\\d(?:\{[^}]+\}|[+*])?)\\.(?![+*])(\\d)'
-        prev = None
-        fixed = tag_content
-        while fixed != prev:
-            prev = fixed
-            fixed = _re.sub(pattern, r'\g<1>.\g<2>', fixed)
-        return fixed
+    def _fix_tag(content: str) -> str:
+        content = _fix_osregex_bare_dot_quantifier(content)
+        content = _fix_osregex_ip_dots(content)
+        return content
 
-    # Apply fix only inside <regex>…</regex> tag content
     sanitized = _re.sub(
         r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
-        lambda m: m.group(1) + fix_regex_tag(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
         decoder_xml,
     )
-    # Also fix inside <prematch>…</prematch> tag content (same engine)
     sanitized = _re.sub(
         r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
-        lambda m: m.group(1) + fix_regex_tag(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
         sanitized,
     )
     return sanitized
@@ -4355,39 +4306,7 @@ async def ai_generate_validated(request: AIGenerateRequest):
     except Exception as e:
         return JSONResponse({"error": f"wazuh-logtest is not accessible: {e}"}, status_code=503)
 
-    # Build programmatic base decoder XML
     app_name = analysis["app_name"]
-    first_parsed = analysis["logtest_scan"]["parsed_entries"][0] if analysis["logtest_scan"]["parsed_entries"] else {}
-    predecoded_program = first_parsed.get("program_name")
-    needs_custom_decoder = analysis["needs_custom_decoder"]
-    regex_order_pairs = analysis.get("regex_order_pairs", [])
-
-    parsed_entries = analysis.get("logtest_scan", {}).get("parsed_entries", [])
-    programs = [p for entry in parsed_entries for p in [entry.get("program_name")] if p]
-    programs = list(dict.fromkeys(programs))
-    parent_program_name = ("^" + "$|^".join(programs) + "$" if len(programs) > 1 else programs[0]) if programs else predecoded_program
-
-    parent_prematch = None
-    if not parent_program_name:
-        parent_prematch = prematch_osregex_from_current_logs(
-            [sample.raw_log for sample in request.logs],
-            analysis.get("extracted_program_name"),
-            analysis.get("unique_after_predecoded"),
-        )
-
-    parent_decoder = app_name
-    child_decoder_name = f"{app_name}-event"
-    programmatic_xml = None
-    if needs_custom_decoder and regex_order_pairs:
-        programmatic_xml = build_decoder_xml(
-            app_name=app_name, parent_decoder=parent_decoder,
-            child_decoder_name=child_decoder_name,
-            parent_program_name=parent_program_name,
-            parent_prematch=parent_prematch,
-            child_prematch=analysis.get("prematch", ""),
-            include_child_prematch=False,
-            regex_order_pairs=regex_order_pairs,
-        )
 
     max_retries = 3
     best_decoder_xml = ""
@@ -4396,16 +4315,13 @@ async def ai_generate_validated(request: AIGenerateRequest):
     correction_context = ""
 
     for attempt in range(max_retries):
-        prompt = _build_ai_prompt(request, analysis, programmatic_xml=programmatic_xml)
+        prompt = _build_ai_prompt(request, analysis)
         if correction_context:
             prompt += f"\n\n## CORRECTION (attempt {attempt + 1})\n{correction_context}"
 
         full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
         decoder_xml, rule_xml = _extract_xml_from_ai_response(full_response)
         rule_xml = _sanitize_rule_xml_static_fields(rule_xml)
-
-        if not decoder_xml and programmatic_xml:
-            decoder_xml = programmatic_xml
 
         best_decoder_xml = decoder_xml or best_decoder_xml
         best_rule_xml = rule_xml or best_rule_xml

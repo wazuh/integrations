@@ -466,13 +466,24 @@ Log: 03-17 16:13:38.811  1702  2395 D WindowManager: printFreezingDisplayLogs op
 </rule>
 ```
 
-Remember:
-- In OS_Regex, \. matches ANY character; . matches a literal dot.
-- NEVER use .* or .+ in OS_Regex. Use \.+ instead.
-- Capture groups count MUST exactly match <order> field count.
-- Always emit parent decoder BEFORE its child decoders.
-- IP ADDRESS CRITICAL: ALWAYS use \d+.\d+.\d+.\d+ (plain dots).
-  NEVER use \d+\.\d+\.\d+\.\d+ — that \. means ANY char, not a literal dot.
+## ⚠️ CRITICAL — Common AI Mistakes That Produce INVALID OS_Regex
+
+These are the MOST COMMON errors AI models make when writing Wazuh OS_Regex.
+DO NOT make these mistakes:
+
+  WRONG: (.+)              →  CORRECT: (\S+)     (use non-space for field values)
+  WRONG: .+                →  CORRECT: \.+       (any-char quantifier needs backslash)
+  WRONG: .*                →  CORRECT: \.+       (.* is invalid; \+ means zero-or-more)
+  WRONG: \d+\.\d+\.\d+\.\d+  →  CORRECT: \d+.\d+.\d+.\d+  (plain dots, never escape)
+  WRONG: a+ 0+ [a-z]+     →  CORRECT: \d+ \w+ \.+  (quantifiers only on ^ sequences)
+  WRONG: (foo|bar)         →  CORRECT: ^foo |^bar  (no alternation in capture groups)
+
+## Quick Reference
+- . (bare) = literal dot      \. (backslash-dot) = ANY character
+- \S+ for non-space fields    \d+ for digits     \.+ for any-char
+- IP addresses: \d+.\d+.\d+.\d+  (plain dots, NO backslash before dot!)
+- Always match <order> count to capture group count
+- Parent decoder FIRST, then child decoders
 """
 
 MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip, srcport, dstport\n\nLog:\nJun 10 09:15:22 gw01 iptables: ACCEPT IN=eth0 SRC=10.0.1.50 DST=172.16.0.1 PROTO=TCP SPT=52100 DPT=80"
@@ -518,7 +529,7 @@ MESSAGE assistant """```xml
 <decoder name="dhcpd-ack">
   <parent>dhcpd</parent>
   <prematch>^DHCPACK on </prematch>
-  <regex offset="after_prematch">^(\S+) to (\S+) \((\S+)\)</regex>
+  <regex offset="after_prematch">^(\d+.\d+.\d+.\d+) to (\S+) \((\S+)\)</regex>
   <order>srcip, mac_address, hostname</order>
 </decoder>
 <rule id="100100" level="3">
@@ -571,7 +582,7 @@ MESSAGE assistant """```xml
 <decoder name="myapp-login-failed">
   <parent>myapp</parent>
   <prematch offset="after_parent">^User '\S+' failed login</prematch>
-  <regex offset="after_prematch">^User '(\S+)' failed login from '(\S+)'</regex>
+  <regex offset="after_prematch">^User '(\S+)' failed login from '(\d+.\d+.\d+.\d+)'</regex>
   <order>user, srcip</order>
 </decoder>
 <rule id="100103" level="6">
@@ -628,7 +639,7 @@ MESSAGE assistant """```xml
 <decoder name="scada-modbus-alert">
   <parent>scada-engine</parent>
   <prematch offset="after_parent">^ALERT Modbus</prematch>
-  <regex offset="after_prematch">^ unauthorized write request detected from (\S+) function_code=(\S+)</regex>
+  <regex offset="after_prematch">^ unauthorized write request detected from (\d+.\d+.\d+.\d+) function_code=(\S+)</regex>
   <order>srcip, id</order>
 </decoder>
 <rule id="100106" level="12">
@@ -646,7 +657,7 @@ MESSAGE assistant """```xml
 </decoder>
 <decoder name="cef-paloalto">
   <parent>cef</parent>
-  <regex offset="after_parent">^\d\|.+\|.+\|.+\|.+\|.+\|.+\|.+ src=(\S+) dst=(\S+) spt=(\d+) dpt=(\d+) proto=(\S+) act=(\S+)</regex>
+  <regex offset="after_parent">^\d\|.+\|.+\|.+\|.+\|.+\|.+\|.+ src=(\d+.\d+.\d+.\d+) dst=(\d+.\d+.\d+.\d+) spt=(\d+) dpt=(\d+) proto=(\S+) act=(\S+)</regex>
   <order>srcip, dstip, srcport, dstport, protocol, action</order>
 </decoder>
 <rule id="100107" level="8">

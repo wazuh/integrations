@@ -14,20 +14,20 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 ## Wazuh OS_Regex Rules (CRITICAL — different from PCRE)
 
 ### Character Classes
-  - \\d  = digits 0-9
-  - \\w  = A-Z, a-z, 0-9, '-', '@', '_'
-  - \\s  = space only (ASCII 32, NOT tabs/newlines)
-  - \\p  = punctuation: ()*+,-.:;<=>?[]!"'#$%&|{}
-  - \\.  = ANY character (opposite of PCRE!)
-  - \\S  = anything not space
-  - \\W  = anything not \\w
-  - \\D  = anything not \\d
-  - \\t  = tab
+  - \d  = digits 0-9
+  - \w  = A-Z, a-z, 0-9, '-', '@', '_'
+  - \s  = space only (ASCII 32, NOT tabs/newlines)
+  - \p  = punctuation: ()*+,-.:;<=>?[]!"'#$%&|{}
+  - \.  = ANY character (opposite of PCRE!)
+  - \S  = anything not space
+  - \W  = anything not \\w
+  - \D  = anything not \\d
+  - \t  = tab
 
 ### Quantifiers (ONLY work on backslash expressions, NOT bare chars)
-  - \\d+  = one or more digits  ✓
-  - \\w+  = one or more word chars  ✓
-  - \\.+  = one or more of any char  ✓
+  - \d+  = one or more digits  ✓
+  - \w+  = one or more word chars  ✓
+  - \.+  = one or more of any char  ✓
   - a+   = INVALID — bare char quantifier ✗
   - 0+   = INVALID — bare char quantifier ✗
 
@@ -41,8 +41,8 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 
 ### Gotchas
   - . matches a literal dot (not any char). Use \\. for any char.
-  - \\s matches only ASCII space (NOT \\t, \\n).
-  - * and + only apply to \\d, \\w, \\s, \\p, \\., \\S, \\W, \\D.
+  - \s matches only ASCII space (NOT \t, \n).
+  - * and + only apply to \d, \w, \s, \p, \., \S, \W, \D.
 
 ## Sregex (OS_Match)
   - ^ = start, $ = end, | = OR, ! = negation
@@ -90,8 +90,8 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 
 For IP addresses in OS_Regex, use UNESCAPED dots (`.` is literal in OS_Regex):
 
-CORRECT: `(\\d+.\\d+.\\d+.\\d+)` or `(\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3})`
-WRONG:   `(\\d+\\.\\d+\\.\\d+\\.\\d+)`  ← never escape dots with backslash
+CORRECT: `(\d+.\d+.\d+.\d+)` or `(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})`
+WRONG:   `(\d+\.\d+\.\d+\.\d+)`  ← never escape dots with backslash
 
 ## Output Format
 Output ONLY valid XML wrapped in ```xml ... ``` blocks. No text before or after.
@@ -118,14 +118,14 @@ Log: [error] [client 192.168.1.1:34567] File does not exist: /var/www/html/
 </decoder>
 <decoder name="apache24-errorlog-ip-port">
   <parent>apache-errorlog</parent>
-  <prematch offset="after_parent">[client \S+:\d+] \S+:</prematch>
-  <regex offset="after_parent">[client (\S+):(\d+)] (\S+): </regex>
+  <prematch offset="after_parent">[client \d+.\d+.\d+.\d+:\d+] \S+:</prematch>
+  <regex offset="after_parent">[client (\d+.\d+.\d+.\d+):(\d+)] (\S+): </regex>
   <order>srcip,srcport,id</order>
 </decoder>
 <decoder name="apache24-errorlog-ip">
   <parent>apache-errorlog</parent>
   <prematch offset="after_parent">[client \S+] \S+:</prematch>
-  <regex offset="after_parent">[client (\S+)] (\S+): </regex>
+  <regex offset="after_parent">[client (\d+.\d+.\d+.\d+)] (\S+): </regex>
   <order>srcip,id</order>
 </decoder>
 ```
@@ -139,14 +139,14 @@ Log: sshd[8813]: Accepted password for root from 192.168.10.1 port 1066 ssh2
 <decoder name="sshd-event">
   <parent>sshd</parent>
   <prematch>^Accepted</prematch>
-  <regex offset="after_prematch">^ \S+ for (\S+) from (\S+) port </regex>
+  <regex offset="after_prematch">^ \S+ for (\S+) from (\d+.\d+.\d+.\d+) port </regex>
   <order>user, srcip</order>
   <fts>name, user, location</fts>
 </decoder>
 <decoder name="sshd-event">
   <parent>sshd</parent>
   <prematch>^Failed \S+ </prematch>
-  <regex offset="after_prematch">^for (\S+) from (\S+) port (\d+)</regex>
+  <regex offset="after_prematch">^for (\S+) from (\d+.\d+.\d+.\d+) port (\d+)</regex>
   <order>user, srcip, srcport</order>
 </decoder>
 ```
@@ -229,7 +229,7 @@ Log: May 11 14:26:59 host dhcpd[26699]: DHCPACK on 192.168.7.89 to 00:1A:2B:3C:4
 <decoder name="dhcpd-ack">
   <parent>dhcpd</parent>
   <prematch>^DHCPACK on </prematch>
-  <regex offset="after_prematch">^(\S+) to (\S+) \((\S+)\)</regex>
+  <regex offset="after_prematch">^(\d+.\d+.\d+.\d+) to (\S+) \((\S+)\)</regex>
   <order>srcip, mac_address, hostname</order>
 </decoder>
 <rule id="100005" level="3">
@@ -292,5 +292,14 @@ Log: Dec 25 20:45:02 myhost TrafficLog[1234]: Action=LOGIN SrcIP=192.168.10.1 Sr
 ```
 Note: IP uses `(\d+.\d+.\d+.\d+)` with PLAIN dots — `\.` would be WRONG (it matches any char in OS_Regex).
 
-Remember: In OS_Regex, \\. matches ANY character, and . matches a literal dot. NEVER use .* or .+ in OS_Regex decoders — use \\.+ instead.
+## ⚠️ CRITICAL — Common AI Mistakes That Produce INVALID OS_Regex
+
+  WRONG: (.+)              →  CORRECT: (\\S+)     (use non-space for field values)
+  WRONG: .+                →  CORRECT: \\.+       (any-char quantifier needs backslash)
+  WRONG: .*                →  CORRECT: \\.+       (.* is invalid; use \\.+)
+  WRONG: \\d+\\.\\d+       →  CORRECT: \\d+.\\d+  (plain dots for IPs, never escape!)
+  WRONG: a+ 0+             →  CORRECT: \\d+ \\w+ \\.+  (quantifiers only on ^ sequences)
+
+Remember: In OS_Regex, \\. matches ANY character, and . matches a literal dot.
+NEVER use .* or .+ in OS_Regex decoders — use \\.+ instead.
 """
