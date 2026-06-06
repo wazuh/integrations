@@ -83,7 +83,7 @@ async def fetch_report_data(index_pattern: str, query: str, time_from: str, time
     
     if query:
         body["query"]["bool"]["must"].append({
-            "query_string": {"query": query}
+            "query_string": {"query": query, "lenient": True}
         })
         
     status, result = await indexer_request("POST", f"/{index_pattern}/_search", params={"scroll": "1m"}, json_body=body)
