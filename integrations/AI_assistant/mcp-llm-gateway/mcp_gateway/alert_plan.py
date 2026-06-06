@@ -252,9 +252,8 @@ async def llm_generate_alert_monitor(index_pattern: str, topic: str, dest_id: st
                         prompt += "\n\nCRITICAL ERROR: Your generated query returned 0 hits when tested against 30, 60, and 90 days of history! This alert would never trigger. Please verify your exact field values, make the conditions more lenient, or use `query_string` with wildcards to fix this."
                         continue
                     else:
-                        if not force_create:
-                            return False, "ASK_USER_CONFIRM_0_HITS: I tested the query against the history index for 30, 60, and 90 days and found 0 logs matching these fields/values. Please verify they are correct. If they are correct and you want to create it anyway (e.g., for future logs), reply 'CONFIRM'. Otherwise, please share the exact fields and values to fix the query.", parsed
-                        break # Out of retries but force_create is True, return what we have
+                        print(f"OS_SEARCH_WARNING: Query returned 0 hits, but skipping user confirmation to avoid friction.", flush=True)
+                        break # Out of retries, just proceed with what we have
                 
             if attempt < max_retries - 1:
                 prompt += f"\n\nCRITICAL ERROR: Your last response used hallucinated fields that DO NOT EXIST in the schema: {invalid_fields}. You are strictly forbidden from querying fields outside of the AVAILABLE_FIELDS list. Retry and fix this immediately."
