@@ -3740,6 +3740,14 @@ Quantifiers (\\d+, \\w+, \\.+) work ONLY on backslash expressions — never on b
 . is a literal dot (NOT any char). Use \\.+ for any-char matching.
 Do NOT use .* or .+ in OS_Regex decoders — use \\.+ instead.
 
+## ⛔ IP ADDRESS REGEX — MOST COMMON MISTAKE
+In Wazuh OS_Regex, the DOT ( . ) is ALWAYS a literal dot character. It is NEVER a wildcard.
+Therefore for IP addresses:
+  CORRECT: (\\d+.\\d+.\\d+.\\d+)   ← plain dots, no backslash before dot
+  WRONG:   (\\d+\\.\\d+\\.\\d+\\.\\d+)  ← NEVER do this, \\. means ANY char in OS_Regex
+This applies everywhere: <regex>, <prematch>, <match> tags.
+NEVER write \\d+\\.\\d+ for an IP segment — always write \\d+.\\d+
+
 ## Decoder Format Example
 <decoder name="myapp">
   <program_name>myapp</program_name>
@@ -3881,8 +3889,9 @@ Do NOT add/remove child decoders. Each field in exactly one <order>. Improve reg
 - Child: <parent>, <regex>, <order> — one child per field
 - Multiple child decoders for the same event MUST use the exact same name
 - Osregex: \\d+ digits, \\S+ non-space, \\.+ any char
-- ⛔ IP regex: use PLAIN dots — \\d+.\\d+.\\d+.\\d+ (CORRECT).
-    NEVER use \\d+\\.\\d+\\.\\d+\\.\\d+ — \\. matches ANY char in OS_Regex.
+- ⛔ IP REGEX RULE (CRITICAL): In OS_Regex the dot is a LITERAL dot, NOT a wildcard.
+    CORRECT: (\\d+.\\d+.\\d+.\\d+)  ← plain dots
+    WRONG:   (\\d+\\.\\d+\\.\\d+\\.\\d+) ← NEVER escape dots before \\d in OS_Regex
 - numbers: \\d+
 - Do NOT add <type>/<fts>/<plugin_decoder> unless needed"""
 
@@ -4085,7 +4094,7 @@ async def ai_generate(request: AIGenerateRequest):
 
     prompt = _build_ai_prompt(request, analysis, programmatic_xml=decoder_xml)
     return StreamingResponse(
-        _stream_ai(prompt, AI_DEFAULT_MODEL, request.temperature),
+        _stream_ai_sanitized(prompt, AI_DEFAULT_MODEL, request.temperature),
         media_type="text/plain",
     )
 
@@ -4098,7 +4107,85 @@ async def _collect_ai_response(prompt: str, model: str, temperature: float) -> s
     return "".join(chunks)
 
 
+async def _stream_ai_sanitized(prompt: str, model: str, temperature: float) -> AsyncIterator[bytes]:
+    """Collect the full AI response, apply OS_Regex sanitization (fix \\d+\\.\\d+ → \\d+.\\d+
+    for IP addresses), then yield the cleaned text as a single streaming chunk.
+    This ensures the wrong PCRE-style escaped-dot IP pattern never reaches the user."""
+    chunks: List[str] = []
+    async for chunk in _stream_ai(prompt, model, temperature):
+        decoded = chunk.decode() if isinstance(chunk, bytes) else chunk
+        chunks.append(decoded)
+    full_text = "".join(chunks)
+    # Apply post-processing: fix wrong \d+\.\d+ IP patterns inside XML tags
+    sanitized_text = _apply_osregex_ip_fix_to_text(full_text)
+    yield sanitized_text.encode()
+
+
+def _apply_osregex_ip_fix_to_text(text: str) -> str:
+    """Fix the #1 most common AI mistake in Wazuh OS_Regex decoder generation:
+    Writing \\d+\\.\\d+\\.\\d+\\.\\d+ for IP addresses instead of \\d+.\\d+.\\d+.\\d+.
+
+    In Wazuh OS_Regex:
+      '.'  = literal dot  (not a wildcard)
+      '\\.' = ANY character (not a literal dot — opposite of PCRE!)
+
+    So \\d+\\.\\d+ will NOT match '192.168.1.1' — it matches digits + anything + digits.
+    The correct form is \\d+.\\d+ (plain dot = literal dot in OS_Regex).
+
+    This function applies the fix to the full raw AI response text, targeting both:
+      - Content inside <regex>...</regex> tags
+      - Content inside <prematch>...</prematch> tags
+      - Content inside ```xml ... ``` fenced code blocks
+
+    It does NOT touch \\. when followed by + or * (\\. + = valid any-char quantifier).
+    """
+    import re as _re
+
+    def _fix_ip_dots(content: str) -> str:
+        """Fix \\d+\\.\\d+ → \\d+.\\d+ in a piece of text. Loop until stable."""
+        # Match literal backslash+dot between \\d quantifiers, but NOT \\. followed by +/*
+        pattern = r'(\\d(?:\{[^}]+\}|[+*])?)\\\.(?![+*])(\\d)'
+        prev = None
+        result = content
+        while result != prev:
+            prev = result
+            result = _re.sub(pattern, r'\g<1>.\g<2>', result)
+        return result
+
+    # Strategy: fix inside <regex> and <prematch> tags, AND inside ```xml blocks
+    # First pass: fix inside XML tags
+    fixed = _re.sub(
+        r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
+        lambda m: m.group(1) + _fix_ip_dots(m.group(2)) + m.group(3),
+        text,
+    )
+    fixed = _re.sub(
+        r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
+        lambda m: m.group(1) + _fix_ip_dots(m.group(2)) + m.group(3),
+        fixed,
+    )
+    # Second pass: fix inside ```xml ... ``` fenced code blocks (catches the raw output)
+    def fix_xml_block(m: _re.Match) -> str:
+        block_content = m.group(1)
+        # Apply tag-level fixes again on the block content
+        fixed_block = _re.sub(
+            r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
+            lambda bm: bm.group(1) + _fix_ip_dots(bm.group(2)) + bm.group(3),
+            block_content,
+        )
+        fixed_block = _re.sub(
+            r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
+            lambda bm: bm.group(1) + _fix_ip_dots(bm.group(2)) + bm.group(3),
+            fixed_block,
+        )
+        return f'```xml{fixed_block}```'
+
+    fixed = _re.sub(r'```xml([\s\S]*?)```', fix_xml_block, fixed)
+    return fixed
+
+
 def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
+
     """Extract decoder XML and rule XML from AI response text.
     Returns (decoder_xml, rule_xml)."""
     import re as _re
@@ -4125,13 +4212,53 @@ def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
 
 
 def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
-    """Wazuh OS_Regex treats '.' as literal, not as wildcard.
-    AI models routinely escape dots (\\.) because they are trained on PCRE.
-    This strips the backslash before dots in regex attributes to match OS_Regex syntax."""
+    """Wazuh OS_Regex treats '.' as a LITERAL dot, not as a wildcard.
+    AI models trained on PCRE routinely write \\d+\\.\\d+ for IPs, which is WRONG.
+    In OS_Regex, \\. means ANY character (like PCRE's dot), NOT a literal dot.
+    A bare dot '.' IS the literal dot in OS_Regex.
+
+    This function sanitizes the most common AI mistake:
+      \\d+\\.\\d+\\.\\d+\\.\\d+  →  \\d+.\\d+.\\d+.\\d+
+    Only fixes \\. that appears between \\d quantifiers (IP address patterns),
+    NOT other uses of \\. (e.g. \\.+ which means 'one-or-more of any char').
+    """
     if not decoder_xml:
         return decoder_xml
     import re as _re
-    return _re.sub(r'\\\.', '.', decoder_xml)
+
+    def fix_regex_tag(tag_content: str) -> str:
+        # Fix the most common AI mistake for IP addresses in Wazuh OS_Regex:
+        # AI writes \d+\.\d+\.\d+\.\d+ but correct form is \d+.\d+.\d+.\d+
+        # In OS_Regex, a bare dot '.' is a literal dot. '\.' means ANY character.
+        #
+        # In the XML text, \d is stored as two chars: backslash+d (repr: \\d).
+        # Pattern r'\\d' matches literal backslash+d in the text.
+        # Pattern r'\\.' matches literal backslash+dot in the text.
+        # We do NOT fix \. when followed by + or * (e.g. \.+ = any-char quantifier).
+        #
+        # We loop because re.sub is non-overlapping and misses every other dot
+        # in \d+\.\d+\.\d+\.\d+ in a single pass.
+        pattern = r'(\\d(?:\{[^}]+\}|[+*])?)\\.(?![+*])(\\d)'
+        prev = None
+        fixed = tag_content
+        while fixed != prev:
+            prev = fixed
+            fixed = _re.sub(pattern, r'\g<1>.\g<2>', fixed)
+        return fixed
+
+    # Apply fix only inside <regex>…</regex> tag content
+    sanitized = _re.sub(
+        r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
+        lambda m: m.group(1) + fix_regex_tag(m.group(2)) + m.group(3),
+        decoder_xml,
+    )
+    # Also fix inside <prematch>…</prematch> tag content (same engine)
+    sanitized = _re.sub(
+        r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
+        lambda m: m.group(1) + fix_regex_tag(m.group(2)) + m.group(3),
+        sanitized,
+    )
+    return sanitized
 
 
 def _sanitize_rule_xml_static_fields(rule_xml: str) -> str:

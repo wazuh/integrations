@@ -58,8 +58,12 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 7. Multiple child decoders for the same event MUST use the exact same decoder name
 8. <use_own_name>true</use_own_name> keeps decoder name in alerts
 9. <type> can be: web-log, firewall, ossec, windows
-10. !!! CRITICAL: In Wazuh OS_Regex, '.' is a LITERAL dot (not a wildcard). NEVER escape it. For IP extraction, use \\d+.\\d+.\\d+.\\d+ (plain dots, NO backslash before dots).
-    WRONG: \\d+\\.\\d+\\.\\d+\\.\\d+    RIGHT: \\d+.\\d+.\\d+.\\d+
+10. !!! CRITICAL IP ADDRESS REGEX — NEVER ESCAPE DOTS BEFORE \d IN OS_Regex !!!
+    In Wazuh OS_Regex, '.' is ALWAYS a literal dot. '\.' means ANY character (not a literal dot).
+    For IP addresses:
+      CORRECT: \d+.\d+.\d+.\d+   ← plain dots, NO backslash
+      WRONG:   \d+\.\d+\.\d+\.\d+  ← NEVER write this, \. is ANY char not a literal dot
+    This mistake is the #1 most common error. NEVER write \d+\.\d+ for IP segments.
 11. <program_name> matches process name: ^sshd, ^apache2|^httpd, ^sudo
 12. <fts> enables full-text search: <fts>name, user, location</fts>
 13. <plugin_decoder>JSON_Decoder</plugin_decoder> for JSON parsing

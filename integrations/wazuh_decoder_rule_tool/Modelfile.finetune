@@ -68,7 +68,13 @@ You produce ONLY valid Wazuh decoder and rule XML. No explanations, no commentar
 9. <program_name> uses sregex: ^sshd, ^apache2|^httpd, ^sudo
 10. <fts> enables first-time-seen: <fts>name, user, location</fts>
 11. <plugin_decoder>JSON_Decoder</plugin_decoder> for JSON parsing
-12. For IP extraction, use \d+.\d+.\d+.\d+ (do NOT escape dots).
+12. !!! CRITICAL IP ADDRESS REGEX — NEVER ESCAPE DOTS BEFORE \d IN OS_Regex !!!
+    In Wazuh OS_Regex, '.' is ALWAYS a literal dot. '\.' means ANY character (not a literal dot).
+    For IP addresses:
+      CORRECT: \d+.\d+.\d+.\d+   ← plain dots, NO backslash
+      WRONG:   \d+\.\d+\.\d+\.\d+  ← NEVER write this, \. is ANY char not a literal dot
+    This applies to ALL regex: <regex>, <prematch>.
+    This mistake is the #1 most common error. NEVER write \d+\.\d+ for IP segments.
 
 ## Rule XML Structure Rules
 1. <decoded_as> points to the parent decoder name
@@ -465,7 +471,44 @@ Remember:
 - NEVER use .* or .+ in OS_Regex. Use \.+ instead.
 - Capture groups count MUST exactly match <order> field count.
 - Always emit parent decoder BEFORE its child decoders.
+- IP ADDRESS CRITICAL: ALWAYS use \d+.\d+.\d+.\d+ (plain dots).
+  NEVER use \d+\.\d+\.\d+\.\d+ — that \. means ANY char, not a literal dot.
 """
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip, srcport, dstport\n\nLog:\nJun 10 09:15:22 gw01 iptables: ACCEPT IN=eth0 SRC=10.0.1.50 DST=172.16.0.1 PROTO=TCP SPT=52100 DPT=80"
+MESSAGE assistant """```xml
+<decoder name="iptables">
+  <prematch>iptables: </prematch>
+</decoder>
+<decoder name="iptables-event">
+  <parent>iptables</parent>
+  <prematch offset="after_parent">^\S+</prematch>
+  <regex offset="after_prematch">^ IN=\S+ SRC=(\d+.\d+.\d+.\d+) DST=(\d+.\d+.\d+.\d+) PROTO=\S+ SPT=(\d+) DPT=(\d+)</regex>
+  <order>srcip, dstip, srcport, dstport</order>
+</decoder>
+<rule id="100120" level="3">
+  <decoded_as>iptables</decoded_as>
+  <description>iptables: Network packet event.</description>
+  <group>firewall,network,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip\n\nLog:\nAug  5 14:33:01 proxy01 squid[3412]: TCP_MISS/200 1234 GET http://example.com/ - HIER_DIRECT/93.184.216.34 text/html"
+MESSAGE assistant """```xml
+<decoder name="squid">
+  <program_name>^squid</program_name>
+</decoder>
+<decoder name="squid-access">
+  <parent>squid</parent>
+  <regex offset="after_parent">^\S+ \S+ \S+ \S+ (\S+) - HIER_\S+/(\d+.\d+.\d+.\d+)</regex>
+  <order>url, dstip</order>
+</decoder>
+<rule id="100121" level="3">
+  <decoded_as>squid</decoded_as>
+  <description>Squid: Web proxy access log.</description>
+  <group>proxy,web,</group>
+</rule>
+```"""
 
 MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, mac_address, hostname\n\nLog:\nMay 11 14:26:59 pmc-ib-a dhcpd[2660669]: DHCPACK on 192.168.7.89 to 00:1A:2B:3C:4D:5E (S24-Ultra) via eth2"
 MESSAGE assistant """```xml
@@ -713,5 +756,241 @@ MESSAGE assistant """```xml
   <decoded_as>sudo</decoded_as>
   <description>Sudo: Command executed via privilege escalation.</description>
   <group>sudo,privilege_escalation,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: user, srcip\n\nLog:\nDec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'"
+MESSAGE assistant """```xml
+<decoder name="myapp">
+  <program_name>^myapp</program_name>
+</decoder>
+<decoder name="myapp-login">
+  <parent>myapp</parent>
+  <prematch offset="after_parent">^User '</prematch>
+  <regex offset="after_prematch">^(\S+)' failed login from '(\d+.\d+.\d+.\d+)'</regex>
+  <order>user, srcip</order>
+</decoder>
+<rule id="100200" level="6">
+  <decoded_as>myapp</decoded_as>
+  <match>failed login</match>
+  <description>myapp: User authentication failed.</description>
+  <group>authentication_failed,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip, srcport, dstport, protocol\n\nLog:\nJan 15 10:22:01 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= SRC=192.168.1.50 DST=10.0.0.1 PROTO=TCP SPT=54000 DPT=22"
+MESSAGE assistant """```xml
+<decoder name="ufw">
+  <prematch>kernel: \[UFW </prematch>
+</decoder>
+<decoder name="ufw-block">
+  <parent>ufw</parent>
+  <prematch offset="after_parent">\[UFW BLOCK\]</prematch>
+  <regex offset="after_prematch">^ IN=\S+ .+ SRC=(\d+.\d+.\d+.\d+) DST=(\d+.\d+.\d+.\d+) PROTO=(\S+) SPT=(\d+) DPT=(\d+)</regex>
+  <order>srcip, dstip, protocol, srcport, dstport</order>
+</decoder>
+<rule id="100201" level="7">
+  <decoded_as>ufw</decoded_as>
+  <match>UFW BLOCK</match>
+  <description>UFW: Packet blocked by firewall.</description>
+  <group>firewall,blocked,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: user, srcip, srcport\n\nLog:\nMar  3 08:15:30 server01 sshd[9900]: Failed password for admin from 203.0.113.55 port 44000 ssh2"
+MESSAGE assistant """```xml
+<decoder name="sshd">
+  <program_name>^sshd</program_name>
+</decoder>
+<decoder name="sshd-failed">
+  <parent>sshd</parent>
+  <prematch>^Failed \S+ </prematch>
+  <regex offset="after_prematch">^for (?:invalid user )?(\S+) from (\d+.\d+.\d+.\d+) port (\d+)</regex>
+  <order>user, srcip, srcport</order>
+</decoder>
+<rule id="100202" level="5">
+  <decoded_as>sshd</decoded_as>
+  <match>Failed password|Failed none</match>
+  <description>SSHD: Authentication failed.</description>
+  <group>authentication_failed,pci_dss_10.2.4,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip, srcport, dstport\n\nLog:\nJun 10 09:15:22 gw01 iptables: FORWARD DROP IN=eth0 SRC=10.0.1.50 DST=172.16.0.1 PROTO=TCP SPT=52100 DPT=443"
+MESSAGE assistant """```xml
+<decoder name="iptables">
+  <prematch>iptables: </prematch>
+</decoder>
+<decoder name="iptables-event">
+  <parent>iptables</parent>
+  <regex offset="after_parent">^\S+ \S+ IN=\S+ SRC=(\d+.\d+.\d+.\d+) DST=(\d+.\d+.\d+.\d+) PROTO=\S+ SPT=(\d+) DPT=(\d+)</regex>
+  <order>srcip, dstip, srcport, dstport</order>
+</decoder>
+<rule id="100203" level="5">
+  <decoded_as>iptables</decoded_as>
+  <description>iptables: Packet filtered.</description>
+  <group>firewall,network,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: action, srcip, dstip, srcport, dstport, protocol\n\nLog:\nDec 25 20:45:02 myhost TrafficLog[1234]: Action=DENY SrcIP=192.168.10.1 SrcPort=55432 DstIP=10.0.0.1 DstPort=443 Protocol=TCP"
+MESSAGE assistant """```xml
+<decoder name="trafficlog">
+  <program_name>^TrafficLog</program_name>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>Action=(\w+) SrcIP=(\d+.\d+.\d+.\d+)</regex>
+  <order>action, srcip</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>DstIP=(\d+.\d+.\d+.\d+)</regex>
+  <order>dstip</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>SrcPort=(\d+)</regex>
+  <order>srcport</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>DstPort=(\d+)</regex>
+  <order>dstport</order>
+</decoder>
+<decoder name="trafficlog-event">
+  <parent>trafficlog</parent>
+  <regex>Protocol=(\S+)</regex>
+  <order>protocol</order>
+</decoder>
+<rule id="100204" level="5">
+  <decoded_as>trafficlog</decoded_as>
+  <description>TrafficLog: Network event captured.</description>
+  <group>firewall,network,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip, srcport, dstport, protocol, action\n\nLog:\nCEF:0|Palo Alto Networks|PAN-OS|10.1|threat|Threat Detection|8|src=203.0.113.50 dst=10.0.0.5 spt=4444 dpt=443 proto=TCP act=block"
+MESSAGE assistant """```xml
+<decoder name="cef">
+  <prematch>^CEF:</prematch>
+</decoder>
+<decoder name="cef-paloalto">
+  <parent>cef</parent>
+  <regex offset="after_parent">^\d\|.+\|.+\|.+\|.+\|.+\|.+\|.+ src=(\d+.\d+.\d+.\d+) dst=(\d+.\d+.\d+.\d+) spt=(\d+) dpt=(\d+) proto=(\S+) act=(\S+)</regex>
+  <order>srcip, dstip, srcport, dstport, protocol, action</order>
+</decoder>
+<rule id="100205" level="8">
+  <decoded_as>cef</decoded_as>
+  <action>block</action>
+  <description>Palo Alto: Threat blocked (CEF).</description>
+  <group>firewall,threat,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, user, url, status\n\nLog:\n203.0.113.10 - alice [01/Jun/2026:09:12:34 +0000] \"GET /api/v1/users HTTP/1.1\" 200 512"
+MESSAGE assistant """```xml
+<decoder name="nginx-access">
+  <prematch>^\S+ \S+ \S+ \[</prematch>
+</decoder>
+<decoder name="nginx-access-fields">
+  <parent>nginx-access</parent>
+  <regex offset="after_parent">^(\d+.\d+.\d+.\d+) \S+ (\S+) \[\S+ \S+\] "\S+ (\S+) HTTP\S+" (\d+)</regex>
+  <order>srcip, user, url, status</order>
+</decoder>
+<rule id="100206" level="3">
+  <decoded_as>nginx-access</decoded_as>
+  <description>Nginx: Access log event.</description>
+  <group>web,access_log,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: level, service, event, user, srcip, action\n\nLog:\nlevel=ERROR service=payments-service event=suspicious_transaction user=sakib srcip=203.0.113.77 action=blocked"
+MESSAGE assistant """```xml
+<decoder name="kv-log">
+  <prematch>^level=</prematch>
+</decoder>
+<decoder name="kv-log-fields">
+  <parent>kv-log</parent>
+  <regex offset="after_parent">^level=(\S+) service=(\S+) event=(\S+) .+ user=(\S+) .+ srcip=(\d+.\d+.\d+.\d+) .+ action=(\S+)</regex>
+  <order>status, program_name, id, user, srcip, action</order>
+</decoder>
+<rule id="100207" level="10">
+  <decoded_as>kv-log</decoded_as>
+  <field name="id">suspicious_transaction</field>
+  <description>Suspicious transaction blocked.</description>
+  <group>custom,financial,fraud,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip\n\nLog:\nAug  5 14:33:01 proxy01 squid[3412]: TCP_MISS/200 1234 GET http://example.com/ - HIER_DIRECT/93.184.216.34 text/html"
+MESSAGE assistant """```xml
+<decoder name="squid">
+  <program_name>^squid</program_name>
+</decoder>
+<decoder name="squid-access">
+  <parent>squid</parent>
+  <regex offset="after_parent">^\S+ \S+ \S+ \S+ (\S+) - HIER_\S+/(\d+.\d+.\d+.\d+)</regex>
+  <order>url, dstip</order>
+</decoder>
+<rule id="100208" level="3">
+  <decoded_as>squid</decoded_as>
+  <description>Squid: Web proxy access log.</description>
+  <group>proxy,web,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip, srcport, dstport, protocol\n\nLog:\nJun  2 08:44:15 fw01 kernel: [UFW BLOCK] IN=eth0 OUT= MAC=aa:bb:cc:dd:ee:ff SRC=203.0.113.99 DST=10.0.0.1 PROTO=TCP SPT=54321 DPT=22"
+MESSAGE assistant """```xml
+<decoder name="ufw">
+  <prematch>kernel: \[UFW </prematch>
+</decoder>
+<decoder name="ufw-block">
+  <parent>ufw</parent>
+  <prematch offset="after_parent">\[UFW BLOCK\]</prematch>
+  <regex offset="after_prematch">^ IN=\S+ OUT=\S* .+ SRC=(\d+.\d+.\d+.\d+) DST=(\d+.\d+.\d+.\d+) PROTO=(\S+) SPT=(\d+) DPT=(\d+)</regex>
+  <order>srcip, dstip, protocol, srcport, dstport</order>
+</decoder>
+<rule id="100209" level="7">
+  <decoded_as>ufw</decoded_as>
+  <match>UFW BLOCK</match>
+  <description>UFW: Packet blocked by firewall.</description>
+  <group>firewall,blocked,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: user, srcip\n\nLog:\nJun  2 10:01:15 server01 sshd[12345]: Accepted publickey for devuser from 172.16.5.10 port 60000 ssh2"
+MESSAGE assistant """```xml
+<decoder name="sshd">
+  <program_name>^sshd</program_name>
+</decoder>
+<decoder name="sshd-accepted">
+  <parent>sshd</parent>
+  <prematch>^Accepted </prematch>
+  <regex offset="after_prematch">^\S+ for (\S+) from (\d+.\d+.\d+.\d+) port </regex>
+  <order>user, srcip</order>
+</decoder>
+<rule id="100210" level="3">
+  <decoded_as>sshd</decoded_as>
+  <match>Accepted</match>
+  <description>SSHD: User successfully logged in.</description>
+  <group>authentication_success,pci_dss_10.2.5,</group>
+</rule>
+```"""
+
+MESSAGE user "Generate Wazuh decoder and rule XML for the following log sample.\nExtract these fields: srcip, dstip, srcport, dstport\n\nLog:\nSep  8 12:00:00 router01 netfilter: ACCEPT IN=eth1 SRC=10.10.10.10 DST=8.8.8.8 PROTO=UDP SPT=53 DPT=53"
+MESSAGE assistant """```xml
+<decoder name="netfilter">
+  <prematch>netfilter: </prematch>
+</decoder>
+<decoder name="netfilter-event">
+  <parent>netfilter</parent>
+  <regex offset="after_parent">^\S+ IN=\S+ SRC=(\d+.\d+.\d+.\d+) DST=(\d+.\d+.\d+.\d+) PROTO=\S+ SPT=(\d+) DPT=(\d+)</regex>
+  <order>srcip, dstip, srcport, dstport</order>
+</decoder>
+<rule id="100211" level="3">
+  <decoded_as>netfilter</decoded_as>
+  <description>Netfilter: Network packet event.</description>
+  <group>firewall,network,</group>
 </rule>
 ```"""
