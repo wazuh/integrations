@@ -18,6 +18,7 @@ class WizardState:
     step: str
     created_at: float
     data: Dict[str, Any]
+    kind: Optional[str] = None
 
 @dataclass
 class AgentsCache:
