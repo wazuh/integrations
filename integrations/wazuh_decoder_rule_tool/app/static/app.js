@@ -15,7 +15,7 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
 
 /* ══ OS_Regex sanitization — strip \. → . (Wazuh OS_Regex uses literal dots) ══ */
 function sanitizeOsRegex(xml) {
-  return xml.replace(/\\./g, '.');
+  return xml;
 }
 
 /* ══ Tabs ══ */

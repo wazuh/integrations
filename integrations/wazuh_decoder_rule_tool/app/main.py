@@ -733,11 +733,11 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             
             prefix_escaped = generalize_prefix_text(prefix_text, fields, key)
             
-            if quote_open:
-                prefix_escaped += osregex_escape(quote_open)
+            is_start = (len(prefix_candidate) == len(prefix_text))
+            prefix_re = "" if is_start else r"\.+"
             
             # Determine appropriate capture group pattern
-            if key == "message":
+            if key == "message" or " " in value or "\t" in value:
                 capture_group = r"(\.+)"
             else:
                 capture_group = r"(\S+)"
@@ -746,7 +746,7 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                 elif value.isdigit():
                     capture_group = r"(\d+)"
             
-            results.append((f"\\.+{prefix_escaped}{capture_group}{osregex_escape(quote_close)}", [key]))
+            results.append((f"{prefix_re}{prefix_escaped}{capture_group}{osregex_escape(quote_close)}", [key]))
             continue
 
         # 2.5 Handle hyphenated action/status fields (e.g., deny-smb -> capture deny)
@@ -772,7 +772,7 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             start = found.start()
             
             # Determine appropriate capture group pattern
-            if key == "message":
+            if key == "message" or " " in value or "\t" in value:
                 capture_group = r"(\.+)"
             else:
                 capture_group = r"(\S+)"
@@ -801,6 +801,9 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                 
             prefix_escaped = generalize_prefix_text(prefix_text, fields, key)
 
+            is_start = (len(prefix_candidate) == len(prefix_text))
+            prefix_re = "" if is_start else r"\.+"
+
             value_end = start + len(value)
             suffix_char = target_text[value_end:value_end+1] if value_end < len(target_text) else ""
             if suffix_char in ("'", '"', "]", ")", "}", ",", ";"):
@@ -808,7 +811,7 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             else:
                 capture_suffix = ""
 
-            results.append((f"\\.+{prefix_escaped}{capture_group}{capture_suffix}", [key]))
+            results.append((f"{prefix_re}{prefix_escaped}{capture_group}{capture_suffix}", [key]))
     unique_results = []
     seen_regexes = set()
     for regex, keys in results:
@@ -2635,15 +2638,10 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
             if fname not in logtest_decoded_fields:
                 logtest_decoded_fields[fname] = fval
 
-    # Filter extract_fields to only include fields NOT already decoded
-    effective_extract_fields = [
-        f for f in request.extract_fields
-        if f not in logtest_decoded_fields
-    ]
-    skipped_decoded_fields = [
-        f for f in request.extract_fields
-        if f in logtest_decoded_fields
-    ]
+    # Do not filter explicitly requested fields, even if logtest already decoded them.
+    # If the user explicitly typed them in, or if auto-detect found them, we should generate them.
+    effective_extract_fields = list(request.extract_fields)
+    skipped_decoded_fields = []
 
     ml_suggestions = ml_suggestions_for_logs(
         logs=raw_logs,
