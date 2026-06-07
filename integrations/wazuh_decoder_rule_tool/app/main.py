@@ -697,44 +697,28 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
             continue
         value = value.strip()
             
-        # 1. Try to find if this field has a KV context stored from extractors
-        kv_str = fields.get(f"_kv_{key}")
-        if kv_str:
-            sep_match = re.search(rf"({re.escape(key)}\s*[=:]+\s*){re.escape(value)}", target_text)
-            if sep_match:
-                prefix = sep_match.group(1)
-                results.append((f"\\.+{re.escape(prefix)}(\\S+)", [key]))
-                continue
-                
+
         # 2. Try a robust regex to dynamically find "key=value" or "key: value"
         # without hardcoding prefix length
-        match = re.search(r'\b(\w+\s*[=:]\s*)([\'"]?)(' + re.escape(value) + r')([\'"]?)(?:\b|$)', target_text)
+        match = re.search(r'\b(\w+\s*[=:]\s*)([\'"]?)(' + re.escape(value) + r')([\'"]?)', target_text)
         if match:
             quote_open = match.group(2)
             quote_close = match.group(4)
-            val_start = match.start(3)
             
-            # Use the same prefix-shortening as Path 3 (last 1-2 words only)
-            # instead of the full raw_prefix which includes too much context
-            prefix_candidate = target_text[:val_start]
-            m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*[A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
-            if not m_prefix:
-                m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
-            if m_prefix:
-                prefix_text = m_prefix.group(1)
-            else:
-                last_space = prefix_candidate.rstrip().rfind(' ')
-                if last_space != -1:
-                    prefix_text = prefix_candidate[last_space+1:]
-                else:
-                    prefix_text = prefix_candidate
-                if len(prefix_text.strip()) < 2:
-                    prefix_text = target_text[max(0, val_start - 4):val_start]
+            # Use only the matched key and separator to avoid arbitrary preceding words
+            prefix_text = match.group(1)
             
-            prefix_escaped = generalize_prefix_text(prefix_text, fields, key)
-            
-            is_start = (len(prefix_candidate) == len(prefix_text))
+            # Check if it starts exactly at the beginning of the text
+            is_start = (match.start(1) == 0)
             prefix_re = "" if is_start else r"\.+"
+            
+            # If there is a space right before our key= match, inject it for cleaner regex
+            if not is_start and match.start(1) > 0 and target_text[match.start(1) - 1] == ' ':
+                prefix_re += " "
+            
+            prefix_escaped = prefix_text
+            if quote_open:
+                prefix_escaped += osregex_escape(quote_open)
             
             # Determine appropriate capture group pattern
             if key == "message" or " " in value or "\t" in value:
@@ -3723,6 +3707,7 @@ class AIGenerateRequest(BaseModel):
     rule_requirement: Optional[str] = None
     extract_fields: List[str] = Field(default_factory=list)
     field_hints: Dict[str, str] = Field(default_factory=dict)
+    split_decoders: bool = Field(default=False)
     temperature: float = Field(default=0.05, ge=0.0, le=1.0)
     extra_context: str = Field(default="")
     log_source_name: Optional[str] = Field(default=None)
@@ -4051,6 +4036,7 @@ async def ai_generate(request: AIGenerateRequest):
                 rule_requirement=request.rule_requirement,
                 extract_fields=request.extract_fields,
                 field_hints=getattr(request, 'field_hints', {}),
+                split_decoders=request.split_decoders,
             )
         )
     except Exception as e:
@@ -4474,6 +4460,7 @@ async def ai_generate_validated(request: AIGenerateRequest):
                 rule_requirement=request.rule_requirement,
                 extract_fields=request.extract_fields,
                 field_hints=getattr(request, 'field_hints', {}),
+                split_decoders=request.split_decoders,
             )
         )
     except Exception as e:
