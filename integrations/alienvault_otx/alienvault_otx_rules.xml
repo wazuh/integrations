@@ -1,0 +1,92 @@
+<group name="alienvault,otx,threat-intel,">
+
+  <rule id="100010" level="3">
+    <if_sid>1002</if_sid>
+    <field name="integration">alienvault_otx</field>
+    <options>no_full_log</options>
+    <description>AlienVault OTX enrichment event</description>
+  </rule>
+
+  <rule id="100017" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="integration">alienvault_otx</field>
+    <options>no_full_log</options>
+    <description>AlienVault OTX enrichment event</description>
+  </rule>
+
+  <!-- Informational: enrichment ran and every indicator was clean. -->
+  <rule id="100019" level="2">
+    <if_sid>100010,100017</if_sid>
+    <field name="overall_verdict">^clean$</field>
+    <options>no_full_log</options>
+    <description>AlienVault OTX: all indicators clean (no OTX pulses)</description>
+  </rule>
+
+  <!-- Payload too large (event dropped by upstream Wazuh integrator). -->
+  <rule id="100018" level="3">
+    <if_sid>100010,100017</if_sid>
+    <field name="error_otx">payload_too_large</field>
+    <description>AlienVault OTX: event dropped - payload exceeded 60KB limit</description>
+  </rule>
+
+  <rule id="100011" level="10">
+    <if_sid>100010,100017</if_sid>
+    <field name="indicators.file_hash.verdict">^malicious$</field>
+    <description>AlienVault OTX: malicious file hash detected</description>
+  </rule>
+
+  <rule id="100014" level="10">
+    <if_sid>100010,100017</if_sid>
+    <field name="indicators.dst_ip.verdict">^malicious$</field>
+    <description>AlienVault OTX: malicious destination IP detected</description>
+  </rule>
+
+  <rule id="100015" level="10">
+    <if_sid>100010,100017</if_sid>
+    <field name="indicators.src_ip.verdict">^malicious$</field>
+    <description>AlienVault OTX: malicious source IP detected</description>
+  </rule>
+
+  <rule id="100016" level="10">
+    <if_sid>100010,100017</if_sid>
+    <field name="indicators.domain.verdict">^malicious$</field>
+    <description>AlienVault OTX: malicious domain detected</description>
+  </rule>
+
+  <rule id="100012" level="12">
+    <if_sid>100011</if_sid>
+    <field name="indicators.dst_ip.verdict">^malicious$</field>
+    <description>AlienVault OTX: malicious file hash and destination IP detected</description>
+  </rule>
+
+  <rule id="100013" level="13">
+    <if_sid>100012</if_sid>
+    <field name="indicators.src_ip.verdict">^malicious$</field>
+    <description>AlienVault OTX: malicious file hash, destination IP, and source IP detected</description>
+  </rule>
+
+  <rule id="100021" level="12">
+    <if_sid>100011</if_sid>
+    <field name="indicators.file_hash.confidence">^high$</field>
+    <description>AlienVault OTX: high-confidence malicious file hash (5+ pulses)</description>
+  </rule>
+
+  <rule id="100022" level="12">
+    <if_sid>100014</if_sid>
+    <field name="indicators.dst_ip.confidence">^high$</field>
+    <description>AlienVault OTX: high-confidence malicious destination IP (5+ pulses)</description>
+  </rule>
+
+  <rule id="100023" level="12">
+    <if_sid>100015</if_sid>
+    <field name="indicators.src_ip.confidence">^high$</field>
+    <description>AlienVault OTX: high-confidence malicious source IP (5+ pulses)</description>
+  </rule>
+
+  <rule id="100024" level="12">
+    <if_sid>100016</if_sid>
+    <field name="indicators.domain.confidence">^high$</field>
+    <description>AlienVault OTX: high-confidence malicious domain (5+ pulses)</description>
+  </rule>
+
+</group>
