@@ -2035,14 +2035,20 @@ def extract_relevant_fields(log_line: str) -> Dict[str, str]:
                     break
             return fields
 
-    # key=value, key==value, key:value, key::value pairs
-    kv_pattern = r"(\b[\w\.-]+)\s*([=:]+)\s*('(?:[^']|\\')*'|\"(?:[^\"]|\\\")*\"|[^\s,;]+)"
-    for key, sep, val in re.findall(kv_pattern, text):
+    # Extract `=` separated pairs first (stronger indicator)
+    kv_pattern_eq = r"(\b[\w\.-]+)\s*([=]+)\s*('(?:[^']|\\')*'|\"(?:[^\"]|\\\")*\"|[^\s,;]+)"
+    for key, sep, val in re.findall(kv_pattern_eq, text):
         cleaned = val.strip("'\"")
         if cleaned:
-            # Store the separator context if we want to use it for regex building
             fields.setdefault(key, cleaned)
-            # We can also store the full "key=value" string to help regex generation
+            fields.setdefault(f"_kv_{key}", f"{key}{sep}{cleaned}")
+
+    # Extract `:` separated pairs, but restrict value to not contain `=` (avoids capturing "program: key=val" as a single pair)
+    kv_pattern_colon = r"(\b[\w\.-]+)\s*(:+)\s*('(?:[^']|\\')*'|\"(?:[^\"]|\\\")*\"|[^\s,;=]+)"
+    for key, sep, val in re.findall(kv_pattern_colon, text):
+        cleaned = val.strip("'\"")
+        if cleaned:
+            fields.setdefault(key, cleaned)
             fields.setdefault(f"_kv_{key}", f"{key}{sep}{cleaned}")
 
     # Common semantic patterns
@@ -3805,9 +3811,13 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
     ]
     if effective_fields:
         config_lines.append(f"- ONLY extract these fields: {', '.join(effective_fields)}")
+        if getattr(request, 'split_decoders', False):
+            config_lines.append("- (Split the output into separate child decoders for each field)")
         config_lines.append("- Do NOT add any extra fields beyond this list")
     else:
         config_lines.append("- Fields: auto-detect from log content")
+        if getattr(request, 'split_decoders', False):
+            config_lines.append("- (Split the output into separate child decoders for each field)")
     if skipped_fields:
         config_lines.append(f"- Fields ALREADY decoded by built-in (SKIP these): {', '.join(skipped_fields)}")
     if gen_mode in ("both", "rule_only") and has_rule_req:
@@ -3876,18 +3886,26 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             "Do NOT echo the prompt or include reference material — only your own generated XML."
         )
 
-    decoder_rules = """## Decoder Rules
-- Parent: use <program_name> if a program name is detected, otherwise use <prematch>
-- Child: <parent>, <regex>, <order> — one child decoder per set of fields; multiple children share the same decoder name
-- <regex> uses OS_Regex (NOT PCRE)
-- Only valid quantifiers: \\d+, \\w+, \\s+, \\p+, \\.+, \\S+, \\W+, \\D+
-- Bare char quantifiers (.+, a+, 0+) are INVALID — do NOT use them
-- NEVER write (.+) — use (\\S+) for non-space or (\\.+) for any-char
-- NEVER write .* — use \\.+ instead
-- Use \\S+ to match non-space tokens (most common for field values)
-- IP addresses: ALWAYS write (\\d+.\\d+.\\d+.\\d+) — plain dots, NO backslash before dot
-- Capture group count MUST match <order> field count exactly
-- Do NOT add <type>, <fts>, or <plugin_decoder> unless specifically needed"""
+    decoder_rules_list = [
+        "- Parent: use <program_name> if a program name is detected, otherwise use <prematch>",
+    ]
+    if getattr(request, 'split_decoders', False):
+        decoder_rules_list.append("- Child: YOU MUST SPLIT CHILD DECODERS. Create a SEPARATE child decoder block for EVERY SINGLE field you extract. Each child decoder should have <parent>, a specific <regex> for just that field, and an <order> containing ONLY that single field name. All children share the same decoder name.")
+    else:
+        decoder_rules_list.append("- Child: <parent>, <regex>, <order> — one child decoder per set of fields; multiple children share the same decoder name")
+    
+    decoder_rules_list.extend([
+        "- <regex> uses OS_Regex (NOT PCRE)",
+        "- Only valid quantifiers: \\d+, \\w+, \\s+, \\p+, \\.+, \\S+, \\W+, \\D+",
+        "- Bare char quantifiers (.+, a+, 0+) are INVALID — do NOT use them",
+        "- NEVER write (.+) — use (\\S+) for non-space or (\\.+) for any-char",
+        "- NEVER write .* — use \\.+ instead",
+        "- Use \\S+ to match non-space tokens (most common for field values)",
+        "- IP addresses: ALWAYS write (\\d+.\\d+.\\d+.\\d+) — plain dots, NO backslash before dot",
+        "- Capture group count MUST match <order> field count exactly",
+        "- Do NOT add <type>, <fts>, or <plugin_decoder> unless specifically needed"
+    ])
+    decoder_rules = "## Decoder Rules\n" + "\n".join(decoder_rules_list)
 
     rule_section = ""
     if gen_mode in ("rule_only", "both") and has_rule_req:
@@ -4025,8 +4043,8 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
 
 @app.post("/api/ai/generate")
 async def ai_generate(request: AIGenerateRequest):
-    """Stream AI-generated decoder + rule XML. AI generates everything from scratch
-    (structure + regex). Post-processing applies OS_Regex sanitization as a safety net."""
+    """Generate decoder + rule XML with AI. Structure from AI, regex silently corrected
+    from analysis data. The user sees one unified output."""
     try:
         analysis = analyze_logs_impl(
             AnalyzeRequest(
@@ -4042,10 +4060,16 @@ async def ai_generate(request: AIGenerateRequest):
 
     prompt = _build_ai_prompt(request, analysis)
     full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
-    sanitized = _apply_osregex_ip_fix_to_text(full_response)
-
+    decoder_xml, rule_xml = _extract_xml_from_ai_response(
+        full_response, regex_order_pairs=analysis.get("regex_order_pairs")
+    )
+    out = ""
+    if decoder_xml:
+        out += f"### Decoder\n\n```xml\n{decoder_xml}\n```\n\n"
+    if rule_xml:
+        out += f"### Rule\n\n```xml\n{rule_xml}\n```"
     return StreamingResponse(
-        _iter_text(sanitized),
+        _iter_text(out or full_response),
         media_type="text/plain",
     )
 
@@ -4120,41 +4144,49 @@ def _fix_osregex_ip_dots(content: str) -> str:
         content = content.replace('\\d\\.\\d', '\\d.\\d')
         # Also fix \d*\.\d patterns
         content = content.replace('\\d*\\.\\d', '\\d*.\\d')
+
+    # Fix common Gemini/AI mistakes where they use .+ or \S+ for IPs
+    content = content.replace('(.+\\..+\\..+\\..+)', '(\\d+.\\d+.\\d+.\\d+)')
+    content = content.replace('(.+..+..+..+)', '(\\d+.\\d+.\\d+.\\d+)')
+    content = content.replace('(\\S+\\.\\S+\\.\\S+\\.\\S+)', '(\\d+.\\d+.\\d+.\\d+)')
+    content = content.replace('(\\S+.\\S+.\\S+.\\S+)', '(\\d+.\\d+.\\d+.\\d+)')
     return content
 
 
 def _apply_osregex_ip_fix_to_text(text: str) -> str:
-    """Apply OS_Regex sanitization to the full raw AI response text.
-    Fixes bare dot quantifiers (.+ → \\.+, (.+) → (\\S+)) and IP escaped-dot
-    patterns (\\d+\\.\\d+ → \\d+.\\d+) inside <regex>, <prematch>, and ```xml blocks.
+    """Apply IP dot fix and bare dot fixes to the full raw AI response text.
+    Fixes \d+\.\d+ → \d+.\d+ inside <regex>, <prematch>, and ```xml blocks.
     """
     import re as _re
 
-    def _fix_tag(content: str) -> str:
-        content = _fix_osregex_bare_dot_quantifier(content)
+    def _fix_all(content: str) -> str:
         content = _fix_osregex_ip_dots(content)
+        content = _fix_osregex_bare_dot_quantifier(content)
         return content
 
+    # Fix inside <regex>...</regex> tags
     fixed = _re.sub(
         r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
-        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_all(m.group(2)) + m.group(3),
         text,
     )
+    # Fix inside <prematch>...</prematch> tags
     fixed = _re.sub(
         r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
-        lambda m: m.group(1) + _fix_tag(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_all(m.group(2)) + m.group(3),
         fixed,
     )
+    # Fix inside ```xml ... ``` fenced blocks (covers the raw streaming output)
     def _fix_xml_fence(m: _re.Match) -> str:
         block = m.group(1)
         block = _re.sub(
             r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
-            lambda bm: bm.group(1) + _fix_tag(bm.group(2)) + bm.group(3),
+            lambda bm: bm.group(1) + _fix_all(bm.group(2)) + bm.group(3),
             block,
         )
         block = _re.sub(
             r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
-            lambda bm: bm.group(1) + _fix_tag(bm.group(2)) + bm.group(3),
+            lambda bm: bm.group(1) + _fix_all(bm.group(2)) + bm.group(3),
             block,
         )
         return f'```xml{block}```'
@@ -4163,8 +4195,145 @@ def _apply_osregex_ip_fix_to_text(text: str) -> str:
     return fixed
 
 
-def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
+# ── Internal field-to-regex mapping (never exposed to user) ──────────────
+# These are correct Wazuh OS_Regex patterns inferred from field values.
+# Used silently to fix AI-generated regex — the user sees one unified output.
+_INTERNAL_FIELD_REGEX = {
+    "srcip": r"(\d+\.\d+\.\d+\.\d+)",
+    "dstip": r"(\d+\.\d+\.\d+\.\d+)",
+    "srcport": r"(\d+)",
+    "dstport": r"(\d+)",
+    "protocol": r"(\S+)",
+    "action": r"(\S+)",
+    "status": r"(\S+)",
+    "user": r"(\S+)",
+    "srcuser": r"(\S+)",
+    "dstuser": r"(\S+)",
+    "hostname": r"(\S+)",
+    "id": r"(\S+)",
+    "url": r"(\S+)",
+    "method": r"(\S+)",
+    "uid": r"(\d+)",
+    "gid": r"(\d+)",
+    "pid": r"(\d+)",
+    "ppid": r"(\d+)",
+}
+
+
+def _internal_infer_regex_order_pairs(
+    fields: List[Dict[str, Any]], extracted_data: List[Dict[str, str]]
+) -> List[Tuple[str, List[str]]]:
+    """Internal: build (regex, [order fields]) pairs from field analysis.
+    Never displayed to the user — only used to silently correct AI output."""
+    if not fields:
+        return _infer_from_extracted_data(extracted_data)
+    pairs: List[Tuple[str, List[str]]] = []
+    order_list: List[str] = []
+    for f in fields:
+        name = (f.get("name") or "").strip()
+        if name:
+            order_list.append(name)
+            if name not in _INTERNAL_FIELD_REGEX:
+                _INTERNAL_FIELD_REGEX[name] = r"(\S+)"
+    if order_list:
+        regex = " ".join(_INTERNAL_FIELD_REGEX.get(f, r"(\S+)") for f in order_list)
+        pairs.append((regex, order_list))
+    return pairs
+
+
+def _infer_from_extracted_data(
+    extracted_data: List[Dict[str, str]]
+) -> List[Tuple[str, List[str]]]:
+    """Internal: infer regex from extracted field data when field defs unavailable."""
+    from collections import OrderedDict
+    import re as _re
+
+    field_order = OrderedDict()
+    for entry in extracted_data:
+        for key, value in entry.items():
+            if key not in field_order:
+                field_order[key] = value
+    if not field_order:
+        return []
+    order_list = list(field_order.keys())
+    regex = " ".join(_INTERNAL_FIELD_REGEX.get(f, r"(\S+)") for f in order_list)
+    return [(regex, order_list)]
+
+
+def _inject_correct_regex(decoder_xml: str, regex_order_pairs: List[Tuple[str, List[str]]]) -> str:
+    """Silently replace <regex> content in AI output with correct patterns from analysis.
+    The user sees one unified output — this is an internal correction step,
+    not a separate programmatic output."""
+    if not decoder_xml or not regex_order_pairs:
+        return decoder_xml
+    import re as _re
+    field_to_regex = {}
+    for regex, order_list in regex_order_pairs:
+        key = frozenset(f.strip() for f in order_list)
+        field_to_regex[key] = regex
+
+    def _replace(m: _re.Match) -> str:
+        rest = decoder_xml[m.end():]
+        order_m = _re.search(r'<order>([^<]+)</order>', rest)
+        if order_m:
+            fields = frozenset(f.strip() for f in order_m.group(1).split(','))
+            correct = field_to_regex.get(fields)
+            if correct:
+                return f'{m.group(1)}{correct}{m.group(3)}'
+        content = m.group(2)
+        content = _fix_osregex_bare_dot_quantifier(content)
+        content = _fix_osregex_ip_dots(content)
+        return f'{m.group(1)}{content}{m.group(3)}'
+
+    return _re.sub(r'(<regex[^>]*>)([\s\S]*?)(</regex>)', _replace, decoder_xml)
+
+
+def _enforce_split_decoders(decoder_xml: str, regex_order_pairs: List[Tuple[str, List[str]]]) -> str:
+    """If split_decoders is True (regex_order_pairs > 1) but AI generated a single combined decoder,
+    forcibly split the child decoder block into multiple blocks."""
+    if not decoder_xml or not regex_order_pairs or len(regex_order_pairs) <= 1:
+        return decoder_xml
+        
+    import re as _re
+    decoder_blocks = _re.findall(r'(<decoder\b[^>]*>.*?</decoder>)', decoder_xml, _re.DOTALL)
+    if not decoder_blocks:
+        return decoder_xml
+        
+    expected_fields = set()
+    for _, order_list in regex_order_pairs:
+        expected_fields.update(order_list)
+        
+    new_blocks = []
+    for block in decoder_blocks:
+        order_m = _re.search(r'<order>([^<]+)</order>', block)
+        if order_m:
+            fields = [f.strip() for f in order_m.group(1).split(',')]
+            if len(fields) > 1 and any(f in expected_fields for f in fields):
+                # This is the combined child decoder! Split it.
+                name_m = _re.search(r'<decoder\b[^>]*>', block)
+                name_tag = name_m.group(0) if name_m else '<decoder name="custom-event">'
+                
+                parent_m = _re.search(r'(<parent>[^<]+</parent>)', block)
+                parent_tag = parent_m.group(1) if parent_m else ''
+                
+                split_blocks = []
+                for regex, order_list in regex_order_pairs:
+                    order_str = ",".join(order_list)
+                    split_blocks.append(f'{name_tag}\n  {parent_tag}\n  <regex>{regex}</regex>\n  <order>{order_str}</order>\n</decoder>')
+                new_blocks.append("\n\n".join(split_blocks))
+                continue
+                
+        new_blocks.append(block)
+        
+    return "\n\n".join(new_blocks)
+
+
+def _extract_xml_from_ai_response(
+    full_text: str,
+    regex_order_pairs: Optional[List[Tuple[str, List[str]]]] = None,
+) -> Tuple[str, str]:
     """Extract decoder XML and rule XML from AI response text.
+    Silently corrects regex patterns using analysis data when available.
     Returns (decoder_xml, rule_xml)."""
     import re as _re
     xml_blocks = _re.findall(r'```xml\s*([\s\S]*?)```', full_text)
@@ -4184,29 +4353,35 @@ def _extract_xml_from_ai_response(full_text: str) -> Tuple[str, str]:
         m = _re.search(r'(<group[\s\S]*?</group>)', full_text)
         if m:
             rule_xml = m.group(1).strip()
+            
+    # Forcibly split child decoders if the user requested it but the AI failed to do so
+    decoder_xml = _enforce_split_decoders(decoder_xml, regex_order_pairs)
+    
+    # Silently inject correct regex patterns (invisible to user)
+    decoder_xml = _inject_correct_regex(decoder_xml, regex_order_pairs)
     decoder_xml = _sanitize_decoder_xml_osregex(decoder_xml)
     return decoder_xml, rule_xml
 
 
 def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
-    """Sanitize AI-generated regex inside decoder XML.
-    Applies band-aid fixes for common AI mistakes: (.+) → (\\S+),
-    .+ → \\+, and \\d+\\.\\d+ → \\d+.\\d+."""
+    """Fix escaped dots in IP patterns and bare dots inside decoder XML."""
     if not decoder_xml:
         return decoder_xml
     import re as _re
-    def _fix(content: str) -> str:
-        content = _fix_osregex_bare_dot_quantifier(content)
+
+    def _fix_all(content: str) -> str:
         content = _fix_osregex_ip_dots(content)
+        content = _fix_osregex_bare_dot_quantifier(content)
         return content
+
     sanitized = _re.sub(
         r'(<regex[^>]*>)([\s\S]*?)(</regex>)',
-        lambda m: m.group(1) + _fix(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_all(m.group(2)) + m.group(3),
         decoder_xml,
     )
     sanitized = _re.sub(
         r'(<prematch[^>]*>)([\s\S]*?)(</prematch>)',
-        lambda m: m.group(1) + _fix(m.group(2)) + m.group(3),
+        lambda m: m.group(1) + _fix_all(m.group(2)) + m.group(3),
         sanitized,
     )
     return sanitized
@@ -4320,7 +4495,9 @@ async def ai_generate_validated(request: AIGenerateRequest):
             prompt += f"\n\n## CORRECTION (attempt {attempt + 1})\n{correction_context}"
 
         full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
-        decoder_xml, rule_xml = _extract_xml_from_ai_response(full_response)
+        decoder_xml, rule_xml = _extract_xml_from_ai_response(
+            full_response, regex_order_pairs=analysis.get("regex_order_pairs")
+        )
         rule_xml = _sanitize_rule_xml_static_fields(rule_xml)
 
         best_decoder_xml = decoder_xml or best_decoder_xml

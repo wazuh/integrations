@@ -18,8 +18,14 @@ import sys
 import os
 
 MODELFILE_PATH = os.path.join(os.path.dirname(__file__), "..", "Modelfile.finetune")
-DATASET_OUT = os.path.join(os.path.dirname(__file__), "..", "data", "osregex_train.jsonl")
-VAL_DATASET_OUT = os.path.join(os.path.dirname(__file__), "..", "data", "osregex_val.jsonl")
+DATASET_OUT = os.path.join(os.path.dirname(__file__), "..", "data", "osregex_train_full.jsonl")
+VAL_DATASET_OUT = os.path.join(os.path.dirname(__file__), "..", "data", "osregex_val_full.jsonl")
+
+# Fallback to smaller development datasets
+if not os.path.exists(DATASET_OUT):
+    DATASET_OUT = os.path.join(os.path.dirname(__file__), "..", "data", "osregex_train.jsonl")
+if not os.path.exists(VAL_DATASET_OUT):
+    VAL_DATASET_OUT = os.path.join(os.path.dirname(__file__), "..", "data", "osregex_val.jsonl")
 
 
 def extract_training_data():

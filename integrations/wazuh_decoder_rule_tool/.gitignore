@@ -15,4 +15,5 @@ scratch/
 data/models/
 data/wazuh_repo/
 data/wazuh_ruleset_repo/
+.cache_decoders/
 
