@@ -391,6 +391,20 @@ document.getElementById('mlRefreshBtn').addEventListener('click', async () => {
 });
 
 /* ══ AI Generate ══ */
+async function checkExistingDecoder(payload) {
+  try {
+    // Only show warning if user hasn't explicitly disabled it or is just testing
+    const analyzeRes = await postJson('/api/analyze', payload);
+    if (analyzeRes && analyzeRes.wazuh_logtest_summary && analyzeRes.wazuh_logtest_summary.builtin_decoder_seen) {
+      const decoderName = analyzeRes.wazuh_logtest_summary.decoder_name || "unknown";
+      return confirm(`This log already matches an existing decoder: "${decoderName}".\nAre you sure you want to generate a new decoder for it?`);
+    }
+  } catch (e) {
+    console.error("Failed to check existing decoders:", e);
+  }
+  return true;
+}
+
 document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
   const btn = document.getElementById('aiGenerateBtn');
   setLoading(btn, true);
@@ -401,6 +415,14 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
 
   try {
     const p = readPayload();
+    
+    const shouldProceed = await checkExistingDecoder(p);
+    if (!shouldProceed) {
+      statusEl.style.display = 'none';
+      setLoading(btn, false);
+      return;
+    }
+
     const temperature = parseFloat(document.getElementById('aiTemperature').value);
     const extraContext = document.getElementById('aiExtraContext').value.trim();
     const genMode = document.getElementById('generationMode')?.value || 'auto';
@@ -461,6 +483,14 @@ document.getElementById('aiGenerateValidateBtn').addEventListener('click', async
 
   try {
     const p = readPayload();
+    
+    const shouldProceed = await checkExistingDecoder(p);
+    if (!shouldProceed) {
+      statusEl.style.display = 'none';
+      setLoading(btn, false);
+      return;
+    }
+
     const temperature = parseFloat(document.getElementById('aiTemperature').value);
     const extraContext = document.getElementById('aiExtraContext').value.trim();
     const genMode = document.getElementById('generationMode')?.value || 'auto';

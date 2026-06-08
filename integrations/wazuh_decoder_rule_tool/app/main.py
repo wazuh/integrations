@@ -824,14 +824,14 @@ FIELD_ALIASES: Dict[str, Tuple[str, ...]] = {
     "startingdisplayed": ("startingDisplayed", "startingdisplayed"),
     "message": ("message", "msg"),
     # CEF extension field aliases (user-facing → internal Wazuh field names)
-    "sourceip": ("srcip", "sourceip", "src"),
-    "srcip": ("srcip", "sourceip", "src"),
-    "destinationip": ("dstip", "destinationip", "dst"),
-    "dstip": ("dstip", "destinationip", "dst"),
+    "sourceip": ("srcip", "sourceip", "src", "source"),
+    "srcip": ("srcip", "sourceip", "src", "source"),
+    "destinationip": ("dstip", "destinationip", "dst", "destination"),
+    "dstip": ("dstip", "destinationip", "dst", "destination"),
     "sourceport": ("sourceport", "srcport", "spt"),
-    "srcport": ("sourceport", "srcport", "spt"),
+    "srcport": ("sourceport", "srcport", "spt", "port"),
     "destinationport": ("destinationport", "dstport", "dpt"),
-    "dstport": ("destinationport", "dstport", "dpt"),
+    "dstport": ("destinationport", "dstport", "dpt", "port"),
     "dvchost": ("dvchost",),
 }
 
