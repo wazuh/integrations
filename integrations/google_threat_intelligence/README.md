@@ -53,7 +53,7 @@ This integration can be broken down into the following steps:
 1. **Clone the repository**:
 
 ```sh
-sudo git clone https://github.com/wazuh/integrations.git
+git clone https://github.com/wazuh/integrations.git
 cd integrations/integrations/google_threat_intelligence
 ```
 
