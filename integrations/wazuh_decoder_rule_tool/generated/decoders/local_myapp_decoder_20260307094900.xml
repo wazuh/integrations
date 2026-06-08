@@ -1,0 +1,9 @@
+<decoder name="myapp">
+  <prematch>chrome.exe</prematch>
+</decoder>
+
+<decoder name="myapp-event">
+  <parent>myapp</parent>
+  <regex>(.*)</regex>
+  <order>message</order>
+</decoder>

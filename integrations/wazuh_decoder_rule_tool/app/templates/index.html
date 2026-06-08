@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wazuh Decoder Studio</title>
+  <meta name="description" content="Generate, test and validate Wazuh decoder and rule XML with AI assistance." />
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.1" />
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <div class="topbar-logo">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="7" fill="#1d4ed8"/>
+        <path d="M7 14l5 5 9-9" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="topbar-title">Wazuh <span>Decoder Studio</span></span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div id="healthPill" class="status-pill checking">
+      <span class="status-dot pulse"></span> Checking…
+    </div>
+    <div id="mlPill" class="status-pill checking" style="margin-left:8px">
+      <span class="status-dot"></span> ML –
+    </div>
+  </header>
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar">
+    <span class="sidebar-section-label">Workspace</span>
+    <div class="sidebar-item active" data-view="ai" id="nav-ai">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      AI Generate
+    </div>
+    <div class="sidebar-item" data-view="test" id="nav-test">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Test
+    </div>
+    <div class="sidebar-item" data-view="feedback" id="nav-feedback">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/></svg>
+      Feedback
+    </div>
+    <div class="sidebar-divider"></div>
+    <span class="sidebar-section-label">Model</span>
+    <div class="sidebar-item" data-view="ml" id="nav-ml">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32l2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+      ML Status
+    </div>
+    <div class="sidebar-item" data-view="history" id="nav-history">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      History
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main class="main-content">
+
+
+
+    <!-- ════ TEST VIEW — Realtime wazuh-logtest ════ -->
+    <div class="section-view" id="view-test">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Installed Decoder
+          </span>
+          <span class="card-badge" id="installStatusBadge" style="background:var(--text-dim)">Not installed</span>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;line-height:1.4">
+          Install the AI-generated decoder to the Wazuh custom decoders path, then test sample logs against it in real time.
+        </p>
+        <div id="installInfo" style="display:none;margin-bottom:12px;font-size:12px;font-family:JetBrains Mono,monospace;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;white-space:pre-wrap"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="installBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 2v14m0 0l-4-4m4 4l4-4"/></svg>
+            Install Current AI Decoder
+          </button>
+          <button class="btn btn-danger" id="uninstallBtn" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Uninstall
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Test Logs
+          </span>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:8px;line-height:1.4">
+          Paste log samples to test against the installed decoder. Logtest will show which decoder matched and what fields were extracted.
+        </p>
+        <div class="form-group">
+          <textarea id="testLogsInput" rows="5" placeholder="Paste one log per line to test…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
+Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-accent" id="logtestRunBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run wazuh-logtest
+          </button>
+          <button class="btn btn-ghost" id="logtestClearBtn">Clear Output</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 2v14m0 0l-4-4m4 4l4-4"/></svg>
+            wazuh-logtest Output
+          </span>
+          <button class="btn btn-ghost btn-sm" id="copyLogtestOutputBtn">Copy</button>
+        </div>
+        <div id="logtestOutputArea">
+          <div class="empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p>Run wazuh-logtest to see output here.</p>
+          </div>
+        </div>
+        <div id="logtestParsedArea" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+          <div class="card-title" style="margin-bottom:8px">Parsed Fields</div>
+          <div id="logtestParsedTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ AI VIEW ════ -->
+    <div class="section-view active" id="view-ai">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            AI-Powered Generation
+          </span>
+          <span class="card-badge">AI Powered</span>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
+          Uses advanced AI with local ML similarity model context to intelligently generate decoder &amp; rule XML. The AI analyzes your logs, references trained Wazuh decoder patterns, and produces optimized XML with reasoning.
+        </p>
+
+        <!-- Shared Input Fields for AI generation -->
+        <div class="form-row form-row-4">
+          <div class="form-group">
+            <label for="appName">App Name</label>
+            <input id="appName" type="text" value="myapp" />
+          </div>
+          <div class="form-group">
+            <label for="logSourceName">Log Source Name</label>
+            <input id="logSourceName" type="text" placeholder="auto-detected from log" />
+          </div>
+          <div class="form-group">
+            <label for="generationMode">Generation Mode</label>
+            <select id="generationMode">
+              <option value="auto">Auto</option>
+              <option value="decoder_only">Decoder Only</option>
+              <option value="rule_only">Rule Only</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="installMode">Install Mode</label>
+            <select id="installMode">
+              <option value="stdin">stdin only</option>
+              <option value="write_files">Write XML files</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row form-row-4" style="margin-top:8px">
+          <div class="form-group" style="display:flex;align-items:center;padding-top:4px">
+            <input id="splitDecoders" type="checkbox" style="width:16px;height:16px;margin-right:8px" />
+            <label for="splitDecoders" style="margin-bottom:0;cursor:pointer">Split Child Decoders</label>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;padding-top:4px">
+            <input id="validateLogtest" type="checkbox" checked style="width:16px;height:16px;margin-right:8px" />
+            <label for="validateLogtest" style="margin-bottom:0;cursor:pointer">Validate with logtest</label>
+          </div>
+        </div>
+        <div class="form-row form-row-2 mt-12">
+          <div class="form-group">
+            <label for="logsInput">Log Source Samples</label>
+            <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;line-height:1.4">
+              Paste single or multiple logs from <strong>one log source</strong>. The engine will learn the log patterns from your input to automatically create accurate decoders.
+            </p>
+            <textarea id="logsInput" rows="5" placeholder="Paste one log per line from the same source…">Dec 25 20:45:02 MyHost myapp[12345]: User 'admin' failed login from '192.168.1.100'
+Dec 25 20:50:11 MyHost myapp[12345]: User 'root' failed login from '10.0.0.5'</textarea>
+          </div>
+          <div class="form-group">
+            <label for="extractFields">Fields to Extract</label>
+            <textarea id="extractFields" rows="2" placeholder="timestamp, status, logger, message&#10;(one per line or comma-separated)"></textarea>
+            <label for="fieldHints" style="margin-top:10px">Field Value Mapping Hints (User Thoughts)</label>
+            <textarea id="fieldHints" rows="2" placeholder="e.g. protocol: POST&#10;(one mapping per line, format: field: value)"></textarea>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0" />
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label for="aiTemperature">Temperature</label>
+            <input id="aiTemperature" type="number" value="0.2" min="0" max="1" step="0.05" />
+          </div>
+          <div class="form-group">
+            <label for="aiExtraContext">Extra Context (optional)</label>
+            <textarea id="aiExtraContext" rows="2" placeholder="e.g. This is a Palo Alto threat log, extract action from deny-smb field"></textarea>
+          </div>
+        </div>
+        <div class="btn-row mt-16">
+          <button class="btn btn-ai" id="aiGenerateBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Generate with AI
+          </button>
+          <button class="btn btn-primary" id="aiGenerateValidateBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Generate &amp; Validate
+          </button>
+          <button class="btn btn-ghost" id="aiClearBtn">Clear</button>
+        </div>
+        <div id="aiStatus" style="display:none;margin-top:12px">
+          <div class="ai-label">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            AI is thinking…
+          </div>
+        </div>
+        <div id="aiValidationOut" style="display:none;margin-top:12px">
+          <div class="card-header" style="margin-bottom:8px">
+            <span class="card-title">Logtest Validation</span>
+            <span class="card-badge" id="validationBadge" style="background:var(--text-dim)">—</span>
+          </div>
+          <pre id="validationDetails" style="font-size:12px;font-family:JetBrains Mono,monospace;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;white-space:pre-wrap;max-height:200px;overflow:auto"></pre>
+        </div>
+        <div id="aiXmlOut" style="display:none;margin-top:16px">
+          <div class="card-header" style="margin-bottom:8px">
+            <span class="card-title">AI-Generated Decoder XML</span>
+            <button class="btn btn-ghost btn-sm" id="copyAiDecoderBtn">Copy</button>
+          </div>
+          <div class="output-block">
+            <div class="output-block-toolbar">
+              <span class="output-block-lang">XML — Decoder</span>
+            </div>
+            <pre id="aiDecoderXml"></pre>
+          </div>
+          <div id="aiRuleSection">
+            <div class="card-header" style="margin-bottom:8px;margin-top:12px">
+              <span class="card-title">AI-Generated Rule XML</span>
+              <button class="btn btn-ghost btn-sm" id="copyAiRuleBtn">Copy</button>
+            </div>
+            <div class="output-block">
+              <div class="output-block-toolbar">
+                <span class="output-block-lang">XML — Rule</span>
+              </div>
+              <pre id="aiRuleXml"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ FEEDBACK VIEW ════ -->
+    <div class="section-view" id="view-feedback">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/></svg>
+            Model Feedback
+          </span>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
+          Approve or reject the generated decoder to improve the similarity model. Approved examples are used to retrain.
+        </p>
+        <div class="form-group">
+          <label for="feedbackNotes">Notes (optional)</label>
+          <textarea id="feedbackNotes" rows="2" placeholder="e.g. corrected WindowManager regex for token extraction"></textarea>
+        </div>
+        <div class="form-row form-row-2 mt-12">
+          <div class="form-group">
+            <label for="feedbackPrematch">Prematch</label>
+            <input id="feedbackPrematch" type="text" placeholder="e.g. WindowManager:" />
+          </div>
+          <div class="form-group">
+            <label for="feedbackOrder">Order</label>
+            <input id="feedbackOrder" type="text" placeholder="e.g. logtime,wtoken,token,allDrawn" />
+          </div>
+        </div>
+        <div class="form-group mt-12">
+          <label for="feedbackRegex">Regex</label>
+          <textarea id="feedbackRegex" rows="4" placeholder="Correct regex to train from…"></textarea>
+        </div>
+        <div class="btn-row mt-16">
+          <button class="btn btn-success" id="feedbackYesBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/></svg>
+            Approve &amp; Retrain
+          </button>
+          <button class="btn btn-danger" id="feedbackNoBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/></svg>
+            Reject
+          </button>
+        </div>
+        <pre id="feedbackOut" style="margin-top:14px;font-size:12px;color:var(--text-muted)"></pre>
+      </div>
+    </div>
+
+    <!-- ════ ML STATUS VIEW ════ -->
+    <div class="section-view" id="view-ml">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32l2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+            ML Similarity Model
+          </span>
+        </div>
+        <div class="btn-row" style="margin-bottom:16px">
+          <button class="btn btn-ghost" id="mlStatusBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Refresh Status
+          </button>
+          <button class="btn btn-primary" id="mlRefreshBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Pull &amp; Rebuild Model
+          </button>
+        </div>
+        <div id="mlStatusOut">
+          <div class="empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32l2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+            <p>Click Refresh Status to load model info.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ HISTORY VIEW ════ -->
+    <div class="section-view" id="view-history">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Session History
+          </span>
+          <button class="btn btn-ghost btn-sm" id="clearHistoryBtn">Clear All</button>
+        </div>
+        <div id="historyList" class="history-list">
+          <div class="empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p>No history yet. Generate or Test to start tracking.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="/static/app.js?v=2.1"></script>
+</body>
+</html>
