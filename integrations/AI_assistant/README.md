@@ -83,7 +83,7 @@ The installation and configuration of all components (System Preparation, OpenSe
    rm -rf /opt/AI_assistant
   
    # Clone the full repository to a temporary directory
-   git clone https://github.com/bonyjohn05/integrations.git /tmp/integrations
+   git clone https://github.com/wazuh/integrations.git /tmp/integrations
   
    # Copy only the AI_assistant directory to /opt/AI_assistant
    cp -r /tmp/integrations/integrations/AI_assistant /opt/AI_assistant
