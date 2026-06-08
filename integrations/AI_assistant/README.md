@@ -103,7 +103,7 @@ The installation and configuration of all components (System Preparation, OpenSe
    **Important Environment File Variables:**
    - `DEPLOYMENT_TYPE`: Set to `"all-in-one"` (default), `"indexer"`, or `"dashboard"` depending on the node you are installing on.
    - `WAZUH_INDEXER_IP`: Set to `127.0.0.1` if installing directly on the indexer, or its IP if distributed.
-   - `WAZUH_INDEXER_PUBLIC_IP`: The public IP of your indexer (used for PDF generation links).
+   - `WAZUH_INDEXER_PUBLIC_IP`: The IP of your indexer server (used for PDF generation links).
    - `WAZUH_MANAGER_IP` & `WAZUH_DASHBOARD_IP`: The IP addresses of your Wazuh Manager and Dashboard servers.
    - `OPENAI_API_KEY` / `GEMINI_API_KEY` / AWS Credentials: Add your preferred LLM provider credentials.
    - Update the respective `..._USER` and `..._PASS` fields with your actual Wazuh credentials.
