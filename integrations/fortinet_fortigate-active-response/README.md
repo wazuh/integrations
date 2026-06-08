@@ -96,16 +96,15 @@ sudo chown root:wazuh /var/ossec/active-response/bin/fortigate-block.sh
 sudo chmod 750        /var/ossec/active-response/bin/fortigate-block.sh
 
 # 2. Config
-sudo cp integrations/fortinet_fortigate-active-response/active-response/fortigate-ar.conf \
+sudo cp integrations/fortinet_fortigate-active-response/active-response/fortigate-ar.conf.example \
         /var/ossec/etc/fortigate-ar.conf
 sudo chown root:wazuh /var/ossec/etc/fortigate-ar.conf
 sudo chmod 640        /var/ossec/etc/fortigate-ar.conf
 
 # 3. Whitelist
-sudo cp integrations/fortinet_fortigate-active-response/active-response/fortigate-ar-whitelist.example \
+sudo install -o root -g wazuh -m 640 /dev/null \
         /var/ossec/etc/lists/fortigate-ar-whitelist
-sudo chown root:wazuh /var/ossec/etc/lists/fortigate-ar-whitelist
-sudo chmod 640        /var/ossec/etc/lists/fortigate-ar-whitelist
+# Add one IP per line to exempt trusted sources (scanners, jump hosts, etc.)
 ```
 
 ---
@@ -163,10 +162,10 @@ sudo systemctl restart wazuh-manager
 
 ```bash
 # Dry-run — prints the JSON without calling the API
-sudo bash integrations/fortinet_fortigate/tests/test-ar.sh block 198.51.100.99 dry
+sudo bash integrations/fortinet_fortigate-active-response/tests/test-ar.sh block 198.51.100.99 dry
 
 # Live block test
-sudo bash integrations/fortinet_fortigate/tests/test-ar.sh block 198.51.100.99
+sudo bash integrations/fortinet_fortigate-active-response/tests/test-ar.sh block 198.51.100.99
 
 # Verify on FortiGate
 curl -sk -H "Authorization: Bearer YOUR_TOKEN" \
@@ -174,7 +173,7 @@ curl -sk -H "Authorization: Bearer YOUR_TOKEN" \
   | jq '.results[0].member[].name'
 
 # Live unblock test
-sudo bash integrations/fortinet_fortigate/tests/test-ar.sh unblock 198.51.100.99
+sudo bash integrations/fortinet_fortigate-active-response/tests/test-ar.sh unblock 198.51.100.99
 
 # Monitor the AR log
 sudo tail -f /var/ossec/logs/active-responses.log
@@ -186,11 +185,11 @@ sudo tail -f /var/ossec/logs/active-responses.log
 
 ```
 integrations/
-└── fortinet_fortigate/
+└── fortinet_fortigate-active-response/
     ├── active-response/
     │   ├── fortigate-block.sh              - AR script - /var/ossec/active-response/bin/
-    │   ├── fortigate-ar.conf       - config template - /var/ossec/etc/
-    │   ├── fortigate-ar-whitelist  - whitelist template
+    │   ├── fortigate-ar.conf.example       - config template - /var/ossec/etc/
+    │   ├── fortigate-ar-whitelist          - whitelist template
     │   └── ossec-fortigate-ar.conf         - ossec.conf snippets
     ├── tests/
     │   └── test-ar.sh                      - manual test 

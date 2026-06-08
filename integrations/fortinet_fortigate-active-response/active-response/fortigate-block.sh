@@ -92,6 +92,25 @@ LOCAL_WHITELIST_FILE="${LOCAL_WHITELIST_FILE:-/var/ossec/etc/lists/fortigate-ar-
 
 BASE_URL="https://${FGT_HOST}:${FGT_PORT}/api/v2/cmdb"
 CURL_SSL_FLAG=""
+
+# ---------------------------------------------------------------------------
+# 3a. Validate config values that appear in URL paths
+#     FortiGate names allow: letters, digits, hyphens, underscores, dots.
+#     Spaces or special characters break the REST API URL — reject early.
+# ---------------------------------------------------------------------------
+validate_name_field() {
+    local field_name="$1" value="$2"
+    if [[ ! "${value}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        log "ERROR" "Config '${field_name}' contains characters not safe for URL paths: '${value}'"
+        log "ERROR" "Allowed: letters, digits, hyphen, underscore, dot. No spaces."
+        exit 1
+    fi
+}
+
+validate_name_field "FGT_VDOM"        "${FGT_VDOM}"
+validate_name_field "FGT_BLOCK_GROUP" "${FGT_BLOCK_GROUP}"
+validate_name_field "FGT_ADDR_PREFIX" "${FGT_ADDR_PREFIX}"
+
 if [[ "${FGT_VERIFY_SSL}" == "false" ]]; then
     CURL_SSL_FLAG="--insecure"
     log "WARN" "SSL verification disabled — enable FGT_VERIFY_SSL=true in production"
@@ -233,7 +252,7 @@ fgt_api() {
     local url="${BASE_URL}/${endpoint}?${VDOM_PARAM}"
 
     local cmd=(
-        curl --silent --max-time "${FGT_CURL_TIMEOUT}"
+        curl --silent --show-error --max-time "${FGT_CURL_TIMEOUT}"
         ${CURL_SSL_FLAG}
         -w "\n__STATUS__%{http_code}"
         -X "${method}"

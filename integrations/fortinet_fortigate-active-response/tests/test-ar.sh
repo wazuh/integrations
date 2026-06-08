@@ -89,9 +89,13 @@ echo ""
 # Record current log line count so we only show new output from this run
 LOG_START=$(wc -l < "${AR_LOG}" 2>/dev/null || echo 0)
 
-printf '%s\n%s\n' "${ALERT_JSON}" "${CONTINUE_MSG}" \
-    | bash "${SCRIPT_PATH}" > /dev/null
-EXIT_CODE=$?
+EXIT_CODE=0
+if printf '%s\n%s\n' "${ALERT_JSON}" "${CONTINUE_MSG}" \
+       | bash "${SCRIPT_PATH}" > /dev/null; then
+    EXIT_CODE=0
+else
+    EXIT_CODE=$?
+fi
 
 echo "--- Script exited with code: ${EXIT_CODE} ---"
 echo ""
