@@ -1,9 +1,9 @@
 import subprocess
 import os
 
-WAZUH_HOST = "127.0.0.1"
-WAZUH_PORT = "2222"
-WAZUH_USER = "vagrant"
+WAZUH_HOST = os.getenv("WAZUH_SSH_HOST", "127.0.0.1")
+WAZUH_PORT = os.getenv("WAZUH_SSH_PORT", "2222")
+WAZUH_USER = os.getenv("WAZUH_SSH_USER", "vagrant")
 
 # read from environment variable
 WAZUH_LOGTEST = os.getenv("WAZUH_LOGTEST_PATH", "/var/ossec/bin/wazuh-logtest")

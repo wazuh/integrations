@@ -17,3 +17,10 @@ data/wazuh_repo/
 data/wazuh_ruleset_repo/
 .cache_decoders/
 
+
+# Generated output and TLS materials
+generated/
+certs/
+*.pem
+*.key
+*.crt

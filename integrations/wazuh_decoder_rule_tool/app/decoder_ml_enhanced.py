@@ -154,7 +154,7 @@ class EnhancedDecoderPattern(DecoderPattern):
         if self.prematch:
             parts.extend([self.prematch] * prematch_weight)
         if self.regex:
-            regex_tokens = re.findall(r"\[\\w\+\\]|\\\\d\+|\\\\S\+|\\\\w\+", self.regex)
+            regex_tokens = re.findall(r"\[\\w\+\]|\\d\+|\\S\+|\\w\+", self.regex)
             parts.extend(regex_tokens * regex_weight)
             parts.append(self.regex)
         if self.order:
@@ -220,7 +220,7 @@ class EnsembleDecoderSimilarityModel:
     def _enhanced_tokenize(self, text: str) -> List[str]:
         """Preserve OS_Regex patterns as whole tokens alongside word fragments."""
         tokens = re.findall(
-            r"\[\\w\+\\]|\\\\d\+|\\\\S\+|\\\\w\+|\\\\[wWdDsSpPtTnN]|[a-z0-9_.:/|-]+",
+            r"\[\\w\+\]|\\d\+|\\S\+|\\w\+|\\[wWdDsSpPtTnN]|[a-z0-9_.:/|-]+",
             text.lower(),
         )
         return tokens

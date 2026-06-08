@@ -15,22 +15,17 @@ from app.decoder_ml_enhanced import ensure_ml_model_enhanced
 
 def test_ensure_ml_model_enhanced():
     """Test that our enhanced model loader works."""
-    try:
-        # This might fail if no Wazuh repo is available, but that's OK for this test
-        model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
-        # If we get here without exception, the function works
-        assert model is not None or model is None  # Either is fine
-        print("✓ ensure_ml_model_enhanced executed successfully")
-        return True
-    except Exception as e:
-        print(f"✗ ensure_ml_model_enhanced failed: {e}")
-        return False
+    model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
+    assert model is not None, "Model failed to load"
+    assert hasattr(model, "suggest"), "Model is missing the suggest() method"
+    assert callable(getattr(model, "suggest")), "suggest attribute is not callable"
+    print("✓ ensure_ml_model_enhanced executed successfully")
 
 
 if __name__ == "__main__":
-    success = test_ensure_ml_model_enhanced()
-    if success:
+    try:
+        test_ensure_ml_model_enhanced()
         print("Integration test passed!")
-    else:
-        print("Integration test failed!")
+    except AssertionError as e:
+        print(f"Integration test failed! {e}")
         sys.exit(1)

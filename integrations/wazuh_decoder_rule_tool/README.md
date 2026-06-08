@@ -81,16 +81,16 @@ export WAZUH_SSH_PASSWORD=vagrant
 export WAZUH_SSH_KEY=/path/to/private_key
 ```
 
-For this workspace, the app now defaults to:
+You can configure it like so:
 
 ```bash
-WAZUH_SSH_HOST=192.168.56.10
-WAZUH_SSH_PORT=22
-WAZUH_SSH_USER=vagrant
-WAZUH_SSH_PASSWORD=vagrant
+export WAZUH_SSH_HOST=192.168.56.10
+export WAZUH_SSH_PORT=22
+export WAZUH_SSH_USER=your_ssh_user
+export WAZUH_SSH_PASSWORD=your_ssh_password
 ```
 
-Environment variables still override these defaults.
+Environment variables will override any internal fallbacks.
 
 When `WAZUH_SSH_HOST` and `WAZUH_SSH_USER` are set, the app will:
 - run `wazuh-logtest` over SSH with sudo

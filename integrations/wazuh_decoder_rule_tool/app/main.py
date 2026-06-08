@@ -3751,9 +3751,20 @@ Wazuh OS_Regex is fundamentally different from PCRE regex:
 ## Valid quantifiers (apply ONLY to ^ sequences)
   \\d+ \\w+ \\s+ \\.+ \\S+ \\W+ \\D+ \\p+
 
-## Decoder XML Example
+## Decoder XML Examples
+<!-- Example 1: When program_name is pre-decoded -->
 <decoder name="myapp">
   <program_name>^myapp</program_name>
+</decoder>
+<decoder name="myapp-event">
+  <parent>myapp</parent>
+  <regex>User '(\\S+)' failed login from '(\\d+.\\d+.\\d+.\\d+)'</regex>
+  <order>user, srcip</order>
+</decoder>
+
+<!-- Example 2: When program_name is NOT pre-decoded -->
+<decoder name="myapp">
+  <prematch>\\S+ \\S+ myapp\\[\\d+\\]: </prematch>
 </decoder>
 <decoder name="myapp-event">
   <parent>myapp</parent>
@@ -3817,10 +3828,21 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
         if hints_lines:
             hints_block = "Field value mapping hints:\n" + "\n".join(hints_lines) + "\n"
 
-    if predecoded_program or extracted_program:
-        parent_strategy = f"Parent decoder MUST use <program_name> (program: '{program}')."
+    if predecoded_program:
+        parent_strategy = f"Parent decoder MUST use <program_name> (program: '{predecoded_program}')."
     else:
-        parent_strategy = "No program name detected. Use <prematch> for parent decoder."
+        token_source = analysis.get("token_source")
+        logs_to_use = [token_source] if token_source else [s.raw_log for s in request.logs]
+        parent_prematch = prematch_osregex_from_current_logs(
+            logs_to_use,
+            extracted_program,
+            analysis.get("unique_after_predecoded"),
+            analysis.get("prematch"),
+        )
+        if parent_prematch:
+            parent_strategy = f"No program name pre-decoded by Wazuh. You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder. Do NOT invent a different prematch."
+        else:
+            parent_strategy = "No program name pre-decoded by Wazuh. You MUST use <prematch> for the parent decoder instead of <program_name> based on the log's prefix."
 
     logtest_summary = analysis.get("wazuh_logtest_summary", {})
     logtest_decoded = analysis.get("logtest_decoded_fields", {})
@@ -3870,7 +3892,7 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
         )
 
     decoder_rules_list = [
-        "- Parent: use <program_name> if a program name is detected, otherwise use <prematch>",
+        "- Parent: MUST use <prematch> UNLESS Wazuh explicitly predecoded a program_name. Do NOT guess program_name.",
     ]
     if getattr(request, 'split_decoders', False):
         decoder_rules_list.append("- Child: YOU MUST SPLIT CHILD DECODERS. Create a SEPARATE child decoder block for EVERY SINGLE field you extract. Each child decoder should have <parent>, a specific <regex> for just that field, and an <order> containing ONLY that single field name. All children share the same decoder name.")
