@@ -6,29 +6,25 @@ A FastAPI web application that intelligently generates custom Wazuh decoder and 
 
 ## How It Works
 
-```
-Your Log
-   │
-   ▼
-① wazuh-logtest ──► Already matched? Show built-in decoder name & skip custom generation
-   │ Not matched
-   ▼
-② Python Heuristics ──► Calculate prematch / regex pattern from log structure
-   │
-   ▼
-③ ML Similarity (SBERT + TF-IDF) ──► Find top similar official Wazuh decoders (1,500+)
-   │
-   ▼
-④ RAG Engine (ChromaDB) ──► Retrieve 3 verified real decoder examples closest to your log
-   │
-   ▼
-⑤ LLM (Ollama / DashScope / OpenRouter) ──► Generate final XML grounded in real examples
-   │
-   ▼
-⑥ Post-processor ──► Sanitize OS_Regex syntax, fix dot escaping, validate structure
-   │
-   ▼
-✅ Clean Wazuh Decoder + Rule XML
+```mermaid
+flowchart TD
+    A[Raw Log] --> B{wazuh-logtest}
+    B -- "Already Matched" --> C[Skip Custom Generation<br/>Use Built-in Decoder]
+    B -- "Not Matched" --> D[Python Heuristics<br/>Calculate Regex Skeleton]
+    D --> E[ML Similarity Engine<br/>SBERT + TF-IDF]
+    E --> F[RAG Engine<br/>Retrieve 3 Verified XMLs from ChromaDB]
+    F --> G[Local LLM<br/>Ollama / Qwen]
+    G --> H[Post-Processor<br/>Sanitize OS_Regex Syntax]
+    H --> I((Clean Wazuh<br/>Decoder & Rule XML))
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style I fill:#bbf,stroke:#333,stroke-width:2px
+    style B fill:#dfd,stroke:#333
+    style D fill:#eee,stroke:#333
+    style E fill:#eee,stroke:#333
+    style F fill:#eee,stroke:#333
+    style G fill:#ffd,stroke:#333
+    style H fill:#eee,stroke:#333
 ```
 
 ### Key Intelligence Rules
