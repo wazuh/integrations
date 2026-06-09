@@ -123,6 +123,29 @@ Describe clear steps on how to verify that the integration is working as expecte
 List any official documentation, blog posts, or resources that were used as references for building this integration. Provide links where possible.
 
 ```
+## Provenance and Maintenance Requirements for Community-Contributed Integrations
+
+To ensure transparency, maintainability, and clear support expectations, all community-contributed integrations MUST include provenance and maintenance information.
+
+Contributors MUST document the following information:
+
+- Original source: The original article, repository, documentation, or project from which the integration was derived or adapted.
+- Adapted by: The individual(s) or organization(s) responsible for modifying, extending, or adapting the original implementation.
+- Tested versions: The specific versions of Wazuh and any third-party products, services, APIs, or dependencies that were validated during testing.
+- Maintainer: The individual or team responsible for maintaining the integration and reviewing future updates.
+- Support boundary: A clear statement describing the support model for the integration (for example, community-maintained, vendor-maintained, or provided as-is).
+
+This information SHOULD be included in the integration documentation and kept up to date whenever significant changes are introduced.
+
+The purpose of this requirement is to provide users with clear visibility into:
+
+- The origin of the integration.
+- Any modifications made relative to the original source.
+- The versions against which the integration has been validated.
+- The responsible maintainer.
+- The appropriate support channel and expected level of support.
+
+Contributions that do not provide sufficient provenance or maintenance information MAY require additional review before being accepted.
 
 ## Submitting Your Pull Request
 
