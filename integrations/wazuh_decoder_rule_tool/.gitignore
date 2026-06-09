@@ -35,3 +35,4 @@ test_*
 # Generated artifacts
 response.json
 architecture.html
+data/rag_store/
