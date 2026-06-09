@@ -24,3 +24,14 @@ certs/
 *.pem
 *.key
 *.crt
+
+# OS files
+.DS_Store
+
+# Test files
+test*
+test_*
+
+# Generated artifacts
+response.json
+architecture.html

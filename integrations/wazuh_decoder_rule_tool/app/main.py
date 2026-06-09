@@ -38,6 +38,13 @@ from app.decoder_ml import (
     refresh_wazuh_repo,
 )
 from app.decoder_ml_enhanced import ensure_ml_model_enhanced
+try:
+    from app import rag_engine as _rag
+    _RAG_AVAILABLE = True
+except Exception:
+    _rag = None  # type: ignore
+    _RAG_AVAILABLE = False
+
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -108,6 +115,14 @@ async def lifespan(app: FastAPI):
     print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
     # Pre-load rule patterns from wazuh-ruleset repo
     _load_rule_ml_model()
+    # Build RAG vector store in background (non-blocking)
+    if _RAG_AVAILABLE:
+        import threading
+        def _build_rag():
+            print("INFO:     Building RAG vector store (background)...")
+            result = _rag.build_store(force=False)
+            print(f"INFO:     RAG store ready: {result}")
+        threading.Thread(target=_build_rag, daemon=True).start()
     yield
 
 app = FastAPI(title="Wazuh Decoder Rule Creator", lifespan=lifespan)
@@ -3648,12 +3663,28 @@ def ml_refresh(request: MLRefreshRequest):
     )
     _ML_MODEL = None
     model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
+    # Also rebuild RAG store so it picks up new decoders
+    rag_result = {}
+    if _RAG_AVAILABLE and _rag is not None:
+        try:
+            rag_result = _rag.build_store(force=True)
+        except Exception as e:
+            rag_result = {"status": "error", "message": str(e)}
     return {
         "refresh": refreshed,
         "model_loaded": bool(model),
         "pattern_count": _ML_PATTERN_COUNT,
         "error": _ML_MODEL_ERROR,
+        "rag": rag_result,
     }
+
+
+@app.get("/api/rag/status")
+def rag_status():
+    """Return the current status of the RAG vector store."""
+    if not _RAG_AVAILABLE or _rag is None:
+        return {"available": False, "reason": "chromadb not installed or rag_engine failed to load"}
+    return {"available": True, **_rag.get_status()}
 
 
 @app.post("/api/feedback")
@@ -3866,6 +3897,16 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             ml_lines.append(f"  {s.get('name','?')}: regex={s.get('regex','?')} order={','.join(s.get('order') or [])}")
         ml_context = "Similar Wazuh decoders (reference):\n" + "\n".join(ml_lines) + "\n"
 
+    # RAG: retrieve verified real decoder examples from vector store
+    rag_context = ""
+    if _RAG_AVAILABLE and _rag is not None:
+        try:
+            first_log = request.logs[0].raw_log if request.logs else ""
+            rag_examples = _rag.retrieve(first_log, fields=effective_fields, top_k=3)
+            rag_context = _rag.format_rag_context(rag_examples)
+        except Exception as _rag_err:
+            logger.warning(f"RAG retrieval failed: {_rag_err}")
+
     rule_ml_context = ""
     if has_rule_req and gen_mode in ("both", "rule_only"):
         rule_suggestions = rule_suggestions_for_requirement(request.rule_requirement, top_k=2)
@@ -3928,7 +3969,8 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
 {config_block}
 
 {logtest_block}{parent_strategy}
-{hints_block}{ml_context}{rule_ml_context}
+{hints_block}{rag_context}
+{ml_context}{rule_ml_context}
 {decoder_rules}
 {rule_section}
 {output_instruction}"""
