@@ -144,7 +144,7 @@ All available options are documented in
 </active-response>
 ```
 
-`<location>server</location>` is required — the script runs on the Manager because it needs to reach the FortiGate API. See [`active-response/ossec-fortigate-ar.conf`](active-response/ossec-fortigate-ar.conf) for more trigger examples.
+`<location>server</location>` is required — the script runs on the Manager because it needs to reach the FortiGate API. See [`active-response/fortigate-ar.conf`](active-response/fortigate-ar.conf) for more trigger examples.
 
 ### Whitelist your infrastructure
 
@@ -190,7 +190,7 @@ integrations/
     │   ├── fortigate-block.sh              - AR script - /var/ossec/active-response/bin/
     │   ├── fortigate-ar.conf.example       - config template - /var/ossec/etc/
     │   ├── fortigate-ar-whitelist          - whitelist template
-    │   └── ossec-fortigate-ar.conf         - ossec.conf snippets
+    │   └── fortigate-ar.conf               - ossec.conf snippets
     ├── tests/
     │   └── test-ar.sh                      - manual test 
     └── README.md

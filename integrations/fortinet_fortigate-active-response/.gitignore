@@ -1,5 +1,6 @@
 # Live config contains API token — never commit it
-fortigate-ar.conf
+active-response/fortigate-ar.conf
+!active-response/fortigate-ar.conf.example
 
 # Local override configs
 *.local.conf
