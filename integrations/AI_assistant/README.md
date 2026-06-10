@@ -101,7 +101,7 @@ The installation and configuration of all components (System Preparation, OpenSe
    ```
    
    **Important Environment File Variables:**
-   - `DEPLOYMENT_TYPE`: Set to `"all-in-one"` (default), `"indexer"`, or `"dashboard"` depending on the node you are installing on.
+   - `DEPLOYMENT_TYPE`: Set to `"all-in-one"` (default), if it is distributed deployment then set `"indexer"`, or `"dashboard"` depending on the node you are installing on.
    - `WAZUH_INDEXER_IP`: Set to `127.0.0.1` if installing directly on the indexer, or its IP if distributed.
    - `WAZUH_INDEXER_PUBLIC_IP`: The IP of your indexer server (used for PDF generation links).
    - `WAZUH_MANAGER_IP` & `WAZUH_DASHBOARD_IP`: The IP addresses of your Wazuh Manager and Dashboard servers.
