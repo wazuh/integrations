@@ -1,0 +1,18 @@
+wazuh_api:
+  host: "https://localhost:55000"
+  username: "wazuh"
+  password: "dJy+c.M0skanQEaXkarpYD6PoJ37GtDs"
+  verify_ssl: false
+
+indexer:
+  url: "https://localhost:9200"
+  username: "admin"
+  password: "6npQBGTecV?IAP8V.rxI0e93ZVOx4yhA"
+
+kibana:
+  username: "kibanaserver"
+  password: "hYIN6CXoJSoMqxq4qzj547E?dtaqTGjh"
+
+ollama:
+  url: "http://localhost:11434"
+  model: "qwen3:1.7b"
