@@ -44,8 +44,8 @@ Or navigate to **Server Management** --> **Decoders** --> **Add new decoders fil
 The custom rules map the decoded fields to specific security and auditing alerts, such as alerting when C-ICAP blocks a malicious download or ulogd drops internal traffic. Copy the rules files to the Wazuh Manager's custom rules directory:
 
 ```bash
-cp content/ruleset/endian_mercury_utm/rules/endian_ulogd_rules.xml /var/ossec/etc/rules/
-cp content/ruleset/endian_mercury_utm/rules/endian_proxy_rules.xml /var/ossec/etc/rules/
+cp integrations/endian_mercury_utm/rules/endian_ulogd_rules.xml /var/ossec/etc/rules/
+cp integrations/endian_mercury_utm/rules/endian_proxy_rules.xml /var/ossec/etc/rules/
 ```
 
 Or navigate to **Server Management** --> **Rules** --> **Add new rules file** --> paste the content, save the file, and reload the cluster.
