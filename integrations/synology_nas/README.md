@@ -34,7 +34,7 @@ To forward Synology logs to Wazuh, you must configure the NAS to send its syslog
 The custom decoders instruct Wazuh on how to parse the standard Synology bracketed log format. Copy the decoders file to the Wazuh Manager:
 
 ```bash
-cp content/ruleset/synology_nas/decoders/nas_synology_decoders.xml /var/ossec/etc/decoders/
+cp integrations/synology_nas/decoders/nas_synology_decoders.xml /var/ossec/etc/decoders/
 
 ```
 
@@ -43,7 +43,7 @@ cp content/ruleset/synology_nas/decoders/nas_synology_decoders.xml /var/ossec/et
 The custom rules map the decoded fields to specific alerts, such as alerting on 2FA failures, SSH blocks, or degraded volumes. Copy the rules file to the Wazuh Manager:
 
 ```bash
-cp content/ruleset/synology_nas/rules/nas_synology_rules.xml /var/ossec/etc/rules/
+cp integrations/synology_nas/rules/nas_synology_rules.xml /var/ossec/etc/rules/
 
 ```
 
