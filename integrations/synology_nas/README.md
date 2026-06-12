@@ -79,5 +79,5 @@ Verify the integration using the `wazuh-logtest` tool with the provided `sample_
 #### Verify in Wazuh Dashboard
 
 1. Navigate to the **Discover** tab in the Wazuh Dashboard.
-2. Filter by `Field` `decoder.name`, `Operator` `is`, `Value` `synology-nas`.
+2. Filter by `Field` `decoder.name`, `Operator` `is`, `Value` `synology_nas`.
 3. Monitor the ingested Synology events in real-time.
