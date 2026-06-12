@@ -1,0 +1,25 @@
+Jun  9 10:20:15 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: ---, Action: Login Fail
+Jun  9 10:20:22 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: ---, Action: Login OK
+
+# -- File Creation & Modification --
+Jun  9 10:25:10 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/NEW_REPORT.DOCX, Action: Add
+Jun  9 10:25:15 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/NEW_REPORT.DOCX, Action: Write
+
+# -- File Reading (Your original logs) --
+Jun  9 10:28:41 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/DATAFILE_A.DBF, Action: Read
+Jun  9 10:28:43 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/INDEXFILE_A.NTX, Action: Read
+
+# -- Directory Access & File Renaming --
+# Folders are tracked the exact same way as files
+Jun  9 10:30:00 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/Archived, Action: Read
+Jun  9 10:30:05 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/OLD_REPORT.DOCX, Action: Rename
+
+# -- File Deletion --
+# Highly critical for Wazuh alerts (Ransomware/Insider Threat detection)
+Jun  9 10:35:12 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/DATAFILE_A.BAK, Action: Delete
+
+# -- File Operations with Spaces in the Name --
+Jun  9 10:40:00 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/Monthly Final Report.docx, Action: Write
+
+# -- Session Termination --
+Jun  9 17:30:01 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: ---, Action: Logout
