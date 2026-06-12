@@ -32,9 +32,9 @@ Ensure that Wazuh is configured with a `<remote>` block in `ossec.conf` to accep
 The custom decoders instruct Wazuh on how to parse the standard Endian log formats. Copy the decoders files to the Wazuh Manager's custom decoders directory:
 
 ```bash
-cp content/ruleset/endian_mercury_utm/decoders/endian_ulogd_decoder.xml /var/ossec/etc/decoders/
-cp content/ruleset/endian_mercury_utm/decoders/endian_squid_decoder.xml /var/ossec/etc/decoders/
-cp content/ruleset/endian_mercury_utm/decoders/endian_cicap_decoder.xml /var/ossec/etc/decoders/
+cp integrations/endian_mercury_utm/decoders/endian_ulogd_decoder.xml /var/ossec/etc/decoders/
+cp integrations/endian_mercury_utm/decoders/endian_squid_decoder.xml /var/ossec/etc/decoders/
+cp integrations/endian_mercury_utm/decoders/endian_cicap_decoder.xml /var/ossec/etc/decoders/
 ```
 
 Or navigate to **Server Management** --> **Decoders** --> **Add new decoders file** --> paste the content of each file, save, and reload the cluster.
