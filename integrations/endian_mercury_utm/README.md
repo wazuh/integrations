@@ -83,5 +83,5 @@ You can verify that the decoders and rules are working correctly by using the `w
 
 1. Open the Wazuh Dashboard.
 2. Navigate to the Discover tab.
-3. Add a filter: `Field` `decoder.name`, `Operator` `is one of`, `Values` `endian-ulogd`, `endian-squid`, `endian-cicap`.
+3. Add a filter: `Field` `decoder.name`, `Operator` `is one of`, `Values` `endian_custom`, `endian_squid`, `endian_icap`.
 4. Save the filter or view the dashboard to monitor ingested Endian events in real-time.
