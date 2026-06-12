@@ -77,7 +77,7 @@ You can verify that the decoders and rules are working correctly by using the `w
 
 1. Navigate to **Server Management** --> **Ruleset Test** on the Dashboard.
 2. Paste a raw log from the `sample_logs.txt` file into the prompt (e.g., a Squid proxy log or a C-ICAP REQMOD block).
-3. Verify that Phase 2 correctly identifies the decoder (e.g., `endian-squid`, `endian-cicap`, or `endian-ulogd`) and Phase 3 triggers the appropriate rule.
+3. Verify that Phase 2 correctly identifies the decoder (e.g., `endian_squid`, `endian_icap`, or `endian_custom`) and Phase 3 triggers the appropriate rule.
 
 #### Verify in Wazuh Dashboard
 
