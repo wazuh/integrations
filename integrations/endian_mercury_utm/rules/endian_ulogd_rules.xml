@@ -1,0 +1,79 @@
+<!-- Modify it at your will. -->
+<group name="endian_firewall,">
+
+  <rule id="100200" level="2">
+    <decoded_as>endian_custom</decoded_as>
+    <description>Endian UTM: General firewall traffic.</description>
+  </rule>
+
+  <rule id="100201" level="3">
+    <if_sid>100200</if_sid>
+    <field name="endian_chain">^OUTGOINGFW</field>
+    <field name="endian_action">^ALLOW$|^ACCEPT$</field>
+    <description>Endian UTM: Allowed OUTGOING traffic from $(srcip) to $(dstip):$(dstport) $(protocol).</description>
+  </rule>
+
+  <rule id="100202" level="5">
+    <if_sid>100200</if_sid>
+    <field name="endian_chain">^INPUTFW</field>
+    <field name="endian_action">^DROP$|^REJECT$</field>
+    <description>Endian UTM: Dropped INCOMING traffic from $(srcip) to $(dstip):$(dstport) $(protocol).</description>
+  </rule>
+
+  <rule id="100203" level="7">
+    <if_sid>100201</if_sid>
+    <dstport>^22$|^3389$|^23$|^443$</dstport>
+    <description>Endian UTM: WARNING - Outgoing traffic allowed on high-risk port $(dstport) to $(dstip).</description>
+  </rule>
+  
+  <rule id="100204" level="3">
+    <if_sid>100200</if_sid>
+    <protocol>^TCP$</protocol>
+    <field name="tcp_flags">^SYN$</field>
+    <description>Endian UTM: New TCP connection initiated (SYN) from $(srcip) to $(dstip):$(dstport).</description>
+  </rule>
+
+  <rule id="100205" level="4">
+    <if_sid>100200</if_sid>
+    <protocol>^TCP$</protocol>
+    <field name="tcp_flags">^RST$</field>
+    <description>Endian UTM: TCP Connection reset (RST) from $(srcip) to $(dstip):$(dstport).</description>
+  </rule>
+
+  <rule id="100206" level="2">
+    <if_sid>100200</if_sid>
+    <protocol>^ICMP$</protocol>
+    <field name="icmp_type">^8$</field>
+    <description>Endian UTM: ICMP Echo Request (Ping) from $(srcip) to $(dstip).</description>
+  </rule>
+
+  <rule id="100207" level="5">
+    <if_sid>100200</if_sid>
+    <protocol>^ICMP$</protocol>
+    <field name="icmp_type">^3$</field>
+    <field name="icmp_code">^3$</field>
+    <description>Endian UTM: ICMP Port Unreachable (Type 3 Code 3). Traffic from $(srcip) to $(dstip) was rejected.</description>
+    <group>recon,</group>
+  </rule>
+
+  <rule id="100208" level="3">
+    <if_sid>100201</if_sid>
+    <field name="endian_uid">^990$</field>
+    <description>Endian UTM: Web Proxy (Squid) allowed outbound connection to $(dstip):$(dstport).</description>
+  </rule>
+
+  <rule id="100209" level="4">
+    <if_sid>100201</if_sid>
+    <field name="endian_uid">^0$</field>
+    <description>Endian UTM: Firewall system (root/UID 0) initiated outbound connection to $(dstip):$(dstport).</description>
+    <group>system_update,</group>
+  </rule>
+
+  <rule id="100210" level="3">
+    <if_sid>100200</if_sid>
+    <protocol>^UDP$</protocol>
+    <field name="endian_len">^14\d\d$|^15\d\d$</field>
+    <description>Endian UTM: Large or fragmented UDP packet ($(endian_len) bytes) from $(srcip) to $(dstip).</description>
+  </rule>
+
+</group>

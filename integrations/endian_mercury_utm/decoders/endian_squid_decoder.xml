@@ -1,0 +1,46 @@
+<!--
+Jun  9 10:45:01 fw-edge-05.local (squid-1)[6350]: 1780995001.123   1500 10.20.30.50 TCP_TUNNEL/200 4500 CONNECT www.microsoft.com:443 - ORIGINAL_DST/192.0.2.29 -
+Jun  9 10:45:02 fw-edge-05.local (squid-2)[6349]: 1780995002.300    350 10.20.30.50 TCP_MISS/200 45800 GET http://www.example.com/style.css - DIRECT/198.51.100.34 text/css
+Jun  9 10:45:03 fw-edge-05.local (squid-3)[6348]: 1780995003.050      0 10.20.30.50 TCP_HIT/200 12050 GET http://www.example.com/logo.png - HIER_NONE/- image/png
+Jun  9 10:46:10 fw-edge-05.local (squid-1)[6350]: 1780995300.550    450 10.20.30.80 TCP_MISS/200 15400 GET http://www.ubuntu.com/ ajohnson DIRECT/203.0.113.125 text/html
+Jun  9 10:46:12 fw-edge-05.local (squid-2)[6349]: 1780995302.100  12000 10.20.30.81 TCP_TUNNEL/200 8400 CONNECT github.com:443 blee ORIGINAL_DST/192.0.2.82 -
+Jun  9 10:48:00 fw-edge-05.local (squid-4)[6347]: 1780995200.015      0 10.20.30.205 NONE/403 9516 CONNECT facebook.com:443 - HIER_NONE/- text/html
+Jun  9 10:48:15 fw-edge-05.local (squid-2)[6349]: 1780995215.020      0 10.20.30.205 NONE/403 9516 CONNECT netflix.com:443 - HIER_NONE/- text/html
+Jun  9 10:51:30 fw-edge-05.local (squid-3)[6348]: 1780995100.400     85 10.20.30.100 TCP_DENIED/403 3450 GET http://eicar.org/download/eicar.com - DIRECT/198.51.100.97 text/html
+Jun  9 10:55:00 fw-edge-05.local (squid-1)[6350]: 1780995400.990  45000 10.20.30.110 TCP_MISS/200 10485760 GET http://speedtest.tele2.net/10MB.zip - DIRECT/203.0.113.73 application/zip
+Jun  9 10:55:10 fw-edge-05.local (squid-2)[6349]: 1780995410.250   1200 10.20.30.110 TCP_MISS/200 2548900 GET http://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf - DIRECT/192.0.2.128 application/pdf
+-->
+
+<decoder name="endian_squid">
+  <program_name>squid</program_name>
+</decoder>
+
+<decoder name="endian_squid_child">
+  <parent>endian_squid</parent>
+  <regex>^\d+.\d+\t*\s*(\d+) (\S+)</regex>
+  <order>squid_duration, srcip</order>
+</decoder>
+
+<decoder name="endian_squid_child">
+  <parent>endian_squid</parent>
+  <regex> (\S+)/(\d+) (\d+) \w+ </regex>
+  <order>squid_action, squid_code, squid_bytes</order>
+</decoder>
+
+<decoder name="endian_squid_child">
+  <parent>endian_squid</parent>
+  <regex> \S+/\d+ \d+ (\w+) (\S+) (\S+) </regex>
+  <order>squid_method, url, squid_user</order>
+</decoder>
+
+<decoder name="endian_squid_child">
+  <parent>endian_squid</parent>
+  <regex> (\S+)/(\S+) \S+$</regex>
+  <order>squid_hierarchy, dstip</order>
+</decoder>
+
+<decoder name="endian_squid_child">
+  <parent>endian_squid</parent>
+  <regex> (\S+)$</regex>
+  <order>squid_mime</order>
+</decoder>
