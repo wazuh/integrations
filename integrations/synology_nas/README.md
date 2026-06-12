@@ -73,8 +73,8 @@ systemctl restart wazuh-manager
 Verify the integration using the `wazuh-logtest` tool with the provided `sample_logs.txt`:
 
 1. Navigate to **Server Management** --> **Ruleset Test**.
-2. Paste a raw log from `sample_logs.txt` (e.g., `Connection: User [admin] from [192.168.1.10] failed to log in via [DSM]`).
-3. Verify Phase 2 identifies the `synology-nas` decoder and Phase 3 triggers the expected alert.
+2. Paste a raw syslog entry from `sample_logs.txt` (e.g., `Jun  9 10:30:15 SERVER-01 Connection: User [admin] from [192.168.1.10] failed to log in via [DSM]`).
+3. Verify Phase 2 identifies the `synology_nas` decoder and Phase 3 triggers the expected alert.
 
 #### Verify in Wazuh Dashboard
 
