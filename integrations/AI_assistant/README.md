@@ -168,7 +168,7 @@ Use these to validate end-to-end behavior and the reporting format:
 - What is the OS and OS version of agent 002
 - How many agents have edge software installed?
 - Can you check if the agent 001 has Valorant software installed?
-![alt text](images/image-2.png)
+![alt text](images/image-1.png)
 
 **SCA:**
 - Share the SCA score of agent 002
