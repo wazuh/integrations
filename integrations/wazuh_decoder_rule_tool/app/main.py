@@ -3818,8 +3818,9 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
     logs_block = "\n".join(s.raw_log for s in request.logs[:5])
     effective_fields = analysis.get("effective_extract_fields") or request.extract_fields
     skipped_fields = analysis.get("skipped_decoded_fields") or []
-    has_rule_req = bool(request.rule_requirement and request.rule_requirement.strip())
     rule_req = request.rule_requirement or ""
+    extra_context_lower = (request.extra_context or "").lower()
+    has_rule_req = bool(rule_req.strip() or "rule" in extra_context_lower or "level" in extra_context_lower)
     predecoded_program = analysis.get("predecoded_program_name") or ""
     extracted_program = analysis.get("extracted_program_name") or ""
     program = predecoded_program or extracted_program or request.app_name
@@ -3846,7 +3847,8 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
     if skipped_fields:
         config_lines.append(f"- Fields ALREADY decoded by built-in (SKIP these): {', '.join(skipped_fields)}")
     if gen_mode in ("both", "rule_only") and has_rule_req:
-        config_lines.append(f"- Rule requirement: {rule_req}")
+        if rule_req.strip():
+            config_lines.append(f"- Rule requirement: {rule_req}")
         config_lines.append(f"- Rule ID: {request.rule_id}, Level: {request.level}")
     if request.extra_context:
         config_lines.append(f"- Extra context: {request.extra_context}")
@@ -3860,7 +3862,12 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             hints_block = "Field value mapping hints:\n" + "\n".join(hints_lines) + "\n"
 
     if predecoded_program:
-        parent_strategy = f"Parent decoder MUST use <program_name> (program: '{predecoded_program}')."
+        parent_strategy = (
+            f"\n\nCRITICAL: Wazuh Phase 1 pre-decoding ALREADY extracted program_name: '{predecoded_program}'. "
+            "Because of this, the syslog header is STRIPPED before Phase 2. "
+            f"You MUST use <program_name>^{predecoded_program}$</program_name> in the parent decoder! "
+            "DO NOT use <prematch> in the parent decoder, because the header is no longer there to be matched!"
+        )
     else:
         token_source = analysis.get("token_source")
         logs_to_use = [token_source] if token_source else [s.raw_log for s in request.logs]
@@ -3871,9 +3878,9 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             analysis.get("prematch"),
         )
         if parent_prematch:
-            parent_strategy = f"No program name pre-decoded by Wazuh. You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder. Do NOT invent a different prematch."
+            parent_strategy = f"\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder. Do NOT invent a different prematch."
         else:
-            parent_strategy = "No program name pre-decoded by Wazuh. You MUST use <prematch> for the parent decoder instead of <program_name> based on the log's prefix."
+            parent_strategy = "\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch> for the parent decoder instead of <program_name> based on the log's prefix."
 
     logtest_summary = analysis.get("wazuh_logtest_summary", {})
     logtest_decoded = analysis.get("logtest_decoded_fields", {})
@@ -4574,6 +4581,10 @@ async def ai_generate_validated(request: AIGenerateRequest):
             for fl in failed_logs[:3]:
                 correction_context += f"  Log: {fl['raw_log']}\n  Matched decoder: {fl.get('decoder_matched', 'none')}\n"
             correction_context += "Fix the regex patterns to match these logs. Output corrected XML only."
+            
+            predecoded_program = analysis.get("wazuh_logtest_summary", {}).get("predecoded_program_name")
+            if predecoded_program and best_decoder_xml and "<prematch>" in best_decoder_xml:
+                correction_context += f"\n\nFATAL ERROR: You used <prematch> in the parent decoder, but Wazuh Phase 1 already extracted program_name '{predecoded_program}'. The syslog header was stripped! You MUST replace the parent decoder's <prematch> with <program_name>^{predecoded_program}$</program_name> or it will never match."
 
     return JSONResponse({
         "decoder_xml": _sanitize_decoder_xml_osregex(best_decoder_xml),
