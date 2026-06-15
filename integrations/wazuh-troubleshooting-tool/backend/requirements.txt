@@ -1,0 +1,4 @@
+Please install:
+fastapi
+uvicorn
+requests

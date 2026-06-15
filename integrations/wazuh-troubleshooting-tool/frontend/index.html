@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wazuh Troubleshooting Portal</title>
+    <link rel="stylesheet" href="styles.css?v=4">
+</head>
+<body>
+
+    <!-- Left Vertical Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-logo">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>WAZUH PORTAL</span>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <div class="sidebar-section-title">Navigation</div>
+            <li>
+                <a class="sidebar-item active" data-view="home" id="nav-home">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-item" data-view="library" id="nav-library">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+                    <span>Troubleshooting Library</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-item" data-view="reports" id="nav-reports">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">
+                        <line x1="18" y1="20" x2="18" y2="10"/>
+                        <line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
+                    </svg>
+                    <span>Reports & Analytics</span>
+                </a>
+            </li>
+            
+            <div class="sidebar-section-title">Advanced</div>
+            <li>
+                <a class="sidebar-item" data-view="ai" id="nav-ai" onclick="onCopilotViewActivated()">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <circle cx="12" cy="12" r="2"/>
+                    </svg>
+                    <span>Wazuh Copilot</span>
+                    <span class="badge-soon" style="background:rgba(16,185,129,0.2);color:#10b981;border-color:rgba(16,185,129,0.4);">AI</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-item" data-view="settings" id="nav-settings">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Top Horizontal Session Toolbar -->
+    <header class="header">
+        <div class="session-toolbar-info">
+            <span class="toolbar-label">Session:</span>
+            <span id="sessionId" class="toolbar-value">...</span>
+            <span class="divider">|</span>
+            <span class="toolbar-label">Started:</span>
+            <span id="sessionStarted" class="toolbar-value">...</span>
+            <span class="divider">|</span>
+            <span class="toolbar-label">Last Check:</span>
+            <span id="sessionLastCheck" class="toolbar-value">Never run</span>
+        </div>
+        
+        <div class="toolbar-actions">
+            <div class="status-pill" id="sessionStatusPill">
+                <span class="status-dot"></span>
+                <span>Active</span>
+            </div>
+            <button onclick="startCheck()" class="outline" id="btn-toolbar-refresh">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+                <span>Refresh</span>
+            </button>
+            <button onclick="downloadReport()" class="green" id="btn-toolbar-download">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                <span>Download Report</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        
+        <!-- Page 1: Dashboard / Home View -->
+        <section class="view active" id="view-home">
+            <div style="margin-bottom: 25px;">
+                <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 6px;">System Health Overview</h1>
+                <p style="color: var(--text-secondary); font-size: 14px;">Real-time health status and diagnostics for your Wazuh cluster deployment</p>
+            </div>
+            
+            <div class="summary-cards-row">
+                <div class="summary-card">
+                    <span class="summary-card-title">Overall Status</span>
+                    <span id="card-overall-status" class="summary-card-value" style="color: var(--accent-red)">OFFLINE</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-card-title">Active Issues</span>
+                    <span id="card-active-issues" class="summary-card-value" style="color: var(--accent-yellow)">?</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-card-title">Services Online</span>
+                    <span id="card-services-online" class="summary-card-value" style="color: var(--accent-blue)">? of 5</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-card-title">Cluster Status</span>
+                    <span id="card-cluster-status" class="summary-card-value" style="color: var(--accent-yellow)">UNKNOWN</span>
+                </div>
+            </div>
+            
+            <div class="dashboard-grid">
+                <!-- Left column -->
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Detected Issues Panel -->
+                    <div class="panel" style="margin-bottom: 0;">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                <span>Detected Issues</span>
+                            </div>
+                        </div>
+                        <div id="issues" class="issue-cards-container">
+                            <div style="color: var(--text-secondary); text-align: center; padding: 20px 0;">
+                                Run a system health check to inspect active issues.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Diagnostics Logs console -->
+                    <div class="panel" style="margin-bottom: 0;">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                                <span>System Check Logs</span>
+                            </div>
+                            <button onclick="startCheck()" class="primary" id="btn-run-check">Run Health Check</button>
+                        </div>
+                        <pre id="logs" class="terminal">Click "Run Health Check" to start system diagnostic checks...</pre>
+                    </div>
+
+                    <!-- Troubleshooting Wizard Chat Interface -->
+                    <div class="panel" style="margin-bottom: 0;" id="panel-troubleshooting-wizard">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                <span>Troubleshooting Wizard</span>
+                            </div>
+                        </div>
+                        <div class="chat-container">
+                            <div id="chat-messages" class="chat-messages">
+                                <div class="chat-bubble system">
+                                    Welcome to the Wazuh Troubleshooting Wizard. Select a detected issue card above to start manual troubleshooting.
+                                </div>
+                            </div>
+                            <div id="chat-option-buttons" class="chat-option-buttons" style="padding: 0 24px;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right column -->
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div class="panel" style="margin-bottom: 0;">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                                <span>Services Status</span>
+                            </div>
+                        </div>
+                        <div id="services" class="health-list">
+                            <div class="health-item">
+                                <span class="health-item-name">wazuh-indexer</span>
+                                <span class="badge warning">Unknown</span>
+                            </div>
+                            <div class="health-item">
+                                <span class="health-item-name">wazuh-manager</span>
+                                <span class="badge warning">Unknown</span>
+                            </div>
+                            <div class="health-item">
+                                <span class="health-item-name">wazuh-dashboard</span>
+                                <span class="badge warning">Unknown</span>
+                            </div>
+                            <div class="health-item">
+                                <span class="health-item-name">API Status</span>
+                                <span class="badge warning">Unknown</span>
+                            </div>
+                            <div class="health-item">
+                                <span class="health-item-name">Filebeat Status</span>
+                                <span class="badge warning">Unknown</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="panel" style="margin-bottom: 0;">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg>
+                                <span>Cluster Information</span>
+                            </div>
+                        </div>
+                        <table class="stat-table">
+                            <tr>
+                                <td class="stat-label">Cluster Status</td>
+                                <td id="cluster-status-text" class="stat-value">-</td>
+                            </tr>
+                            <tr>
+                                <td class="stat-label">Number of Nodes</td>
+                                <td id="cluster-nodes" class="stat-value">-</td>
+                            </tr>
+                            <tr>
+                                <td class="stat-label">Active Shards</td>
+                                <td id="cluster-shards" class="stat-value">-</td>
+                            </tr>
+                            <tr>
+                                <td class="stat-label">Unassigned Shards</td>
+                                <td id="cluster-unassigned" class="stat-value">-</td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="panel" style="margin-bottom: 0;">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                                <span>Memory Usage</span>
+                            </div>
+                        </div>
+                        <div id="memory">
+                            <table class="stat-table">
+                                <tr>
+                                    <td class="stat-label">Total Memory</td>
+                                    <td id="mem-total" class="stat-value">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="stat-label">Used Memory</td>
+                                    <td id="mem-used" class="stat-value">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="stat-label">Free Memory</td>
+                                    <td id="mem-free" class="stat-value">-</td>
+                                </tr>
+                            </table>
+                            <div class="progress-container">
+                                <div class="progress-label-row">
+                                    <span>Utilization</span>
+                                    <span id="mem-percent">0%</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div id="mem-progress" class="progress-bar-fill"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Full row quick actions -->
+                <div class="dashboard-full-row panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/></svg>
+                            <span>Quick System Actions</span>
+                        </div>
+                    </div>
+                    <div id="quickActions" class="quick-actions-grid">
+                        <button onclick="quickRestart('wazuh-indexer')" id="act-restart-indexer">Restart Indexer</button>
+                        <button onclick="quickRestart('wazuh-manager')" id="act-restart-manager">Restart Manager</button>
+                        <button onclick="quickRestart('wazuh-dashboard')" id="act-restart-dashboard">Restart Dashboard</button>
+                        <button onclick="checkFilebeat()" id="act-test-filebeat">Test Filebeat Output</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Page 2: Troubleshooting Library View -->
+        <section class="view" id="view-library">
+            <div style="margin-bottom: 25px;">
+                <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 6px;">Troubleshooting Library</h1>
+                <p style="color: var(--text-secondary); font-size: 14px;">Select a known Wazuh scenario to launch interactive diagnostic workflows</p>
+            </div>
+            
+            <div class="library-grid">
+                <div class="library-card">
+                    <div class="library-card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/></svg>
+                    </div>
+                    <div class="library-card-title">Wazuh Dashboard Not Ready Yet</div>
+                    <div class="library-card-desc">Troubleshoot opensearch host configurations, indexer status, cert credentials, and secure permissions.</div>
+                    <button onclick="launchLibraryFlow('Wazuh Dashboard Not Ready Yet')" class="primary">Analyze & Resolve</button>
+                </div>
+                
+                <div class="library-card">
+                    <div class="library-card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                    </div>
+                    <div class="library-card-title">Alerts Not Showing on Dashboard</div>
+                    <div class="library-card-desc">Verify that wazuh-agent services are active, check Filebeat configurations, and test indexing connectivity.</div>
+                    <button onclick="launchLibraryFlow('Alerts Not Showing on Dashboard')" class="primary">Analyze & Resolve</button>
+                </div>
+                
+                <div class="library-card">
+                    <div class="library-card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    </div>
+                    <div class="library-card-title">Alerts Not Indexing</div>
+                    <div class="library-card-desc">Diagnose active write blocks, check disk space watermark settings, and inspect cluster shard state.</div>
+                    <button onclick="launchLibraryFlow('Alerts Not Indexing')" class="primary">Analyze & Resolve</button>
+                </div>
+                
+                <div class="library-card">
+                    <div class="library-card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+                    </div>
+                    <div class="library-card-title">Could Not Connect to API</div>
+                    <div class="library-card-desc">Resolve credentials mismatch, incorrect API username/password keys in configuration, and listener errors.</div>
+                    <button onclick="launchLibraryFlow('Could Not Connect to API')" class="primary">Analyze & Resolve</button>
+                </div>
+                
+                <div class="library-card">
+                    <div class="library-card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    </div>
+                    <div class="library-card-title">Application Not Found</div>
+                    <div class="library-card-desc">Diagnose dashboard plugin installation failures and path mismatches inside dashboard config modules.</div>
+                    <button onclick="launchLibraryFlow('Application Not Found')" class="primary">Analyze & Resolve</button>
+                </div>
+                
+                <div class="library-card">
+                    <div class="library-card-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <div class="library-card-title">Cluster Health Issues</div>
+                    <div class="library-card-desc">Troubleshoot multi-node setups, indexer cluster health status red/yellow, and unassigned replica shards.</div>
+                    <button onclick="launchLibraryFlow('Cluster Health Issues')" class="primary">Analyze & Resolve</button>
+                </div>
+            </div>
+
+            <!-- Troubleshooting Library Chat Interface -->
+            <div class="panel" style="margin-top: 30px;" id="panel-library-troubleshooting">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        <span>Library Diagnostics Wizard</span>
+                    </div>
+                </div>
+                <div class="chat-container">
+                    <div id="library-chat-messages" class="chat-messages">
+                        <div class="chat-bubble system">
+                            Welcome to the Wazuh Library Diagnostics Wizard. Select a known Wazuh scenario card above to start interactive diagnostics, or ask any troubleshooting question below for AI-powered assistance.
+                        </div>
+                    </div>
+                    <div id="library-chat-option-buttons" class="chat-option-buttons" style="padding: 0 24px;"></div>
+                    
+                    <div class="chat-input-bar">
+                        <input id="library-chat-user-input" type="text" placeholder="Ask a question or enter details..." onkeydown="if(event.key === 'Enter') handleLibraryChatSubmit()" />
+                        <button class="primary" onclick="handleLibraryChatSubmit()" id="library-btn-chat-send">Send</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Page 3: Reports & Analytics View -->
+        <section class="view" id="view-reports">
+            <div style="margin-bottom: 25px;">
+                <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 6px;">Operations Reporting Center</h1>
+                <p style="color: var(--text-secondary); font-size: 14px;">Generate environment health reports, deployment insights, and Wazuh operational intelligence metrics</p>
+            </div>
+            
+            <!-- Reports & Analytics View Grid -->
+            <div id="reports-hub">
+                <div class="library-grid" id="reports-grid">
+                    <!-- Report Card 1: Agent Health -->
+                    <div class="library-card">
+                        <div class="library-card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <div class="library-card-title">Agent Health Report</div>
+                        <div class="library-card-desc">Review connected fleet status, disconnected agents, communication issues, and activity summaries.</div>
+                        <button onclick="generateReport('agent')" class="primary">Generate Report</button>
+                    </div>
+
+                    <!-- Report Card 2: Dashboard Health -->
+                    <div class="library-card">
+                        <div class="library-card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        </div>
+                        <div class="library-card-title">Dashboard Health Report</div>
+                        <div class="library-card-desc">Analyze availability, uptime, connection performance, API endpoints, and configuration errors.</div>
+                        <button onclick="generateReport('dashboard')" class="primary">Generate Report</button>
+                    </div>
+
+                    <!-- Report Card 3: Indexing & Data Flow -->
+                    <div class="library-card">
+                        <div class="library-card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <div class="library-card-title">Indexing & Data Flow Report</div>
+                        <div class="library-card-desc">Track alert ingestion trends, indexing pipelines, document statistics, and pipeline write issues.</div>
+                        <button onclick="generateReport('dataflow')" class="primary">Generate Report</button>
+                    </div>
+
+                    <!-- Report Card 4: Cluster Health -->
+                    <div class="library-card">
+                        <div class="library-card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                        </div>
+                        <div class="library-card-title">Cluster Health Report</div>
+                        <div class="library-card-desc">Monitor multi-node indexing state, active shards, unassigned shards, and host resource utilization.</div>
+                        <button onclick="generateReport('cluster')" class="primary">Generate Report</button>
+                    </div>
+
+                    <!-- Report Card 5: Environment Assessment -->
+                    <div class="library-card">
+                        <div class="library-card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="library-card-title">Environment Assessment Report</div>
+                        <div class="library-card-desc">Generate a complete platform evaluation with risk scoring, observations, and recommendations.</div>
+                        <button onclick="generateReport('environment')" class="primary">Generate Report</button>
+                    </div>
+
+                    <!-- Report Card 6: Security Events Report -->
+                    <div class="library-card">
+                        <div class="library-card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>
+                        </div>
+                        <div class="library-card-title">Security Events Report</div>
+                        <div class="library-card-desc">Analyze historical alert timeline trends, top triggered rules, severity distribution, and source IPs.</div>
+                        <button onclick="generateReport('security')" class="primary">Generate Report</button>
+                    </div>
+
+                    <!-- Report Card 7: Custom Report Builder -->
+                    <div class="library-card">
+                        <div class="library-card-icon">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                        </div>
+                        <div class="library-card-title">Custom Report Builder</div>
+                        <div class="library-card-desc">Tailor a report by selecting specific modules and exporting them to HTML or PDF.</div>
+                        <button onclick="showCustomReportBuilder()" class="primary">Build Custom</button>
+                    </div>
+                </div>
+
+                <!-- Custom Builder Config Form -->
+                <div class="panel" id="custom-builder-panel" style="display: none; margin-top: 30px;">
+                    <h3 style="font-size: 18px; margin-bottom: 15px; color: var(--accent-blue);">Build Custom Report</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 14px;">Select the operational sections you want to include in your consolidated report:</p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                        <label class="switch-row" style="border: 1px solid rgba(0,188,255,0.15); padding: 12px 18px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(13,22,38,0.4); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:600; display:block; color:var(--text-primary);">Agent Fleet Health</span>
+                                <span style="font-size:12px; color:var(--text-secondary);">Include agent communication status</span>
+                            </div>
+                            <input type="checkbox" id="cb-section-agents" checked style="width:20px; height:20px; cursor:pointer;" />
+                        </label>
+                        <label class="switch-row" style="border: 1px solid rgba(0,188,255,0.15); padding: 12px 18px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(13,22,38,0.4); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:600; display:block; color:var(--text-primary);">Dashboard Health</span>
+                                <span style="font-size:12px; color:var(--text-secondary);">Include dashboard uptime/perf</span>
+                            </div>
+                            <input type="checkbox" id="cb-section-dashboard" checked style="width:20px; height:20px; cursor:pointer;" />
+                        </label>
+                        <label class="switch-row" style="border: 1px solid rgba(0,188,255,0.15); padding: 12px 18px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(13,22,38,0.4); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:600; display:block; color:var(--text-primary);">Indexer & Pipeline</span>
+                                <span style="font-size:12px; color:var(--text-secondary);">Include alert ingestion stats</span>
+                            </div>
+                            <input type="checkbox" id="cb-section-dataflow" checked style="width:20px; height:20px; cursor:pointer;" />
+                        </label>
+                        <label class="switch-row" style="border: 1px solid rgba(0,188,255,0.15); padding: 12px 18px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(13,22,38,0.4); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:600; display:block; color:var(--text-primary);">Cluster Health</span>
+                                <span style="font-size:12px; color:var(--text-secondary);">Include node & shard allocation</span>
+                            </div>
+                            <input type="checkbox" id="cb-section-cluster" checked style="width:20px; height:20px; cursor:pointer;" />
+                        </label>
+                        <label class="switch-row" style="border: 1px solid rgba(0,188,255,0.15); padding: 12px 18px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(13,22,38,0.4); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:600; display:block; color:var(--text-primary);">Overall Environment</span>
+                                <span style="font-size:12px; color:var(--text-secondary);">Include Manager & API checks</span>
+                            </div>
+                            <input type="checkbox" id="cb-section-api" checked style="width:20px; height:20px; cursor:pointer;" />
+                        </label>
+                        <label class="switch-row" style="border: 1px solid rgba(0,188,255,0.15); padding: 12px 18px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(13,22,38,0.4); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:600; display:block; color:var(--text-primary);">Assessment Findings</span>
+                                <span style="font-size:12px; color:var(--text-secondary);">Include Risks & Recommendations</span>
+                            </div>
+                            <input type="checkbox" id="cb-section-environment" checked style="width:20px; height:20px; cursor:pointer;" />
+                        </label>
+                        <label class="switch-row" style="border: 1px solid rgba(0,188,255,0.15); padding: 12px 18px; border-radius: 8px; display:flex; justify-content:space-between; align-items:center; background: rgba(13,22,38,0.4); cursor:pointer;">
+                            <div>
+                                <span style="font-weight:600; display:block; color:var(--text-primary);">Security Event Analytics</span>
+                                <span style="font-size:12px; color:var(--text-secondary);">Include security alert summaries & trends</span>
+                            </div>
+                            <input type="checkbox" id="cb-section-security" checked style="width:20px; height:20px; cursor:pointer;" />
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="generateCustomReport()" class="primary">Generate Custom Report</button>
+                        <button onclick="hideCustomReportBuilder()" class="outline">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generated Report View Display Panel -->
+            <div id="report-view-container" style="display: none;">
+                <div class="panel" style="margin-bottom: 20px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <button onclick="backToReportsHub()" class="outline">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        <span>Back to Reports Hub</span>
+                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="exportReportHTML()" class="outline">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                            <span>Export HTML</span>
+                        </button>
+                        <button onclick="exportReportPDF()" class="green">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            <span>Export PDF (Print)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel" id="report-document-body" style="background: rgba(10, 16, 28, 0.95); border: 1px solid rgba(0, 188, 255, 0.25); color: #f1f5f9; padding: 40px; border-radius: 12px;">
+                    <!-- Report content will be rendered here dynamically -->
+                </div>
+            </div>
+        </section>
+        
+        <!-- Page 4: Wazuh Copilot View -->
+        <section class="view" id="view-ai">
+
+            <!-- Header: title + controls on same clean bar -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap;">
+
+                <!-- Left: title -->
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" width="22" height="22">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <circle cx="12" cy="12" r="2.5"/>
+                    </svg>
+                    <div>
+                        <h1 style="font-size:20px;font-weight:700;line-height:1.2;">Wazuh Copilot</h1>
+                        <p style="color:var(--text-secondary);font-size:12px;margin:0;">AI-powered Wazuh expert — rules, decoders, logs, configs &amp; more</p>
+                    </div>
+                </div>
+
+                <!-- Right: all controls in one compact row -->
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+
+                    <!-- Ollama status pill -->
+                    <div id="copilot-status-bar" style="
+                        display:flex;align-items:center;gap:5px;
+                        font-family:var(--font-mono);font-size:11px;
+                        padding:5px 10px;
+                        background:rgba(255,255,255,0.03);
+                        border:1px solid rgba(255,255,255,0.08);
+                        border-radius:6px;
+                        white-space:nowrap;
+                    ">
+                        <span style="color:var(--text-secondary);">Checking...</span>
+                    </div>
+
+                    <!-- Model selector (shown after status loads) -->
+                    <select id="copilot-model-select" style="
+                        display:none;
+                        background:rgba(0,0,0,0.35);
+                        border:1px solid rgba(0,188,255,0.25);
+                        color:var(--text-primary);
+                        padding:5px 8px;
+                        border-radius:6px;
+                        font-family:var(--font-mono);
+                        font-size:11px;
+                        cursor:pointer;
+                        max-width:150px;
+                    "></select>
+
+                    <!-- Env context toggle — compact icon+label -->
+                    <label title="Include live environment context in every message" style="
+                        display:flex;align-items:center;gap:5px;
+                        cursor:pointer;font-size:11px;
+                        color:var(--text-secondary);
+                        padding:5px 8px;
+                        background:rgba(255,255,255,0.02);
+                        border:1px solid rgba(255,255,255,0.08);
+                        border-radius:6px;
+                        white-space:nowrap;
+                    ">
+                        <input type="checkbox" id="copilot-env-toggle" checked
+                            style="width:13px;height:13px;accent-color:var(--accent-blue);cursor:pointer;" />
+                        <span>Env context</span>
+                    </label>
+
+                    <!-- New Chat button -->
+                    <button onclick="copilotClearChat()" class="outline" style="padding:5px 12px;font-size:12px;white-space:nowrap;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.96"/></svg>
+                        New Chat
+                    </button>
+                </div>
+            </div>
+            <!-- Chat area -->
+            <div class="panel" id="copilot-chat-area" style="display:flex;flex-direction:column;height:560px;padding:0;overflow:hidden;">
+
+                <!-- Messages -->
+                <div id="copilot-messages" style="
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 24px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                    scroll-behavior: smooth;
+                "></div>
+
+                <!-- Input bar -->
+                <div style="
+                    padding: 16px 20px;
+                    background: rgba(8,13,23,0.9);
+                    border-top: 1px solid rgba(0,162,255,0.1);
+                    display: flex;
+                    gap: 10px;
+                    align-items: flex-end;
+                ">
+                    <textarea
+                        id="copilot-input"
+                        placeholder="Ask anything about Wazuh... (Enter to send, Shift+Enter for new line)"
+                        rows="1"
+                        onkeydown="copilotInputKeydown(event)"
+                        oninput="copilotAutoResize(this)"
+                        style="
+                            flex: 1;
+                            background: rgba(255,255,255,0.03);
+                            border: 1px solid rgba(0,162,255,0.2);
+                            color: var(--text-primary);
+                            padding: 12px 16px;
+                            border-radius: 10px;
+                            font-family: var(--font-sans);
+                            font-size: 14px;
+                            resize: none;
+                            min-height: 46px;
+                            max-height: 200px;
+                            overflow-y: auto;
+                            transition: border-color 0.2s ease;
+                            outline: none;
+                            line-height: 1.5;
+                        "
+                        onfocus="this.style.borderColor='var(--accent-blue)'"
+                        onblur="this.style.borderColor='rgba(0,162,255,0.2)'"
+                    ></textarea>
+
+                    <button
+                        id="copilot-send-btn"
+                        onclick="copilotSend()"
+                        class="primary"
+                        title="Send (Enter)"
+                        style="
+                            width: 46px;
+                            height: 46px;
+                            padding: 0;
+                            border-radius: 10px;
+                            flex-shrink: 0;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        "
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Inline styles for copilot UI elements -->
+            <style>
+                .copilot-status-dot {
+                    width: 7px; height: 7px; border-radius: 50%;
+                    display: inline-block; flex-shrink: 0;
+                }
+                .copilot-status-dot.online  { background: #10b981; box-shadow: 0 0 6px #10b981; }
+                .copilot-status-dot.offline { background: #f43f5e; box-shadow: 0 0 6px #f43f5e; }
+
+                .copilot-msg { display: flex; align-items: flex-start; gap: 10px; }
+                .copilot-msg-user      { flex-direction: row-reverse; }
+                .copilot-msg-assistant { flex-direction: row; }
+                .copilot-msg-system-error { flex-direction: row; }
+
+                .copilot-avatar {
+                    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+                    background: rgba(0,188,255,0.12); border: 1px solid rgba(0,188,255,0.25);
+                    display: flex; align-items: center; justify-content: center;
+                    color: var(--accent-blue);
+                }
+
+                .copilot-bubble {
+                    max-width: 82%; padding: 14px 18px; border-radius: 12px;
+                    font-size: 14px; line-height: 1.65;
+                }
+                .copilot-bubble-ai {
+                    background: rgba(13,22,38,0.85);
+                    border: 1px solid rgba(0,162,255,0.12);
+                    border-bottom-left-radius: 3px;
+                    color: var(--text-primary);
+                }
+                .copilot-bubble-user {
+                    background: var(--accent-blue);
+                    color: #020617;
+                    border-bottom-right-radius: 3px;
+                    font-weight: 500;
+                    white-space: pre-wrap;
+                }
+                .copilot-bubble-error {
+                    background: rgba(244,63,94,0.08);
+                    border: 1px solid rgba(244,63,94,0.25);
+                    color: #f43f5e;
+                    border-radius: 10px;
+                    white-space: pre-wrap;
+                    font-family: var(--font-mono);
+                    font-size: 13px;
+                }
+                .copilot-bubble-thinking {
+                    background: rgba(13,22,38,0.85);
+                    border: 1px solid rgba(0,162,255,0.12);
+                    border-bottom-left-radius: 3px;
+                    padding: 16px 20px;
+                    display: flex; gap: 5px; align-items: center;
+                }
+                .copilot-dot {
+                    width: 7px; height: 7px; border-radius: 50%;
+                    background: var(--accent-blue); opacity: 0.5;
+                    animation: copilotPulse 1.2s ease-in-out infinite;
+                }
+                .copilot-dot:nth-child(2) { animation-delay: 0.2s; }
+                .copilot-dot:nth-child(3) { animation-delay: 0.4s; }
+                @keyframes copilotPulse {
+                    0%, 100% { opacity: 0.3; transform: scale(0.85); }
+                    50%       { opacity: 1;   transform: scale(1.1); }
+                }
+
+                /* Markdown rendering */
+                .copilot-bubble-ai .copilot-p { margin: 0 0 10px 0; }
+                .copilot-bubble-ai .copilot-p:last-child { margin-bottom: 0; }
+                .copilot-bubble-ai .copilot-h2 { font-size:18px; font-weight:700; margin:16px 0 8px; color:var(--accent-blue); }
+                .copilot-bubble-ai .copilot-h3 { font-size:16px; font-weight:600; margin:14px 0 6px; color:#e2e8f0; }
+                .copilot-bubble-ai .copilot-h4 { font-size:14px; font-weight:600; margin:10px 0 4px; color:#cbd5e1; text-transform:uppercase; letter-spacing:.5px; }
+                .copilot-bubble-ai .copilot-hr { border:none; border-top:1px solid rgba(255,255,255,0.1); margin:12px 0; }
+                .copilot-bubble-ai .copilot-ul { margin:6px 0 10px 18px; padding:0; display:flex; flex-direction:column; gap:4px; }
+                .copilot-bubble-ai .copilot-ul li { font-size:14px; line-height:1.5; }
+                .copilot-bubble-ai strong { color:#f1f5f9; font-weight:700; }
+                .copilot-bubble-ai em { color:#94a3b8; font-style:italic; }
+                .copilot-inline-code {
+                    background: rgba(0,188,255,0.1);
+                    border: 1px solid rgba(0,188,255,0.2);
+                    color: #67e8f9;
+                    padding: 1px 6px; border-radius:4px;
+                    font-family: var(--font-mono); font-size:13px;
+                }
+
+                .copilot-code-block {
+                    background: #020617;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 8px;
+                    margin: 10px 0;
+                    overflow: hidden;
+                }
+                .copilot-code-header {
+                    display: flex; align-items: center; justify-content: space-between;
+                    padding: 6px 14px;
+                    background: rgba(255,255,255,0.03);
+                    border-bottom: 1px solid rgba(255,255,255,0.07);
+                }
+                .copilot-code-lang {
+                    font-family: var(--font-mono); font-size:11px;
+                    color: var(--accent-blue); text-transform: uppercase; letter-spacing:.5px;
+                }
+                .copilot-copy-btn {
+                    display: flex; align-items: center; gap:5px;
+                    background: transparent; border: 1px solid rgba(255,255,255,0.12);
+                    color: var(--text-secondary); padding:3px 9px; border-radius:5px;
+                    font-size:11px; cursor:pointer; transition:all .15s;
+                    font-family:var(--font-sans);
+                }
+                .copilot-copy-btn:hover {
+                    background:rgba(0,188,255,0.1); border-color:var(--accent-blue);
+                    color:var(--accent-blue); box-shadow:none;
+                }
+                .copilot-code-block pre {
+                    margin:0; padding:14px 16px; overflow-x:auto;
+                }
+                .copilot-code-block pre code {
+                    font-family: var(--font-mono); font-size:13px;
+                    color:#e2e8f0; line-height:1.6;
+                }
+            </style>
+
+        </section>
+        
+        
+        <!-- Page 5: Settings View -->
+        <section class="view" id="view-settings">
+            <div style="margin-bottom: 25px;">
+                <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 6px;">Settings</h1>
+                <p style="color: var(--text-secondary); font-size: 14px;">Configure portal connections, refresh rates, and environment details</p>
+            </div>
+            
+            <div class="settings-grid">
+                <!-- Left panel settings -->
+                <div class="panel">
+                    <h3 style="font-size: 16px; margin-bottom: 20px; font-family: var(--font-mono); color: var(--accent-blue);">Connection Settings</h3>
+                    
+                    <div class="settings-group">
+                        <label class="settings-label" for="settings-api-url">API Endpoint URL</label>
+                        <input type="text" id="settings-api-url" class="settings-input" placeholder="http://localhost:8000" />
+                        <span class="settings-help">The base URL of the FastAPI backend troubleshooter server.</span>
+                    </div>
+                    
+                    <div class="switch-row">
+                        <div>
+                            <div class="settings-label" style="margin-bottom: 4px;">Auto Health Check</div>
+                            <div class="settings-help">Automatically run health checks when the page loads.</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="settings-auto-check" checked />
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="settings-group" style="margin-top: 20px;">
+                        <label class="settings-label" for="settings-refresh">Refresh Interval</label>
+                        <select id="settings-refresh" class="settings-select">
+                            <option value="0">Disabled</option>
+                            <option value="15">15 seconds</option>
+                            <option value="30" selected>30 seconds</option>
+                            <option value="60">60 seconds</option>
+                            <option value="300">5 minutes</option>
+                        </select>
+                        <span class="settings-help">Periodically check system health in the background.</span>
+                    </div>
+                    
+                    <button onclick="saveSettings()" class="primary" style="margin-top: 10px;" id="btn-save-settings">Save Settings</button>
+                </div>
+                
+                <!-- Right panel info -->
+                <div class="panel">
+                    <h3 style="font-size: 16px; margin-bottom: 20px; font-family: var(--font-mono); color: var(--accent-blue);">About Portal</h3>
+                    <div class="about-list">
+                        <div class="about-row">
+                            <span class="about-label">Version</span>
+                            <span class="about-value">1.0.0</span>
+                        </div>
+                        <div class="about-row">
+                            <span class="about-label">Backend Framework</span>
+                            <span class="about-value">FastAPI + Python</span>
+                        </div>
+                        <div class="about-row">
+                            <span class="about-label">Frontend Stack</span>
+                            <span class="about-value">Vanilla JS + CSS</span>
+                        </div>
+                        <div class="about-row">
+                            <span class="about-label">Security Analytics</span>
+                            <span class="about-value">Plotly Dash (Port 7200)</span>
+                        </div>
+                    </div>
+                    <p style="margin-top: 20px; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5;">
+                        Wazuh Troubleshooting Portal provides guided diagnostics, interactive troubleshooting wizard scripts, and automated remediation systems for Wazuh SIEM environments.
+                    </p>
+                </div>
+            </div>
+        </section>
+        
+    </main>
+
+    <!-- Unified Javascript Files -->
+    <script src="app.js?v=4"></script>
+    <script src="manual.js?v=4"></script>
+    <script src="assistant.js?v=4"></script>
+    <script src="reports.js?v=4"></script>
+    <script src="copilot.js?v=4"></script>
+
+</body>
+</html>
