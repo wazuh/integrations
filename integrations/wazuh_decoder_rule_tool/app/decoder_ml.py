@@ -155,6 +155,11 @@ def refresh_wazuh_repo(
             return {"ok": "false", "message": f"sparse-checkout failed: {sparse.stderr.strip()}"}
         return {"ok": "true", "message": "cloned"}
 
+    # Cache exists and force=False — skip network pull, use cached data instantly
+    if not force:
+        return {"ok": "true", "message": "using cached repo (skipping git pull)"}
+
+    # force=True — do a git pull
     try:
         pull = subprocess.run(
             ["git", "-C", str(cache_dir), "pull", "--ff-only"],

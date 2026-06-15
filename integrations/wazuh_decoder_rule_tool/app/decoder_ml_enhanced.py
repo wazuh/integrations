@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
 try:
-    from sentence_transformers import SentenceTransformer
+    import sentence_transformers as _st_check  # noqa: F401 — availability check only
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
     _ADVANCED_ML_AVAILABLE = True
@@ -229,6 +229,7 @@ class EnsembleDecoderSimilarityModel:
         if not _ADVANCED_ML_AVAILABLE:
             return
         try:
+            from sentence_transformers import SentenceTransformer  # lazy import
             # Try fine-tuned model first (final checkpoint from train_similarity.py)
             from app.main import ML_MODEL_DIR  # type: ignore
             final_path = Path(str(ML_MODEL_DIR)) / "final"
@@ -243,6 +244,7 @@ class EnsembleDecoderSimilarityModel:
         except Exception:
             pass
         try:
+            from sentence_transformers import SentenceTransformer  # lazy import  # noqa
             self.sbert_model = SentenceTransformer("all-MiniLM-L6-v2")
             print("INFO: Loaded base SBERT (all-MiniLM-L6-v2)")
         except Exception:
