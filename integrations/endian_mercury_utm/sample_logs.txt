@@ -1,0 +1,21 @@
+Jun  9 10:21:46 fw-edge-04.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN= OUT=eth5 MAC= SRC=172.16.10.50 DST=198.51.100.42 PROTO=TCP SPT=48086 DPT=443
+Jun  9 10:21:46 fw-edge-04.local ulogd[2771]: OUTGOINGFW:ALLOW:37 IN=br0 OUT= MAC=4a:b2:c8:11:e4:d3:f1:22:8a:b9:7c:4f:08:00 SRC=10.20.30.15 DST=10.20.30.254 PROTO=TCP SPT=61207 DPT=18081
+Jun  9 10:21:46 fw-edge-04.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN= OUT=eth4 MAC= SRC=172.16.0.100 DST=203.0.113.88 PROTO=TCP SPT=36663 DPT=443
+Jun  9 10:21:46 fw-edge-04.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN= OUT=eth4 MAC= SRC=172.16.0.100 DST=192.0.2.15 PROTO=TCP SPT=54337 DPT=80
+Jun  9 10:21:46 fw-edge-04.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN= OUT=eth4 MAC= SRC=172.16.0.100 DST=198.51.100.211 PROTO=TCP SPT=44131 DPT=443
+Jun  9 10:13:41 fw-edge-04.local ulogd[2771]: INPUTFW:DROP IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:1a:2b:3c:4d:5e:6f:08:00 SRC=10.20.30.55 DST=10.20.30.255 LEN=229 PROTO=UDP SPT=138 DPT=138 MARK=808
+Jun  9 10:25:48 fw-edge-04.local ulogd[2771]: INPUTFW:DROP IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:1a:2b:3c:4d:5e:6f:08:00 SRC=10.20.30.55 DST=10.20.30.255 LEN=229 PROTO=UDP SPT=138 DPT=138 MARK=808
+Jun  9 10:45:01 fw-edge-04.local (squid-1)[6350]: 1780995001.123   1500 10.20.30.88 TCP_TUNNEL/200 4500 CONNECT www.microsoft.com:443 - ORIGINAL_DST/203.0.113.101 -
+Jun  9 10:45:02 fw-edge-04.local (squid-2)[6349]: 1780995002.300    350 10.20.30.88 TCP_MISS/200 45800 GET http://www.example.com/style.css - DIRECT/192.0.2.200 text/css
+Jun  9 10:45:03 fw-edge-04.local (squid-3)[6348]: 1780995003.050      0 10.20.30.88 TCP_HIT/200 12050 GET http://www.example.com/logo.png - HIER_NONE/- image/png
+Jun  9 10:46:10 fw-edge-04.local C-ICAP[7930]: ajohnson@10.20.30.112 REQMOD 200 www.ubuntu.com:80 [MatchedCat: computersandsoftware] [Action4cat: default] [Action: ALLOWED]
+Jun  9 10:46:10 fw-edge-04.local (squid-1)[6350]: 1780995300.550    450 10.20.30.112 TCP_MISS/200 15400 GET http://www.ubuntu.com/ ajohnson DIRECT/198.51.100.77 text/html
+Jun  9 10:46:12 fw-edge-04.local (squid-2)[6349]: 1780995302.100  12000 10.20.30.113 TCP_TUNNEL/200 8400 CONNECT github.com:443 blee ORIGINAL_DST/203.0.113.55 -
+Jun  9 10:48:00 fw-edge-04.local C-ICAP[7930]: 10.20.30.201 REQMOD 200 facebook.com:443 [MatchedCat: socialnet] [Action4cat: socialnet] [Action: BLOCKED]
+Jun  9 10:48:00 fw-edge-04.local (squid-4)[6347]: 1780995200.015      0 10.20.30.201 NONE/403 9516 CONNECT facebook.com:443 - HIER_NONE/- text/html
+Jun  9 10:48:15 fw-edge-04.local C-ICAP[7930]: 10.20.30.201 REQMOD 200 netflix.com:443 [MatchedCat: webtv] [Action4cat: webtv] [Action: BLOCKED]
+Jun  9 10:48:15 fw-edge-04.local (squid-2)[6349]: 1780995215.020      0 10.20.30.201 NONE/403 9516 CONNECT netflix.com:443 - HIER_NONE/- text/html
+Jun  9 10:51:30 fw-edge-04.local C-ICAP[7930]: 10.20.30.99 RESPMOD 403 eicar.org/download/eicar.com [Virus: Eicar-Test-Signature] [Action: BLOCKED]
+Jun  9 10:51:30 fw-edge-04.local (squid-3)[6348]: 1780995100.400     85 10.20.30.99 TCP_DENIED/403 3450 GET http://eicar.org/download/eicar.com - DIRECT/192.0.2.44 text/html
+Jun  9 10:55:00 fw-edge-04.local (squid-1)[6350]: 1780995400.990  45000 10.20.30.150 TCP_MISS/200 10485760 GET http://speedtest.tele2.net/10MB.zip - DIRECT/198.51.100.18 application/zip
+Jun  9 10:55:10 fw-edge-04.local (squid-2)[6349]: 1780995410.250   1200 10.20.30.150 TCP_MISS/200 2548900 GET http://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf - DIRECT/203.0.113.99 application/pdf

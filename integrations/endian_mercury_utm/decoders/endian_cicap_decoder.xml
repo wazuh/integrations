@@ -1,0 +1,46 @@
+<!--
+Jun  9 10:48:00 fw-edge-05.local C-ICAP[7930]: 10.20.30.205 REQMOD 200 facebook.com:443 [MatchedCat: socialnet] [Action4cat: socialnet] [Action: BLOCKED]
+Jun  9 10:48:15 fw-edge-05.local C-ICAP[7930]: 10.20.30.205 REQMOD 200 netflix.com:443 [MatchedCat: webtv] [Action4cat: webtv] [Action: BLOCKED]
+Jun  9 10:46:10 fw-edge-05.local C-ICAP[7930]: ajohnson@10.20.30.80 REQMOD 200 www.ubuntu.com:80 [MatchedCat: computersandsoftware] [Action4cat: default] [Action: ALLOWED]
+Jun  9 10:51:30 fw-edge-05.local C-ICAP[7930]: 10.20.30.100 RESPMOD 403 eicar.org/download/eicar.com [Virus: Eicar-Test-Signature] [Action: BLOCKED]
+-->
+
+<decoder name="endian_icap">
+  <program_name>^C-ICAP</program_name>
+</decoder>
+
+<decoder name="endian_icap_child">
+  <parent>endian_icap</parent>
+  <regex>^(\S+)@(\d+.\d+.\d+.\d+) </regex>
+  <order>icap_user, srcip</order>
+</decoder>
+
+<decoder name="endian_icap_child">
+  <parent>endian_icap</parent>
+  <regex>^(\d+.\d+.\d+.\d+) (\w+) (\d+)</regex>
+  <order>srcip, icap_method, icap_code</order>
+</decoder>
+
+<decoder name="endian_icap_child">
+  <parent>endian_icap</parent>
+  <regex>\w+ \d+ (\S+)\t*\s*[</regex>
+  <order>url</order>
+</decoder>
+
+<decoder name="endian_icap_child">
+  <parent>endian_icap</parent>
+  <regex>[MatchedCat: (\.+)]</regex>
+  <order>icap_category</order>
+</decoder>
+
+<decoder name="endian_icap_child">
+  <parent>endian_icap</parent>
+  <regex>[Virus: (\.+)]</regex>
+  <order>icap_virus</order>
+</decoder>
+
+<decoder name="endian_icap_child">
+  <parent>endian_icap</parent>
+  <regex>[Action: (\.+)]</regex>
+  <order>icap_action</order>
+</decoder>

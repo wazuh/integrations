@@ -1,0 +1,121 @@
+<!--
+Jun  9 10:45:01 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN=br0 OUT=eth4 MAC=4a:b2:c8:11:e4:d3:f1:22:8a:b9:7c:4f:08:00 SRC=10.20.30.150 DST=192.0.2.50 LEN=60 TOS=00 PREC=0x00 TTL=64 ID=10243 DF PROTO=TCP SPT=51002 DPT=443 SEQ=1000000000 ACK=0 WINDOW=65535 SYN URGP=0 MARK=808
+Jun  9 10:45:01 fw-edge-05.local ulogd[2771]: INPUTFW:ALLOW:5 IN=eth4 OUT= MAC= SRC=192.0.2.50 DST=10.20.30.150 LEN=60 TOS=00 PREC=0x00 TTL=52 ID=0 DF PROTO=TCP SPT=443 DPT=51002 SEQ=2000000000 ACK=1000000001 WINDOW=28800 SYN ACK URGP=0
+Jun  9 10:45:01 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN=br0 OUT=eth4 MAC=4a:b2:c8:11:e4:d3:f1:22:8a:b9:7c:4f:08:00 SRC=10.20.30.150 DST=192.0.2.50 LEN=40 TOS=00 PREC=0x00 TTL=64 ID=10244 DF PROTO=TCP SPT=51002 DPT=443 SEQ=1000000001 ACK=2000000001 WINDOW=65535 ACK URGP=0 MARK=808
+Jun  9 10:45:02 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN=br0 OUT=eth4 MAC=4a:b2:c8:11:e4:d3:f1:22:8a:b9:7c:4f:08:00 SRC=10.20.30.150 DST=192.0.2.50 LEN=552 TOS=00 PREC=0x00 TTL=64 ID=10245 DF PROTO=TCP SPT=51002 DPT=443 SEQ=1000000001 ACK=2000000001 WINDOW=65535 ACK PSH URGP=0 MARK=808
+Jun  9 10:45:05 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN=br0 OUT=eth4 MAC=4a:b2:c8:11:e4:d3:f1:22:8a:b9:7c:4f:08:00 SRC=10.20.30.150 DST=192.0.2.50 LEN=40 TOS=00 PREC=0x00 TTL=64 ID=10250 DF PROTO=TCP SPT=51002 DPT=443 SEQ=1000005000 ACK=2000010000 WINDOW=65535 ACK FIN URGP=0 MARK=808
+Jun  9 10:45:10 fw-edge-05.local ulogd[2771]: INPUTFW:DROP:99 IN=eth4 OUT= MAC= SRC=203.0.113.10 DST=10.20.30.150 LEN=40 TOS=00 PREC=0x00 TTL=55 ID=33992 DF PROTO=TCP SPT=80 DPT=51002 SEQ=0 ACK=1000005001 WINDOW=0 RST URGP=0
+Jun  9 10:46:22 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:10 IN=br0 OUT=eth4 MAC=4a:b2:c8:11:e4:d3:f1:22:8a:b9:7c:4f:08:00 SRC=10.20.30.50 DST=198.51.100.8 LEN=84 TOS=00 PREC=0x00 TTL=64 ID=44321 DF PROTO=ICMP TYPE=8 CODE=0 ID=1001 SEQ=1 MARK=808
+Jun  9 10:46:22 fw-edge-05.local ulogd[2771]: INPUTFW:ALLOW:10 IN=eth4 OUT= MAC= SRC=198.51.100.8 DST=10.20.30.50 LEN=84 TOS=00 PREC=0x00 TTL=115 ID=0 PROTO=ICMP TYPE=0 CODE=0 ID=1001 SEQ=1
+Jun  9 10:46:25 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:15 IN= OUT=eth4 MAC= SRC=172.16.0.250 DST=203.0.113.100 LEN=112 TOS=c0 PREC=0xc0 TTL=64 ID=61122 PROTO=ICMP TYPE=3 CODE=3 [203.0.113.100 > 172.16.0.250 UDP] UID=0 GID=0 MARK=20000000
+Jun  9 10:48:15 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:2 IN= OUT=eth4 MAC= SRC=172.16.0.250 DST=192.0.2.166 LEN=60 TOS=00 PREC=0x00 TTL=64 ID=32111 DF PROTO=TCP SPT=49882 DPT=443 SEQ=405938102 ACK=0 WINDOW=64240 SYN URGP=0 UID=990 GID=990 MARK=20000000
+Jun  9 10:49:00 fw-edge-05.local ulogd[2771]: OUTGOINGFW:ALLOW:8 IN= OUT=eth4 MAC= SRC=172.16.0.250 DST=198.51.100.177 LEN=60 TOS=00 PREC=0x00 TTL=64 ID=11933 DF PROTO=TCP SPT=33214 DPT=80 SEQ=1122334455 ACK=0 WINDOW=64240 SYN URGP=0 UID=0 GID=0 MARK=20000000
+Jun  9 10:50:33 fw-edge-05.local ulogd[2771]: INPUTFW:ALLOW:20 IN=eth4 OUT= MAC= SRC=203.0.113.20 DST=172.16.0.250 LEN=1500 TOS=00 PREC=0x00 TTL=50 ID=55888 PROTO=UDP SPT=4500 DPT=4500 LEN=1480 MARK=20000000
+Jun  9 10:50:33 fw-edge-05.local ulogd[2771]: INPUTFW:ALLOW:20 IN=eth4 OUT= MAC= SRC=203.0.113.20 DST=172.16.0.250 LEN=120 TOS=00 PREC=0x00 TTL=50 ID=55888 PROTO=UDP MARK=20000000
+-->
+
+<decoder name="endian_custom">
+  <program_name>^ulogd</program_name>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex>^(\S+):(\S+):(\d+)</regex>
+  <order>endian_chain, endian_action, endian_rule</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex>^(\S+):(\S+)</regex>
+  <order>endian_chain, endian_action</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> IN=(\S*) OUT=(\S*) </regex>
+  <order>endian_in, endian_out</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> MAC=(\S*) </regex>
+  <order>endian_mac</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> SRC=(\S+) DST=(\S+) </regex>
+  <order>srcip, dstip</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> TOS=(\S+) </regex>
+  <order>endian_tos</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> PREC=(\S+) </regex>
+  <order>endian_prec</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> TTL=(\d+) </regex>
+  <order>endian_ttl</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> PROTO=(\w+) </regex>
+  <order>protocol</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> SPT=(\d+) DPT=(\d+)</regex>
+  <order>srcport, dstport</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> LEN=(\d+) </regex>
+  <order>endian_len</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> WINDOW=(\d+) </regex>
+  <order>endian_window</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> WINDOW=\d+ (\.+) URGP=</regex>
+  <order>tcp_flags</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> URGP=(\d+) </regex>
+  <order>endian_urgp</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> TYPE=(\d+) CODE=(\d+) </regex>
+  <order>icmp_type, icmp_code</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> UID=(\d+) GID=(\d+)</regex>
+  <order>endian_uid, endian_gid</order>
+</decoder>
+
+<decoder name="endian_custom_child">
+  <parent>endian_custom</parent>
+  <regex> MARK=(\d+)</regex>
+  <order>endian_mark</order>
+</decoder>
