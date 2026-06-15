@@ -1,0 +1,54 @@
+<!--
+Jun  9 10:20:15 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: -, Action: Login Fail
+Jun  9 10:20:22 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: -, Action: Login OK
+Jun  9 10:25:10 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/NEW_REPORT.DOCX, Action: Add
+Jun  9 10:25:15 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/NEW_REPORT.DOCX, Action: Write
+Jun  9 10:28:41 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/DATAFILE_A.DBF, Action: Read
+Jun  9 10:28:43 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/INDEXFILE_A.NTX, Action: Read
+Jun  9 10:30:00 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/Archived, Action: Read
+Jun  9 10:30:05 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/OLD_REPORT.DOCX, Action: Rename
+Jun  9 10:35:12 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/DATAFILE_A.BAK, Action: Delete
+Jun  9 10:40:00 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: FINANCE/apps/accounting/data2024/Monthly Final Report.docx, Action: Write
+Jun  9 17:30:01 PROD-SERVER qulogd[29981]: conn log: Users: standard_user, Source IP: 222.222.222.222, Computer name: user_workstation-01, Connection type: SAMBA, Accessed resources: -, Action: Logout
+-->
+
+
+<decoder name="qnap_qulogd">
+  <program_name>^qulogd$</program_name>
+</decoder>
+
+<decoder name="qnap_qulogd">
+  <parent>qnap_qulogd</parent>
+  <regex>Users: (\S+),</regex>
+  <order>qnap_user</order>
+</decoder>
+
+<decoder name="qnap_qulogd">
+  <parent>qnap_qulogd</parent>
+  <regex>Source IP: (\d+.\d+.\d+.\d+),</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="qnap_qulogd">
+  <parent>qnap_qulogd</parent>
+  <regex>Computer name: (\S+),</regex>
+  <order>qnap_hostname</order>
+</decoder>
+
+<decoder name="qnap_qulogd">
+  <parent>qnap_qulogd</parent>
+  <regex>Connection type: (\S+),</regex>
+  <order>qnap_conn_type</order>
+</decoder>
+
+<decoder name="qnap_qulogd">
+  <parent>qnap_qulogd</parent>
+  <regex type="pcre2">Accessed resources: ([^,]+),</regex>
+  <order>qnap_resource</order>
+</decoder>
+
+<decoder name="qnap_qulogd">
+  <parent>qnap_qulogd</parent>
+  <regex>Action: (\.+)$</regex>
+  <order>qnap_action</order>
+</decoder>

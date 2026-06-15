@@ -1,0 +1,74 @@
+<!--
+Jun  9 10:30:15 SERVER-01 Connection: User [admin_user] from [111.111.111.111] failed to log in via [DSM] due to authorization failure.
+Jun  9 10:31:02 SERVER-01 Connection: User [root] from [123.123.123.123] failed to log in via [SSH] due to authorization failure.
+Jun  9 11:15:30 SERVER-01 Connection: User [anonymous] from [123.123.123.123] failed to log in via [FTP] due to authorization failure.
+Jun  9 10:32:01 SERVER-01 Connection: User [admin_user] from [111.111.111.111] has successfully passed the first authentication of 2FA via [password].
+Jun  9 10:32:08 SERVER-01 Connection: User [admin_user] from [111.111.111.111] signed in to [DSM] successfully via [password].
+Jun  9 11:05:12 SERVER-01 Connection: User [standard_user] from [222.222.222.222] signed in to [CIFS] successfully via [password].
+Jun  9 10:45:00 SERVER-01 Connection: User [admin_user] from [111.111.111.111] logged out from [DSM].
+Jun  9 11:20:05 SERVER-01 Security: Host [123.123.123.123] was blocked via [SSH].
+Jun  9 10:35:22 SERVER-01 System: Test message from Synology Syslog Client from (123.123.123.124).
+Jun  9 12:00:01 SERVER-01 System: System successfully installed DSM 7.2-64570 Update 1.
+Jun  9 12:05:15 SERVER-01 System: Server started counting down to shutdown.
+Jun  9 14:10:20 SERVER-01 System: Drive [3] was removed.
+Jun  9 14:10:22 SERVER-01 System: Volume [1] was degraded [3/4], please repair it.
+Jun  9 14:15:00 SERVER-01 System: Local UPS was disconnected.
+-->
+
+<decoder name="synology_nas">
+  <program_name>^Connection$|^Security$|^System$</program_name>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^User [(\S+)] from [(\d+.\d+.\d+.\d+)] failed to log in via [(\S+)]</regex>
+  <order>user, srcip, synology_app</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^User [(\S+)] from [(\d+.\d+.\d+.\d+)] signed in to [(\w+)] successfully via [(\w+)]</regex>
+  <order>user, srcip, synology_app, synology_auth</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^User [(\S+)] from [(\d+.\d+.\d+.\d+)] has successfully passed the first authentication of 2FA via [(\w+)]</regex>
+  <order>user, srcip, synology_auth</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^User [(\S+)] from [(\d+.\d+.\d+.\d+)] logged out from [(\w+)]</regex>
+  <order>user, srcip, synology_app</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^Host [(\d+.\d+.\d+.\d+)] was blocked via [(\w+)]</regex>
+  <order>srcip, synology_app</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^Test message from Synology Syslog Client from \((\d+.\d+.\d+.\d+)\)</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^Drive [(\d+)] was (\w+)</regex>
+  <order>synology_drive, synology_action</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^Volume [(\d+)] was (\w+) [(\d+/\d+)]</regex>
+  <order>synology_volume, synology_action, synology_status</order>
+</decoder>
+
+<decoder name="synology_nas">
+  <parent>synology_nas</parent>
+  <regex>^(\.+)</regex>
+  <order>synology_message</order>
+</decoder>

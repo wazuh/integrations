@@ -1,0 +1,53 @@
+<group name="qnap_samba,">
+
+  <rule id="100300" level="2">
+    <decoded_as>qnap_qulogd</decoded_as>
+    <description>QNAP NAS: General file server event.</description>
+  </rule>
+
+  <rule id="100301" level="3">
+    <if_sid>100300</if_sid>
+    <field name="qnap_action">^Login OK$</field>
+    <description>QNAP NAS: User '$(qnap_user)' logged in successfully from $(srcip) ($(qnap_hostname)).</description>
+    <group>authentication_success,</group>
+  </rule>
+
+  <rule id="100302" level="5">
+    <if_sid>100300</if_sid>
+    <field name="qnap_action">^Login Fail$</field>
+    <description>QNAP NAS: Login FAILURE for user '$(qnap_user)' from $(srcip) ($(qnap_hostname)).</description>
+    <group>authentication_failed,</group>
+  </rule>
+
+  <rule id="100303" level="2">
+    <if_sid>100300</if_sid>
+    <field name="qnap_action">^Logout$</field>
+    <description>QNAP NAS: User '$(qnap_user)' logged out.</description>
+  </rule>
+
+  <rule id="100304" level="2">
+    <if_sid>100300</if_sid>
+    <field name="qnap_action">^Read$</field>
+    <description>QNAP NAS: User '$(qnap_user)' read file: $(qnap_resource)</description>
+  </rule>
+
+  <rule id="100305" level="3">
+    <if_sid>100300</if_sid>
+    <field name="qnap_action">^Add$|^Write$|^Rename$</field>
+    <description>QNAP NAS: User '$(qnap_user)' performed '$(qnap_action)' on $(qnap_resource).</description>
+  </rule>
+
+  <rule id="100306" level="6">
+    <if_sid>100300</if_sid>
+    <field name="qnap_action">^Delete$</field>
+    <description>QNAP NAS: WARNING - User '$(qnap_user)' DELETED file: $(qnap_resource).</description>
+    <group>audit,file_deleted,</group>
+  </rule>
+  
+  <rule id="100307" level="12" frequency="15" timeframe="60">
+    <if_matched_sid>100306</if_matched_sid>
+    <same_field>qnap_user</same_field>
+    <description>QNAP NAS: CRITICAL - Mass file deletion detected by user '$(qnap_user)'. Potential Ransomware or Insider Threat.</description>
+    <group>ransomware_behavior,attack,</group>
+  </rule>
+</group>
