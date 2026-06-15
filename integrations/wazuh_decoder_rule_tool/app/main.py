@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import httpx
+from dotenv import load_dotenv
+load_dotenv()
 
 _SBERT_MODEL = None
 _SBERT_AVAILABLE = False
@@ -100,6 +102,9 @@ _ML_MODEL: Optional[DecoderSimilarityModel] = None
 _ML_MODEL_ERROR: str = ""
 _ML_PATTERN_COUNT = 0
 
+# Cached wazuh-logtest accessibility — refreshed every 30s in background
+_WAZUH_LOGTEST_ACCESSIBLE: Optional[bool] = None
+
 # Rule ML model (trained from wazuh-ruleset)
 _RULE_ML_MODEL: Optional[RuleSimilarityModel] = None
 _RULE_PATTERN_COUNT = 0
@@ -107,22 +112,33 @@ WAZUH_RULESET_REPO_DIR = Path(os.getenv("WAZUH_RULESET_REPO_DIR", str(BASE_DIR.p
 
 from contextlib import asynccontextmanager
 
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-load ML patterns on startup to avoid "red" status in dashboard
-    print("INFO:     Pre-loading ML model and patterns...")
-    ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
-    print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
-    # Pre-load rule patterns from wazuh-ruleset repo
-    _load_rule_ml_model()
-    # Build RAG vector store in background (non-blocking)
-    if _RAG_AVAILABLE:
-        import threading
-        def _build_rag():
+    import threading
+    import time
+
+    def _background_startup():
+        # Check Wazuh connectivity immediately
+        _refresh_wazuh_accessible()
+        # Pre-load ML patterns
+        print("INFO:     Pre-loading ML model and patterns (background)...")
+        ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
+        print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
+        # Pre-load rule patterns from wazuh-ruleset repo
+        _load_rule_ml_model()
+        # Build RAG vector store
+        if _RAG_AVAILABLE:
             print("INFO:     Building RAG vector store (background)...")
             result = _rag.build_store(force=False)
             print(f"INFO:     RAG store ready: {result}")
-        threading.Thread(target=_build_rag, daemon=True).start()
+        # Keep refreshing Wazuh status every 30s
+        while True:
+            time.sleep(30)
+            _refresh_wazuh_accessible()
+
+    threading.Thread(target=_background_startup, daemon=True).start()
     yield
 
 app = FastAPI(title="Wazuh Decoder Rule Creator", lifespan=lifespan)
@@ -3204,6 +3220,23 @@ def build_remote_stdin(payload: Optional[str] = None, requires_sudo: bool = Fals
     return "\n".join(parts) + "\n"
 
 
+def _refresh_wazuh_accessible() -> None:
+    """Check SSH access to wazuh-logtest and cache the result. Run in background thread."""
+    import app.main as _m
+    binary = find_wazuh_logtest()
+    if WAZUH_REMOTE_ENABLED and binary:
+        try:
+            remote_cmd = build_remote_sudo_command(f"{WAZUH_LOGTEST} -q </dev/null 2>/dev/null; echo EXITCODE=$?")
+            cmd = ssh_base_cmd() + [remote_cmd]
+            proc = subprocess.run(cmd, text=True, capture_output=True, input=build_remote_stdin(None, requires_sudo=True), timeout=8)
+            _m._WAZUH_LOGTEST_ACCESSIBLE = proc.returncode == 0 and "EXITCODE=0" in (proc.stdout or "")
+        except Exception:
+            _m._WAZUH_LOGTEST_ACCESSIBLE = False
+    elif binary:
+        _m._WAZUH_LOGTEST_ACCESSIBLE = os.access(binary, os.X_OK)
+    else:
+        _m._WAZUH_LOGTEST_ACCESSIBLE = False
+
 def run_ssh_command(remote_cmd: str, input_data: Optional[str] = None, timeout: int = 20) -> Dict[str, Any]:
     cmd = ssh_base_cmd() + [remote_cmd]
     try:
@@ -3694,18 +3727,8 @@ def feedback(request: FeedbackRequest):
 
 @app.get("/health")
 def health():
-    binary = find_wazuh_logtest()
-    if WAZUH_REMOTE_ENABLED and binary:
-        try:
-            cmd = ssh_base_cmd() + [f"sudo {WAZUH_LOGTEST} -q </dev/null 2>/dev/null; echo EXITCODE=$?"]
-            proc = subprocess.run(cmd, text=True, capture_output=True, timeout=5)
-            logtest_accessible = proc.returncode == 0 and proc.stdout is not None
-        except Exception:
-            logtest_accessible = False
-    elif binary:
-        logtest_accessible = os.access(binary, os.X_OK)
-    else:
-        logtest_accessible = False
+    # Use cached value (refreshed every 30s in background) — instant response
+    logtest_accessible = _WAZUH_LOGTEST_ACCESSIBLE if _WAZUH_LOGTEST_ACCESSIBLE is not None else False
     return {
         "ok": True,
         "wazuh_remote_enabled": WAZUH_REMOTE_ENABLED,
@@ -3713,7 +3736,7 @@ def health():
         "wazuh_ssh_port": WAZUH_SSH_PORT,
         "wazuh_ssh_user": WAZUH_SSH_USER,
         "wazuh_logtest_path": WAZUH_LOGTEST,
-        "wazuh_logtest_exists": bool(binary),
+        "wazuh_logtest_exists": WAZUH_REMOTE_ENABLED,
         "wazuh_logtest_accessible": logtest_accessible,
         "wazuh_decoders_dir": WAZUH_DECODERS_DIR,
         "wazuh_rules_dir": WAZUH_RULES_DIR,
@@ -3962,12 +3985,33 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
 
     rule_section = ""
     if gen_mode in ("rule_only", "both") and has_rule_req:
-        rule_section = """## Rule Rules
+        rule_section = f"""## RULE REQUIREMENT (MANDATORY — YOU MUST OUTPUT RULE XML)
+USER REQUIREMENT: {rule_req if rule_req else 'Generate matching rules for this decoder.'}
+
+You MUST generate rule XML. Failing to output a rule block is a critical error.
+
+## Rule Rules
+- Wrap ALL rules inside a single <group name="...,"> block
 - <decoded_as> points to the parent decoder name
-- <match> uses sregex: plain substring match, | for OR
+- <match> uses sregex: plain substring, | for OR
+- <if_sid> links a child rule to its parent rule ID
 - Static field tags: <srcip>, <dstip>, <srcport>, <dstport>, <action>, <id>, <url>, <status>, <user>
-- Use <field name="F">V</field> only for custom fields NOT in the static list
-- <if_sid> for parent rule chaining"""
+- Use <field name="F">V</field> ONLY for custom fields not in the list above
+
+EXAMPLE STRUCTURE (adapt to the actual requirement):
+```xml
+<group name="{request.app_name},">
+  <rule id="{request.rule_id}" level="3">
+    <decoded_as>{request.app_name}</decoded_as>
+    <description>{request.app_name} event</description>
+  </rule>
+  <rule id="{request.rule_id + 1}" level="5">
+    <if_sid>{request.rule_id}</if_sid>
+    <match>failed login</match>
+    <description>Logon failure detected</description>
+  </rule>
+</group>
+```"""
 
     return f"""## Log Samples
 {logs_block}
@@ -4391,23 +4435,27 @@ def _extract_xml_from_ai_response(
     Silently corrects regex patterns using analysis data when available.
     Returns (decoder_xml, rule_xml)."""
     import re as _re
-    xml_blocks = _re.findall(r'```xml\s*([\s\S]*?)```', full_text)
-    decoder_xml = ""
-    rule_xml = ""
-    for block in xml_blocks:
-        block = block.strip()
-        if "<decoder" in block and not decoder_xml:
-            decoder_xml = block
-        elif ("<rule" in block or "<group" in block) and not rule_xml:
-            rule_xml = block
-    if not decoder_xml:
-        m = _re.search(r'(<decoder[\s\S]*?</decoder>)', full_text)
-        if m:
-            decoder_xml = m.group(1).strip()
-    if not rule_xml:
-        m = _re.search(r'(<group[\s\S]*?</group>)', full_text)
-        if m:
-            rule_xml = m.group(1).strip()
+    
+    # 1. Extract all decoder blocks
+    decoder_blocks = _re.findall(r'(<decoder\b[\s\S]*?</decoder>)', full_text)
+    decoder_xml = "\n\n".join(decoder_blocks).strip()
+    
+    # 2. Extract all rule/group blocks
+    rule_blocks = _re.findall(r'(<group\b[\s\S]*?</group>)', full_text)
+    if not rule_blocks:
+        # Fallback in case AI outputs <rule> without <group> wrapper
+        rule_blocks = _re.findall(r'(<rule\b[\s\S]*?</rule>)', full_text)
+    rule_xml = "\n\n".join(rule_blocks).strip()
+    
+    # Fallback to pure markdown block extraction if regex somehow fails but xml block exists
+    if not decoder_xml and not rule_xml:
+        xml_blocks = _re.findall(r'```xml\s*([\s\S]*?)```', full_text)
+        for block in xml_blocks:
+            block = block.strip()
+            if "<decoder" in block and not decoder_xml:
+                decoder_xml = block
+            elif ("<rule" in block or "<group" in block) and not rule_xml:
+                rule_xml = block
             
     # Forcibly split child decoders if the user requested it but the AI failed to do so
     decoder_xml = _enforce_split_decoders(decoder_xml, regex_order_pairs)
