@@ -137,16 +137,16 @@ The script will automatically perform:
 Use these to validate end-to-end behavior and the reporting format:
 
 **Threat Hunting:**
-- Show me the alerts summary of agent 002 for the last 30 min
+- Show me the alerts summary of agent 008 for the last 30 min
 - Give me a summary of the critical alerts from the last 30 min
 - Analyze the most important alerts in my environment
 - Analyze brute force attack alerts from last 1 hour
-![alt text](images/image-5.png)
+<video src="images/alert-summary.mp4" controls="controls" width="800"></video>
 
 **DQL:**
 - Filter alerts from office365 that are from outside spain in last 2 hours
 - filter all the critical virustotal alerts from agent 002 in last three hours
-![alt text](images/image-4.png)
+<video src="images/DQL.mp4" controls="controls" width="800"></video>
 
 **Agent Management:**
 *(Administrative actions generate a `Pending Action` block. You must reply directly with `CONFIRM` or `NO`)*
@@ -155,20 +155,20 @@ Use these to validate end-to-end behavior and the reporting format:
 - show agent groups
 - Remove all disconnected agent from last 10 minutes
 - add agent ID 001 to the agent group windows
-![alt text](images/image-6.png)
+<video src="images/agent-management.mp4" controls="controls" width="800"></video>
 
 **Dashboard:**
 *(Dashboard creations generate a `Pending Action` block. You must reply directly with `CONFIRM` or `NO`)*
 - create custom dashboard
 - I need a dashboard for brute force attack alerts with geo location
 - create dashboard with a pie chart top 10 rule id triggered
-![alt text](images/image-3.png)
+<video src="images/dashboard-create.mp4" controls="controls" width="800"></video>
 
 **IT Hygiene:**
 - What is the OS and OS version of agent 002
 - How many agents have edge software installed?
 - Can you check if the agent 001 has Valorant software installed?
-![alt text](images/image-1.png)
+<video src="images/IT-Hygiene.mp4" controls="controls" width="800"></video>
 
 **SCA:**
 - Share the SCA score of agent 002
@@ -181,25 +181,17 @@ Use these to validate end-to-end behavior and the reporting format:
 - Make a summary of critical vulnerabilities.
 - How to resolve this vulnerability CVE-2015-0287?
 - Break down the critical vulnerability and affected packages for agent 001
-![alt text](images/image.png)
+<video src="images/vulnerability-check.mp4" controls="controls" width="800"></video>
 
 **Generate PDF reports and send it via Email:**
-- send a email report for endpoints brute force attack alert via mail with detailed visualizations
-- send a email report for agents vulnerabilities via mail with detailed visualizations
-![alt text](images/image-7.png)
-
-![alt text](images/image-8.png)
-
-![alt text](images/image-9.png)
+- Send a email report for endpoints brute force attack alert via mail with detailed visualizations
+- Send a PDF report for active vulnerabilities on all endpoints via email.
+<video src="images/generate-report.mp4" controls="controls" width="800"></video>
 
 **Create Wazuh indexer monitor:**
 
 - Send slack alert for authentication failed attempts from India
-![alt text](images/image-10.png)
-
-![alt text](images/image-11.png)
-
-![alt text](images/image-12.png)
+<video src="images/indexer-monitor.mp4" controls="controls" width="800"></video>
 
 ---
 
