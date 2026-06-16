@@ -141,7 +141,7 @@ Use these to validate end-to-end behavior and the reporting format:
 - Give me a summary of the critical alerts from the last 30 min
 - Analyze the most important alerts in my environment
 - Analyze brute force attack alerts from last 1 hour
-<video src="images/alert-summary.mp4" controls="controls" width="800"></video>
+<video src="https://raw.githubusercontent.com/bonyjohn05/integrations/main/integrations/AI_assistant/images/alert-summary.mp4" controls="controls" width="800"></video>
 
 **DQL:**
 - Filter alerts from office365 that are from outside spain in last 2 hours
