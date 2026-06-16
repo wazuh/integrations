@@ -61,12 +61,16 @@ DEFAULT_WAZUH_SSH_PASSWORD = "vagrant"
 WAZUH_LOGTEST = os.getenv("WAZUH_LOGTEST_PATH", DEFAULT_WAZUH_LOGTEST)
 WAZUH_DECODERS_DIR = os.getenv("WAZUH_DECODERS_DIR", DEFAULT_DECODERS_DIR)
 WAZUH_RULES_DIR = os.getenv("WAZUH_RULES_DIR", DEFAULT_RULES_DIR)
-WAZUH_SSH_HOST = os.getenv("WAZUH_SSH_HOST", DEFAULT_WAZUH_SSH_HOST)
+WAZUH_SSH_HOST = os.getenv("WAZUH_SSH_HOST", "")
 WAZUH_SSH_PORT = os.getenv("WAZUH_SSH_PORT", DEFAULT_WAZUH_SSH_PORT)
-WAZUH_SSH_USER = os.getenv("WAZUH_SSH_USER", DEFAULT_WAZUH_SSH_USER)
+WAZUH_SSH_USER = os.getenv("WAZUH_SSH_USER", "")
 WAZUH_SSH_KEY = os.getenv("WAZUH_SSH_KEY", "")
-WAZUH_SSH_PASSWORD = os.getenv("WAZUH_SSH_PASSWORD", DEFAULT_WAZUH_SSH_PASSWORD)
-WAZUH_REMOTE_ENABLED = bool(WAZUH_SSH_HOST and WAZUH_SSH_USER)
+WAZUH_SSH_PASSWORD = os.getenv("WAZUH_SSH_PASSWORD", "")
+# Remote mode: only when SSH host+user are explicitly configured
+WAZUH_REMOTE_ENABLED = os.getenv("WAZUH_REMOTE_ENABLED", "").lower() in ("1", "true", "yes") or bool(WAZUH_SSH_HOST and WAZUH_SSH_USER)
+# Local sudo: when the app runs ON the Wazuh server but not as root
+WAZUH_USE_SUDO = os.getenv("WAZUH_USE_SUDO", "false").lower() in ("1", "true", "yes")
+WAZUH_SUDO_PASSWORD = os.getenv("WAZUH_SUDO_PASSWORD", "")
 WAZUH_REPO_URL = os.getenv("WAZUH_REPO_URL", "https://github.com/wazuh/wazuh.git")
 WAZUH_REPO_CACHE_DIR = Path(os.getenv("WAZUH_REPO_CACHE_DIR", str(BASE_DIR.parent / "data" / "wazuh_repo")))
 WAZUH_REPO_DECODER_SUBPATH = os.getenv("WAZUH_REPO_DECODER_SUBPATH", "ruleset/decoders")
@@ -82,12 +86,12 @@ REJECTED_FEEDBACK_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback_rejec
 # Default to localhost Ollama so it works without any env var when Ollama is running locally.
 # Accepts both http://localhost:11434 and http://localhost:11434/v1 — the /v1 suffix is
 # normalized in the URL construction below to prevent double-/v1 404 errors.
-_OLLAMA_RAW_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+_OLLAMA_RAW_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 # Normalise: strip trailing /v1 so we always build the full path ourselves
 OLLAMA_BASE_URL = _OLLAMA_RAW_URL.rstrip("/")
 if OLLAMA_BASE_URL.endswith("/v1"):
     OLLAMA_BASE_URL = OLLAMA_BASE_URL[:-3].rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "wazuh-decoder")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:latest")
 
 # OpenRouter
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
@@ -3189,10 +3193,14 @@ def ssh_base_cmd() -> List[str]:
     cmd.extend(
         [
             "ssh",
-            "-o",
-            "StrictHostKeyChecking=accept-new",
-            "-p",
-            WAZUH_SSH_PORT,
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "GSSAPIAuthentication=no",
+            "-o", "GSSAPIDelegateCredentials=no",
+            "-o", "PreferredAuthentications=password,keyboard-interactive",
+            "-o", "ConnectTimeout=10",
+            "-o", "ServerAliveInterval=5",
+            "-o", "ServerAliveCountMax=2",
+            "-p", WAZUH_SSH_PORT,
         ]
     )
     if not WAZUH_SSH_PASSWORD:
@@ -3220,18 +3228,51 @@ def build_remote_stdin(payload: Optional[str] = None, requires_sudo: bool = Fals
     return "\n".join(parts) + "\n"
 
 
+def run_local_sudo_command(args: List[str], input_data: Optional[str] = None, timeout: int = 20) -> Dict[str, Any]:
+    """Run a local command under sudo. Used when the app runs ON the Wazuh server."""
+    cmd: List[str] = []
+    if WAZUH_SUDO_PASSWORD:
+        cmd = ["sudo", "-S", "-p", ""] + args
+        stdin = (WAZUH_SUDO_PASSWORD + "\n") + (input_data or "")
+    else:
+        cmd = ["sudo"] + args
+        stdin = input_data
+    try:
+        proc = subprocess.run(cmd, input=stdin, text=True, capture_output=True, timeout=timeout)
+        return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr, "connection_error": False}
+    except subprocess.TimeoutExpired:
+        return {"returncode": None, "stdout": "", "stderr": "Local sudo command timed out", "connection_error": False}
+    except Exception as e:
+        return {"returncode": None, "stdout": "", "stderr": str(e), "connection_error": False}
+
+
 def _refresh_wazuh_accessible() -> None:
-    """Check SSH access to wazuh-logtest and cache the result. Run in background thread."""
+    """Check SSH access to wazuh-logtest and cache the result. Retries 3 times."""
     import app.main as _m
     binary = find_wazuh_logtest()
     if WAZUH_REMOTE_ENABLED and binary:
-        try:
-            remote_cmd = build_remote_sudo_command(f"{WAZUH_LOGTEST} -q </dev/null 2>/dev/null; echo EXITCODE=$?")
-            cmd = ssh_base_cmd() + [remote_cmd]
-            proc = subprocess.run(cmd, text=True, capture_output=True, input=build_remote_stdin(None, requires_sudo=True), timeout=8)
-            _m._WAZUH_LOGTEST_ACCESSIBLE = proc.returncode == 0 and "EXITCODE=0" in (proc.stdout or "")
-        except Exception:
-            _m._WAZUH_LOGTEST_ACCESSIBLE = False
+        for attempt in range(3):
+            try:
+                remote_cmd = build_remote_sudo_command(
+                    f"{WAZUH_LOGTEST} -q </dev/null 2>/dev/null; echo EXITCODE=$?"
+                )
+                cmd = ssh_base_cmd() + [remote_cmd]
+                proc = subprocess.run(
+                    cmd,
+                    text=True,
+                    capture_output=True,
+                    input=build_remote_stdin(None, requires_sudo=True),
+                    timeout=15,
+                )
+                if proc.returncode == 0 and "EXITCODE=0" in (proc.stdout or ""):
+                    _m._WAZUH_LOGTEST_ACCESSIBLE = True
+                    return
+            except Exception:
+                pass
+            if attempt < 2:
+                import time as _t
+                _t.sleep(2)
+        _m._WAZUH_LOGTEST_ACCESSIBLE = False
     elif binary:
         _m._WAZUH_LOGTEST_ACCESSIBLE = os.access(binary, os.X_OK)
     else:
@@ -3309,14 +3350,15 @@ def run_wazuh_logtest(log_line: str, expected: Optional[str] = None) -> Dict[str
             "stderr": f"wazuh-logtest not found at {WAZUH_LOGTEST}",
         }
 
-    cmd = [binary]
+    cmd = (["sudo", "-S", "-p", ""] if WAZUH_USE_SUDO and WAZUH_SUDO_PASSWORD else (["sudo"] if WAZUH_USE_SUDO else [])) + [binary]
     if expected:
         cmd.extend(["-U", expected])
+    input_data = (WAZUH_SUDO_PASSWORD + "\n" if WAZUH_USE_SUDO and WAZUH_SUDO_PASSWORD else "") + log_line + "\n"
 
     try:
         proc = subprocess.run(
             cmd,
-            input=log_line + "\n",
+            input=input_data,
             text=True,
             capture_output=True,
             timeout=10,
@@ -3376,7 +3418,15 @@ def write_candidate_files(candidate: Dict[str, Any]) -> Dict[str, Any]:
         if not content:
             return
         filename = f"local_{sanitize_name(app_name)}_{prefix}_{stamp}.xml"
-        path = Path(target_dir) / filename
+        target_path = f"{target_dir.rstrip('/')}/{filename}"
+        if WAZUH_USE_SUDO:
+            proc = run_local_sudo_command(["tee", target_path], input_data=content + "\n", timeout=20)
+            if proc["returncode"] == 0:
+                writes.append(target_path)
+            else:
+                errors.append(f"failed to write {target_path}: {proc['stderr'].strip()}")
+            return
+        path = Path(target_path)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content + "\n", encoding="utf-8")
@@ -3410,6 +3460,10 @@ def install_temp_content(target_dir: str, filename: str, content: str) -> Tuple[
         proc = run_ssh_command(remote_cmd, input_data=build_remote_stdin(content, requires_sudo=True), timeout=20)
         return proc["returncode"] == 0, proc.get("stderr", "")
 
+    if WAZUH_USE_SUDO:
+        proc = run_local_sudo_command(["tee", target_path], input_data=content + "\n", timeout=20)
+        return proc["returncode"] == 0, proc.get("stderr", "")
+
     path = Path(target_path)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -3424,6 +3478,10 @@ def remove_temp_content(target_dir: str, filename: str) -> None:
     if WAZUH_REMOTE_ENABLED:
         remote_cmd = build_remote_sudo_command(f"rm -f {shlex.quote(target_path)}")
         run_ssh_command(remote_cmd, input_data=build_remote_stdin(requires_sudo=True), timeout=20)
+        return
+
+    if WAZUH_USE_SUDO:
+        run_local_sudo_command(["rm", "-f", target_path], timeout=20)
         return
 
     path = Path(target_path)
@@ -3591,20 +3649,25 @@ def install_decoder(request: InstallRequest):
             if not content:
                 return
             filename = f"local_{app_name}_{prefix}_{stamp}.xml"
-            remote_path = f"{target_dir.rstrip('/')}/{filename}"
-            local_path = str(Path(target_dir) / filename)
+            target_path = f"{target_dir.rstrip('/')}/{filename}"
             if WAZUH_REMOTE_ENABLED:
-                remote_cmd = build_remote_sudo_command(f"tee {shlex.quote(remote_path)} >/dev/null")
+                remote_cmd = build_remote_sudo_command(f"tee {shlex.quote(target_path)} >/dev/null")
                 proc = run_ssh_command(remote_cmd, input_data=build_remote_stdin(content, requires_sudo=True), timeout=20)
                 if proc["returncode"] == 0:
-                    writes.append(f"ssh://{WAZUH_SSH_USER}@{WAZUH_SSH_HOST}:{remote_path}")
+                    writes.append(f"ssh://{WAZUH_SSH_USER}@{WAZUH_SSH_HOST}:{target_path}")
                     return
-                errors.append(f"failed to write remote {remote_path}: rc={proc['returncode']} stderr={proc['stderr'].strip()}")
+                errors.append(f"failed to write remote {target_path}: rc={proc['returncode']} stderr={proc['stderr'].strip()}")
+            elif WAZUH_USE_SUDO:
+                proc = run_local_sudo_command(["tee", target_path], input_data=content + "\n", timeout=20)
+                if proc["returncode"] == 0:
+                    writes.append(target_path)
+                else:
+                    errors.append(f"failed to write {target_path}: {proc['stderr'].strip()}")
             else:
                 try:
                     Path(target_dir).mkdir(parents=True, exist_ok=True)
-                    Path(local_path).write_text(content + "\n", encoding="utf-8")
-                    writes.append(local_path)
+                    Path(target_path).write_text(content + "\n", encoding="utf-8")
+                    writes.append(target_path)
                 except Exception as exc:
                     fallback = LOCAL_OUTPUT_DIR / prefix / filename
                     fallback.parent.mkdir(parents=True, exist_ok=True)
@@ -3637,6 +3700,12 @@ def uninstall_decoder(request: UninstallRequest):
                     removed.append(path)
                 else:
                     errors.append(f"failed to remove {path}: rc={proc['returncode']}")
+            elif WAZUH_USE_SUDO:
+                proc = run_local_sudo_command(["rm", "-f", path], timeout=15)
+                if proc["returncode"] == 0:
+                    removed.append(path)
+                else:
+                    errors.append(f"failed to remove {path}: {proc['stderr'].strip()}")
             else:
                 try:
                     Path(path).unlink(missing_ok=True)
