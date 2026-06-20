@@ -48,10 +48,10 @@ The web UI has five panels accessible from the left sidebar: **AI Generate**, **
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  🔷 Wazuh Decoder Studio            ● Wazuh Local  ML 1500  │
+│  🔷 Wazuh Decoder Studio            ● Wazuh Local  ML 1500   │
 ├─────────────────────┬────────────────────────────────────────┤
 │  Workspace          │                                        │
-│  ⚡ AI Generate     │                                        │
+│  ⚡ AI Generate      │                                         │
 │    (active)         │        Main Content Area               │
 │  ✓ Test             │   (forms, XML output, results)         │
 │  👍 Feedback        │                                        │
