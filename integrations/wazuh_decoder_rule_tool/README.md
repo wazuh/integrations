@@ -47,24 +47,26 @@ The web UI has five panels accessible from the left sidebar: **AI Generate**, **
 ### UI Overview
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  🔷 Wazuh Decoder Studio         ● Wazuh Local  ML 1500 │
-├──────────────┬──────────────────────────────────────────┤
-│  Workspace   │                                          │
-│  ⚡ AI Generate (active)          Main Content Area      │
-│  ✓ Test                                                  │
-│  👍 Feedback                                             │
-│  ─────────── │                                          │
-│  Model       │                                          │
-│  ☀ ML Status │                                          │
-│  🕐 History  │                                          │
-└──────────────┴──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  🔷 Wazuh Decoder Studio            ● Wazuh Local  ML 1500  │
+├─────────────────────┬────────────────────────────────────────┤
+│  Workspace          │                                        │
+│  ⚡ AI Generate     │                                        │
+│    (active)         │        Main Content Area               │
+│  ✓ Test             │   (forms, XML output, results)         │
+│  👍 Feedback        │                                        │
+│  ─────────────────  │                                        │
+│  Model              │                                        │
+│  ✳ ML Status        │                                        │
+│  🔘 History         │                                        │
+└─────────────────────┴────────────────────────────────────────┘
 ```
 
 The **top-right status pills** show live connectivity:
-- 🟢 **Wazuh Local / Remote** — `wazuh-logtest` is reachable
-- 🔴 **Wazuh (unavailable)** — logtest binary not found; generation still works, validation is skipped
-- **ML N patterns** — number of decoder patterns loaded in the similarity model
+- `● Wazuh Local` — green dot, `wazuh-logtest` is reachable on the local machine
+- `● Wazuh Remote` — green dot, `wazuh-logtest` is reachable over SSH
+- `● Wazuh Local (unavailable)` — red dot, logtest binary not found; generation still works but validation is skipped
+- `ML 1500` — number of decoder patterns currently loaded in the ML model
 
 ---
 
