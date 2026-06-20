@@ -42,6 +42,8 @@ wazuh-logtest
 
 ## Using the UI — Step-by-Step Guide
 
+![Wazuh Decoder Studio Demo](assets/demo.gif)
+
 The web UI has five panels accessible from the left sidebar: **AI Generate**, **Test**, **Feedback**, **ML Status**, and **History**.
 
 ### UI Overview
