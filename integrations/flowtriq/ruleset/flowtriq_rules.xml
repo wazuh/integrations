@@ -1,0 +1,153 @@
+<!--
+  Flowtriq DDoS Detection - Wazuh Rules
+
+  Rule ID range: 100900 - 100949
+
+  Generates alerts for Flowtriq DDoS detection events received via
+  the Syslog/CEF integration. Maps to MITRE ATT&CK T1498 (Network
+  Denial of Service) and T1499 (Endpoint Denial of Service).
+
+  Reference:
+    https://flowtriq.com/docs
+-->
+
+<group name="flowtriq,ddos,">
+
+  <!-- Base rule: any Flowtriq CEF log received -->
+  <rule id="100900" level="0">
+    <decoded_as>flowtriq-cef</decoded_as>
+    <description>Flowtriq DDoS detection event.</description>
+  </rule>
+
+  <!-- ==================== Attack Detected ==================== -->
+
+  <!-- DDoS attack detected (any severity) -->
+  <rule id="100901" level="10">
+    <if_sid>100900</if_sid>
+    <field name="flowtriq.event_name">DDoS Attack Detected</field>
+    <description>Flowtriq: DDoS attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+      <id>T1499</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- High severity DDoS attack -->
+  <rule id="100902" level="12">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.severity">^high$</field>
+    <description>Flowtriq: High severity DDoS attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+      <id>T1499</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- Critical severity DDoS attack -->
+  <rule id="100903" level="14">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.severity">^critical$</field>
+    <description>Flowtriq: Critical severity DDoS attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+      <id>T1499</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- ==================== Attack Families ==================== -->
+
+  <!-- SYN flood attack -->
+  <rule id="100910" level="12">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.attack_family">^syn_flood$</field>
+    <description>Flowtriq: SYN flood attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- UDP flood attack -->
+  <rule id="100911" level="10">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.attack_family">^udp_flood$</field>
+    <description>Flowtriq: UDP flood attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- TCP flood attack -->
+  <rule id="100912" level="10">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.attack_family">^tcp_flood$</field>
+    <description>Flowtriq: TCP flood attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- HTTP flood attack -->
+  <rule id="100913" level="12">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.attack_family">^http_flood$</field>
+    <description>Flowtriq: HTTP flood attack detected.</description>
+    <mitre>
+      <id>T1499</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- ICMP flood attack -->
+  <rule id="100914" level="10">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.attack_family">^icmp_flood$</field>
+    <description>Flowtriq: ICMP flood attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- DNS flood attack -->
+  <rule id="100915" level="12">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.attack_family">^dns_flood$</field>
+    <description>Flowtriq: DNS flood attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- Multi-vector attack -->
+  <rule id="100916" level="13">
+    <if_sid>100901</if_sid>
+    <field name="flowtriq.attack_family">^multi_vector$</field>
+    <description>Flowtriq: Multi-vector DDoS attack detected.</description>
+    <mitre>
+      <id>T1498</id>
+      <id>T1499</id>
+    </mitre>
+    <group>attack,network_attack,</group>
+  </rule>
+
+  <!-- ==================== Attack Resolved ==================== -->
+
+  <!-- DDoS attack resolved -->
+  <rule id="100920" level="5">
+    <if_sid>100900</if_sid>
+    <field name="flowtriq.event_name">DDoS Attack Resolved</field>
+    <description>Flowtriq: DDoS attack resolved.</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+    <group>network_attack,</group>
+  </rule>
+
+</group>

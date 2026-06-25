@@ -1,0 +1,97 @@
+<!--
+  Flowtriq DDoS Detection - Wazuh Decoders
+
+  Parses Flowtriq CEF syslog messages sent via the Syslog/CEF integration.
+
+  Syslog format:
+    <priority>Mmm DD HH:MM:SS hostname Flowtriq: CEF:0|Flowtriq|FlowtriqDDoS|1.0|SigID|Name|Severity|Extensions
+
+  Reference:
+    https://flowtriq.com/docs
+
+  Sample log:
+    <133>Jun 15 14:32:01 monitor1 Flowtriq: CEF:0|Flowtriq|FlowtriqDDoS|1.0|1003|DDoS Attack Detected|7|dst=203.0.113.50 cn1=1482000 cn1Label=PeakPPS cn2=9120000000 cn2Label=PeakBPS cnt=4821 cs1=syn_flood cs1Label=AttackFamily cs2=high cs2Label=Severity cs3=4471 cs3Label=IncidentID start=1718451721000 msg=DDoS Attack Detected on edge-router-1 (incident #4471)
+-->
+
+<!-- Parent decoder: match the syslog program name "Flowtriq" followed by CEF header -->
+<decoder name="flowtriq-cef">
+  <program_name>^Flowtriq$</program_name>
+  <prematch>^CEF:0\|Flowtriq\|FlowtriqDDoS\|</prematch>
+</decoder>
+
+<!-- Extract CEF header fields: signature ID, event name, CEF severity -->
+<decoder name="flowtriq-cef-header">
+  <parent>flowtriq-cef</parent>
+  <regex>^CEF:0\|Flowtriq\|FlowtriqDDoS\|(\S+)\|(\d+)\|(\S+ \S+ \S+)\|(\d+)\|(.+)$</regex>
+  <order>flowtriq.cef_version,flowtriq.signature_id,flowtriq.event_name,flowtriq.cef_severity,flowtriq.extensions</order>
+</decoder>
+
+<!-- Extract destination IP (target node) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>dst=(\d+.\d+.\d+.\d+)</regex>
+  <order>dstip</order>
+</decoder>
+
+<!-- Extract PeakPPS (cn1) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>cn1=(\d+)</regex>
+  <order>flowtriq.peak_pps</order>
+</decoder>
+
+<!-- Extract PeakBPS (cn2) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>cn2=(\d+)</regex>
+  <order>flowtriq.peak_bps</order>
+</decoder>
+
+<!-- Extract source IP count (cnt) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>cnt=(\d+)</regex>
+  <order>flowtriq.source_count</order>
+</decoder>
+
+<!-- Extract attack family (cs1) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>cs1=(\S+) cs1Label=AttackFamily</regex>
+  <order>flowtriq.attack_family</order>
+</decoder>
+
+<!-- Extract severity string (cs2) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>cs2=(\S+) cs2Label=Severity</regex>
+  <order>flowtriq.severity</order>
+</decoder>
+
+<!-- Extract incident ID (cs3) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>cs3=(\d+) cs3Label=IncidentID</regex>
+  <order>flowtriq.incident_id</order>
+</decoder>
+
+<!-- Extract event start timestamp (milliseconds) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>start=(\d+)</regex>
+  <order>flowtriq.start_time</order>
+</decoder>
+
+<!-- Extract event end timestamp (milliseconds, present on resolved events) -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>end=(\d+)</regex>
+  <order>flowtriq.end_time</order>
+</decoder>
+
+<!-- Extract message -->
+<decoder name="flowtriq-cef-child">
+  <parent>flowtriq-cef</parent>
+  <regex>msg=(.+)$</regex>
+  <order>flowtriq.message</order>
+</decoder>
