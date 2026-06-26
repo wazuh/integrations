@@ -1,0 +1,10 @@
+{
+  "id": "wazuhCaseManagement",
+  "version": "1.0.0",
+  "opensearchDashboardsVersion": "2.19.5",
+  "server": true,
+  "ui": true,
+  "requiredPlugins": [],
+  "optionalPlugins": ["wazuhCore"],
+  "requiredBundles": []
+}

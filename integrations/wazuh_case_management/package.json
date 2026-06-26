@@ -1,0 +1,21 @@
+{
+  "name": "wazuh-case-management",
+  "version": "1.0.0",
+  "description": "Case Management plugin for Wazuh Dashboard — create, track, and resolve security incident cases directly within the Wazuh Dashboard.",
+  "license": "Apache-2.0",
+  "main": "target/server/index.js",
+  "opensearchDashboards": {
+    "version": "2.19.5",
+    "templateVersion": "1.0.0"
+  },
+  "scripts": {
+    "build": "yarn plugin-helpers build",
+    "plugin-helpers": "node ../../scripts/plugin_helpers",
+    "osd": "node ../../scripts/osd"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "peerDependencies": {
+    "@osd/config-schema": "*"
+  }
+}
