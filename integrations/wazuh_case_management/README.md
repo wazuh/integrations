@@ -61,16 +61,18 @@ sudo systemctl restart wazuh-dashboard
 **Option B — Build and install from source**
 
 ```bash
-# Prerequisites: Node 18, Yarn, and a local clone of OpenSearch Dashboards 2.19.5
-git clone https://github.com/opensearch-project/OpenSearch-Dashboards.git
-cd OpenSearch-Dashboards
-git checkout 2.19.5
+# Prerequisites: Node 18, Yarn
+git clone https://github.com/wazuh/wazuh-dashboard.git
+cd wazuh-dashboard
+git checkout 4.14.5
 
 # Copy the plugin into the plugins directory
 cp -r /path/to/wazuh_case_management plugins/wazuh-case-management
 
-# Bootstrap and build
+# Bootstrap dependencies
 yarn osd bootstrap
+
+# Build the plugin
 cd plugins/wazuh-case-management
 yarn build
 
