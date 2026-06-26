@@ -44,15 +44,17 @@ Key capabilities:
 
 #### Installing the Plugin
 
-**Option A — Install from the pre-built zip**
+**Option A — Install from the pre-built zip (recommended)**
+
+The pre-built zip `wazuhCaseManagement-2.19.5.zip` is included in this directory.
 
 ```bash
-# Copy the release zip to the Wazuh Dashboard host
-scp wazuh-case-management-1.0.0.zip user@dashboard-host:/tmp/
+# Copy the zip to the Wazuh Dashboard host
+scp wazuhCaseManagement-2.19.5.zip user@dashboard-host:/tmp/
 
 # Install
 sudo -u wazuh-dashboard /usr/share/wazuh-dashboard/bin/opensearch-dashboards-plugin \
-  install file:///tmp/wazuh-case-management-1.0.0.zip
+  install file:///tmp/wazuhCaseManagement-2.19.5.zip
 
 # Restart the service
 sudo systemctl restart wazuh-dashboard
