@@ -132,26 +132,7 @@ wazuh_case_management/
 
 ### Integration Testing
 
-After installation, verify the plugin is working correctly:
-
-```bash
-# 1. Check the plugin is listed
-curl -sk -u admin:admin https://localhost:5601/api/status | \
-  python3 -c "import sys,json; plugins=json.load(sys.stdin)['status']['plugins']; \
-  [print(p['id'], p['state']) for p in plugins if 'case' in p['id']]"
-
-# 2. Confirm indices were created
-curl -sk -u admin:admin https://localhost:9200/_cat/indices/wazuh-case-management-* \
-  -H "Content-Type: application/json"
-
-# 3. Create a test case via the REST API
-curl -sk -u admin:admin -X POST https://localhost:5601/api/wazuh-case-management/cases \
-  -H "Content-Type: application/json" \
-  -H "osd-xsrf: true" \
-  -d '{"title":"Test Case","description":"Smoke test","severity":"low","priority":"low","status":"open"}'
-```
-
-Navigate to `https://<dashboard-host>/app/wazuh-case-management` in a browser and confirm the test case appears.
+After installation, navigate to `https://<dashboard-host>/app/wazuh-case-management` in a browser and confirm the Case Management application loads. Create a test case, link a Wazuh alert, and verify it appears in the case detail page.
 
 ---
 
