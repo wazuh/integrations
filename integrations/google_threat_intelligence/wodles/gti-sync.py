@@ -94,7 +94,7 @@ def load_config(path: str) -> Dict[str, Any]:
         "verdict": set(get_list("filters", "verdict")),
         "ioc_lifetime": parser.getint("runtime", "ioc_lifetime_days", fallback=7),
         "max_concurrent": DEFAULT_MAX_CONCURRENT,
-        "log_file": f"{pwd}/{parser.get("runtime", "log_file", fallback="gti_sync.log")}",
+        "log_file": f"{pwd}/{parser.get('runtime', 'log_file', fallback='gti_sync.log')}",
         "log_level": parser.get("runtime", "log_level", fallback="INFO"),
         "files": {
             "ip": os.path.join(WAZUH_HOME, "integrations", "gti_iocs", "malicious_ips.json"),
@@ -102,7 +102,7 @@ def load_config(path: str) -> Dict[str, Any]:
             "url": os.path.join(WAZUH_HOME, "integrations", "gti_iocs", "malicious_urls.json"),
             "file": os.path.join(WAZUH_HOME, "integrations", "gti_iocs", "malicious_filehashes.json"),
         },
-        "checkpoint_file": f"{pwd}/{parser.get("files", "checkpoint_file", fallback="checkpoint.json")}",
+        "checkpoint_file": f"{pwd}/{parser.get('files', 'checkpoint_file', fallback='checkpoint.json')}",
     }
 
 
