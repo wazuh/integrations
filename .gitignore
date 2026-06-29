@@ -1,0 +1,38 @@
+# Virtual environments
+venv/
+.venv/
+test_venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local scratch and temp folders
+scratch/
+.claude/
+
+# Cache directories and ML models
+data/models/
+data/wazuh_repo/
+data/wazuh_ruleset_repo/
+.cache_decoders/
+
+
+# Generated output and TLS materials
+generated/
+certs/
+*.pem
+*.key
+*.crt
+
+# OS files
+.DS_Store
+
+# Test files
+test*
+test_*
+
+# Generated artifacts
+response.json
+architecture.html
+data/rag_store/

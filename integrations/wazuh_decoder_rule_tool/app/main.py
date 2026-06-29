@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import httpx
+from dotenv import load_dotenv
+load_dotenv()
 
 _SBERT_MODEL = None
 _SBERT_AVAILABLE = False
@@ -38,6 +40,13 @@ from app.decoder_ml import (
     refresh_wazuh_repo,
 )
 from app.decoder_ml_enhanced import ensure_ml_model_enhanced
+try:
+    from app import rag_engine as _rag
+    _RAG_AVAILABLE = True
+except Exception:
+    _rag = None  # type: ignore
+    _RAG_AVAILABLE = False
+
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -52,12 +61,16 @@ DEFAULT_WAZUH_SSH_PASSWORD = "vagrant"
 WAZUH_LOGTEST = os.getenv("WAZUH_LOGTEST_PATH", DEFAULT_WAZUH_LOGTEST)
 WAZUH_DECODERS_DIR = os.getenv("WAZUH_DECODERS_DIR", DEFAULT_DECODERS_DIR)
 WAZUH_RULES_DIR = os.getenv("WAZUH_RULES_DIR", DEFAULT_RULES_DIR)
-WAZUH_SSH_HOST = os.getenv("WAZUH_SSH_HOST", DEFAULT_WAZUH_SSH_HOST)
+WAZUH_SSH_HOST = os.getenv("WAZUH_SSH_HOST", "")
 WAZUH_SSH_PORT = os.getenv("WAZUH_SSH_PORT", DEFAULT_WAZUH_SSH_PORT)
-WAZUH_SSH_USER = os.getenv("WAZUH_SSH_USER", DEFAULT_WAZUH_SSH_USER)
+WAZUH_SSH_USER = os.getenv("WAZUH_SSH_USER", "")
 WAZUH_SSH_KEY = os.getenv("WAZUH_SSH_KEY", "")
-WAZUH_SSH_PASSWORD = os.getenv("WAZUH_SSH_PASSWORD", DEFAULT_WAZUH_SSH_PASSWORD)
-WAZUH_REMOTE_ENABLED = bool(WAZUH_SSH_HOST and WAZUH_SSH_USER)
+WAZUH_SSH_PASSWORD = os.getenv("WAZUH_SSH_PASSWORD", "")
+# Remote mode: only when SSH host+user are explicitly configured
+WAZUH_REMOTE_ENABLED = os.getenv("WAZUH_REMOTE_ENABLED", "").lower() in ("1", "true", "yes") or bool(WAZUH_SSH_HOST and WAZUH_SSH_USER)
+# Local sudo: when the app runs ON the Wazuh server but not as root
+WAZUH_USE_SUDO = os.getenv("WAZUH_USE_SUDO", "false").lower() in ("1", "true", "yes")
+WAZUH_SUDO_PASSWORD = os.getenv("WAZUH_SUDO_PASSWORD", "")
 WAZUH_REPO_URL = os.getenv("WAZUH_REPO_URL", "https://github.com/wazuh/wazuh.git")
 WAZUH_REPO_CACHE_DIR = Path(os.getenv("WAZUH_REPO_CACHE_DIR", str(BASE_DIR.parent / "data" / "wazuh_repo")))
 WAZUH_REPO_DECODER_SUBPATH = os.getenv("WAZUH_REPO_DECODER_SUBPATH", "ruleset/decoders")
@@ -73,12 +86,12 @@ REJECTED_FEEDBACK_PATH = BASE_DIR.parent / "data" / "datasets" / "feedback_rejec
 # Default to localhost Ollama so it works without any env var when Ollama is running locally.
 # Accepts both http://localhost:11434 and http://localhost:11434/v1 — the /v1 suffix is
 # normalized in the URL construction below to prevent double-/v1 404 errors.
-_OLLAMA_RAW_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+_OLLAMA_RAW_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 # Normalise: strip trailing /v1 so we always build the full path ourselves
 OLLAMA_BASE_URL = _OLLAMA_RAW_URL.rstrip("/")
 if OLLAMA_BASE_URL.endswith("/v1"):
     OLLAMA_BASE_URL = OLLAMA_BASE_URL[:-3].rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "wazuh-decoder")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:latest")
 
 # OpenRouter
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
@@ -93,6 +106,9 @@ _ML_MODEL: Optional[DecoderSimilarityModel] = None
 _ML_MODEL_ERROR: str = ""
 _ML_PATTERN_COUNT = 0
 
+# Cached wazuh-logtest accessibility — refreshed every 30s in background
+_WAZUH_LOGTEST_ACCESSIBLE: Optional[bool] = None
+
 # Rule ML model (trained from wazuh-ruleset)
 _RULE_ML_MODEL: Optional[RuleSimilarityModel] = None
 _RULE_PATTERN_COUNT = 0
@@ -100,14 +116,53 @@ WAZUH_RULESET_REPO_DIR = Path(os.getenv("WAZUH_RULESET_REPO_DIR", str(BASE_DIR.p
 
 from contextlib import asynccontextmanager
 
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-load ML patterns on startup to avoid "red" status in dashboard
-    print("INFO:     Pre-loading ML model and patterns...")
-    ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
-    print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
-    # Pre-load rule patterns from wazuh-ruleset repo
-    _load_rule_ml_model()
+    import threading
+    import time
+
+    def _background_startup():
+        # Check Wazuh connectivity immediately
+        try:
+            _refresh_wazuh_accessible()
+        except Exception as e:
+            print(f"WARNING: _refresh_wazuh_accessible failed during startup: {e}")
+            
+        # Pre-load ML patterns
+        try:
+            print("INFO:     Pre-loading ML model and patterns (background)...")
+            ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
+            print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
+        except Exception as e:
+            print(f"WARNING: ML model pre-loading failed: {e}")
+            
+        # Pre-load rule patterns from wazuh-ruleset repo
+        try:
+            _load_rule_ml_model()
+        except Exception as e:
+            print(f"WARNING: Rule ML model pre-loading failed: {e}")
+            
+        # Build RAG vector store
+        try:
+            if _RAG_AVAILABLE:
+                print("INFO:     Building RAG vector store (background)...")
+                result = _rag.build_store(force=False)
+                print(f"INFO:     RAG store ready: {result}")
+        except Exception as e:
+            print(f"WARNING: RAG store building failed: {e}")
+            
+        # Keep refreshing Wazuh status every 30s
+        while True:
+            import time
+            time.sleep(30)
+            try:
+                _refresh_wazuh_accessible()
+            except Exception:
+                pass
+
+    threading.Thread(target=_background_startup, daemon=True).start()
     yield
 
 app = FastAPI(title="Wazuh Decoder Rule Creator", lifespan=lifespan)
@@ -3158,10 +3213,14 @@ def ssh_base_cmd() -> List[str]:
     cmd.extend(
         [
             "ssh",
-            "-o",
-            "StrictHostKeyChecking=accept-new",
-            "-p",
-            WAZUH_SSH_PORT,
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "GSSAPIAuthentication=no",
+            "-o", "GSSAPIDelegateCredentials=no",
+            "-o", "PreferredAuthentications=password,keyboard-interactive",
+            "-o", "ConnectTimeout=10",
+            "-o", "ServerAliveInterval=5",
+            "-o", "ServerAliveCountMax=2",
+            "-p", WAZUH_SSH_PORT,
         ]
     )
     if not WAZUH_SSH_PASSWORD:
@@ -3188,6 +3247,56 @@ def build_remote_stdin(payload: Optional[str] = None, requires_sudo: bool = Fals
         return None
     return "\n".join(parts) + "\n"
 
+
+def run_local_sudo_command(args: List[str], input_data: Optional[str] = None, timeout: int = 20) -> Dict[str, Any]:
+    """Run a local command under sudo. Used when the app runs ON the Wazuh server."""
+    cmd: List[str] = []
+    if WAZUH_SUDO_PASSWORD:
+        cmd = ["sudo", "-S", "-p", ""] + args
+        stdin = (WAZUH_SUDO_PASSWORD + "\n") + (input_data or "")
+    else:
+        cmd = ["sudo"] + args
+        stdin = input_data
+    try:
+        proc = subprocess.run(cmd, input=stdin, text=True, capture_output=True, timeout=timeout)
+        return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr, "connection_error": False}
+    except subprocess.TimeoutExpired:
+        return {"returncode": None, "stdout": "", "stderr": "Local sudo command timed out", "connection_error": False}
+    except Exception as e:
+        return {"returncode": None, "stdout": "", "stderr": str(e), "connection_error": False}
+
+
+def _refresh_wazuh_accessible() -> None:
+    """Check SSH access to wazuh-logtest and cache the result. Retries 3 times."""
+    import app.main as _m
+    binary = find_wazuh_logtest()
+    if WAZUH_REMOTE_ENABLED and binary:
+        for attempt in range(3):
+            try:
+                remote_cmd = build_remote_sudo_command(
+                    f"{WAZUH_LOGTEST} -q </dev/null 2>/dev/null; echo EXITCODE=$?"
+                )
+                cmd = ssh_base_cmd() + [remote_cmd]
+                proc = subprocess.run(
+                    cmd,
+                    text=True,
+                    capture_output=True,
+                    input=build_remote_stdin(None, requires_sudo=True),
+                    timeout=15,
+                )
+                if proc.returncode == 0 and "EXITCODE=0" in (proc.stdout or ""):
+                    _m._WAZUH_LOGTEST_ACCESSIBLE = True
+                    return
+            except Exception:
+                pass
+            if attempt < 2:
+                import time as _t
+                _t.sleep(2)
+        _m._WAZUH_LOGTEST_ACCESSIBLE = False
+    elif binary:
+        _m._WAZUH_LOGTEST_ACCESSIBLE = os.access(binary, os.X_OK)
+    else:
+        _m._WAZUH_LOGTEST_ACCESSIBLE = False
 
 def run_ssh_command(remote_cmd: str, input_data: Optional[str] = None, timeout: int = 20) -> Dict[str, Any]:
     cmd = ssh_base_cmd() + [remote_cmd]
@@ -3261,14 +3370,15 @@ def run_wazuh_logtest(log_line: str, expected: Optional[str] = None) -> Dict[str
             "stderr": f"wazuh-logtest not found at {WAZUH_LOGTEST}",
         }
 
-    cmd = [binary]
+    cmd = (["sudo", "-S", "-p", ""] if WAZUH_USE_SUDO and WAZUH_SUDO_PASSWORD else (["sudo"] if WAZUH_USE_SUDO else [])) + [binary]
     if expected:
         cmd.extend(["-U", expected])
+    input_data = (WAZUH_SUDO_PASSWORD + "\n" if WAZUH_USE_SUDO and WAZUH_SUDO_PASSWORD else "") + log_line + "\n"
 
     try:
         proc = subprocess.run(
             cmd,
-            input=log_line + "\n",
+            input=input_data,
             text=True,
             capture_output=True,
             timeout=10,
@@ -3328,7 +3438,15 @@ def write_candidate_files(candidate: Dict[str, Any]) -> Dict[str, Any]:
         if not content:
             return
         filename = f"local_{sanitize_name(app_name)}_{prefix}_{stamp}.xml"
-        path = Path(target_dir) / filename
+        target_path = f"{target_dir.rstrip('/')}/{filename}"
+        if WAZUH_USE_SUDO:
+            proc = run_local_sudo_command(["tee", target_path], input_data=content + "\n", timeout=20)
+            if proc["returncode"] == 0:
+                writes.append(target_path)
+            else:
+                errors.append(f"failed to write {target_path}: {proc['stderr'].strip()}")
+            return
+        path = Path(target_path)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content + "\n", encoding="utf-8")
@@ -3362,6 +3480,10 @@ def install_temp_content(target_dir: str, filename: str, content: str) -> Tuple[
         proc = run_ssh_command(remote_cmd, input_data=build_remote_stdin(content, requires_sudo=True), timeout=20)
         return proc["returncode"] == 0, proc.get("stderr", "")
 
+    if WAZUH_USE_SUDO:
+        proc = run_local_sudo_command(["tee", target_path], input_data=content + "\n", timeout=20)
+        return proc["returncode"] == 0, proc.get("stderr", "")
+
     path = Path(target_path)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -3376,6 +3498,10 @@ def remove_temp_content(target_dir: str, filename: str) -> None:
     if WAZUH_REMOTE_ENABLED:
         remote_cmd = build_remote_sudo_command(f"rm -f {shlex.quote(target_path)}")
         run_ssh_command(remote_cmd, input_data=build_remote_stdin(requires_sudo=True), timeout=20)
+        return
+
+    if WAZUH_USE_SUDO:
+        run_local_sudo_command(["rm", "-f", target_path], timeout=20)
         return
 
     path = Path(target_path)
@@ -3543,20 +3669,25 @@ def install_decoder(request: InstallRequest):
             if not content:
                 return
             filename = f"local_{app_name}_{prefix}_{stamp}.xml"
-            remote_path = f"{target_dir.rstrip('/')}/{filename}"
-            local_path = str(Path(target_dir) / filename)
+            target_path = f"{target_dir.rstrip('/')}/{filename}"
             if WAZUH_REMOTE_ENABLED:
-                remote_cmd = build_remote_sudo_command(f"tee {shlex.quote(remote_path)} >/dev/null")
+                remote_cmd = build_remote_sudo_command(f"tee {shlex.quote(target_path)} >/dev/null")
                 proc = run_ssh_command(remote_cmd, input_data=build_remote_stdin(content, requires_sudo=True), timeout=20)
                 if proc["returncode"] == 0:
-                    writes.append(f"ssh://{WAZUH_SSH_USER}@{WAZUH_SSH_HOST}:{remote_path}")
+                    writes.append(f"ssh://{WAZUH_SSH_USER}@{WAZUH_SSH_HOST}:{target_path}")
                     return
-                errors.append(f"failed to write remote {remote_path}: rc={proc['returncode']} stderr={proc['stderr'].strip()}")
+                errors.append(f"failed to write remote {target_path}: rc={proc['returncode']} stderr={proc['stderr'].strip()}")
+            elif WAZUH_USE_SUDO:
+                proc = run_local_sudo_command(["tee", target_path], input_data=content + "\n", timeout=20)
+                if proc["returncode"] == 0:
+                    writes.append(target_path)
+                else:
+                    errors.append(f"failed to write {target_path}: {proc['stderr'].strip()}")
             else:
                 try:
                     Path(target_dir).mkdir(parents=True, exist_ok=True)
-                    Path(local_path).write_text(content + "\n", encoding="utf-8")
-                    writes.append(local_path)
+                    Path(target_path).write_text(content + "\n", encoding="utf-8")
+                    writes.append(target_path)
                 except Exception as exc:
                     fallback = LOCAL_OUTPUT_DIR / prefix / filename
                     fallback.parent.mkdir(parents=True, exist_ok=True)
@@ -3589,6 +3720,12 @@ def uninstall_decoder(request: UninstallRequest):
                     removed.append(path)
                 else:
                     errors.append(f"failed to remove {path}: rc={proc['returncode']}")
+            elif WAZUH_USE_SUDO:
+                proc = run_local_sudo_command(["rm", "-f", path], timeout=15)
+                if proc["returncode"] == 0:
+                    removed.append(path)
+                else:
+                    errors.append(f"failed to remove {path}: {proc['stderr'].strip()}")
             else:
                 try:
                     Path(path).unlink(missing_ok=True)
@@ -3648,12 +3785,28 @@ def ml_refresh(request: MLRefreshRequest):
     )
     _ML_MODEL = None
     model = ensure_ml_model_enhanced(force_refresh=False, use_ensemble=True)
+    # Also rebuild RAG store so it picks up new decoders
+    rag_result = {}
+    if _RAG_AVAILABLE and _rag is not None:
+        try:
+            rag_result = _rag.build_store(force=True)
+        except Exception as e:
+            rag_result = {"status": "error", "message": str(e)}
     return {
         "refresh": refreshed,
         "model_loaded": bool(model),
         "pattern_count": _ML_PATTERN_COUNT,
         "error": _ML_MODEL_ERROR,
+        "rag": rag_result,
     }
+
+
+@app.get("/api/rag/status")
+def rag_status():
+    """Return the current status of the RAG vector store."""
+    if not _RAG_AVAILABLE or _rag is None:
+        return {"available": False, "reason": "chromadb not installed or rag_engine failed to load"}
+    return {"available": True, **_rag.get_status()}
 
 
 @app.post("/api/feedback")
@@ -3663,18 +3816,8 @@ def feedback(request: FeedbackRequest):
 
 @app.get("/health")
 def health():
-    binary = find_wazuh_logtest()
-    if WAZUH_REMOTE_ENABLED and binary:
-        try:
-            cmd = ssh_base_cmd() + [f"sudo {WAZUH_LOGTEST} -q </dev/null 2>/dev/null; echo EXITCODE=$?"]
-            proc = subprocess.run(cmd, text=True, capture_output=True, timeout=5)
-            logtest_accessible = proc.returncode == 0 and proc.stdout is not None
-        except Exception:
-            logtest_accessible = False
-    elif binary:
-        logtest_accessible = os.access(binary, os.X_OK)
-    else:
-        logtest_accessible = False
+    # Use cached value (refreshed every 30s in background) — instant response
+    logtest_accessible = _WAZUH_LOGTEST_ACCESSIBLE if _WAZUH_LOGTEST_ACCESSIBLE is not None else False
     return {
         "ok": True,
         "wazuh_remote_enabled": WAZUH_REMOTE_ENABLED,
@@ -3682,7 +3825,7 @@ def health():
         "wazuh_ssh_port": WAZUH_SSH_PORT,
         "wazuh_ssh_user": WAZUH_SSH_USER,
         "wazuh_logtest_path": WAZUH_LOGTEST,
-        "wazuh_logtest_exists": bool(binary),
+        "wazuh_logtest_exists": WAZUH_REMOTE_ENABLED,
         "wazuh_logtest_accessible": logtest_accessible,
         "wazuh_decoders_dir": WAZUH_DECODERS_DIR,
         "wazuh_rules_dir": WAZUH_RULES_DIR,
@@ -3787,8 +3930,9 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
     logs_block = "\n".join(s.raw_log for s in request.logs[:5])
     effective_fields = analysis.get("effective_extract_fields") or request.extract_fields
     skipped_fields = analysis.get("skipped_decoded_fields") or []
-    has_rule_req = bool(request.rule_requirement and request.rule_requirement.strip())
     rule_req = request.rule_requirement or ""
+    extra_context_lower = (request.extra_context or "").lower()
+    has_rule_req = bool(rule_req.strip() or "rule" in extra_context_lower or "level" in extra_context_lower)
     predecoded_program = analysis.get("predecoded_program_name") or ""
     extracted_program = analysis.get("extracted_program_name") or ""
     program = predecoded_program or extracted_program or request.app_name
@@ -3815,7 +3959,8 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
     if skipped_fields:
         config_lines.append(f"- Fields ALREADY decoded by built-in (SKIP these): {', '.join(skipped_fields)}")
     if gen_mode in ("both", "rule_only") and has_rule_req:
-        config_lines.append(f"- Rule requirement: {rule_req}")
+        if rule_req.strip():
+            config_lines.append(f"- Rule requirement: {rule_req}")
         config_lines.append(f"- Rule ID: {request.rule_id}, Level: {request.level}")
     if request.extra_context:
         config_lines.append(f"- Extra context: {request.extra_context}")
@@ -3829,7 +3974,12 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             hints_block = "Field value mapping hints:\n" + "\n".join(hints_lines) + "\n"
 
     if predecoded_program:
-        parent_strategy = f"Parent decoder MUST use <program_name> (program: '{predecoded_program}')."
+        parent_strategy = (
+            f"\n\nCRITICAL: Wazuh Phase 1 pre-decoding ALREADY extracted program_name: '{predecoded_program}'. "
+            "Because of this, the syslog header is STRIPPED before Phase 2. "
+            f"You MUST use <program_name>^{predecoded_program}$</program_name> in the parent decoder! "
+            "DO NOT use <prematch> in the parent decoder, because the header is no longer there to be matched!"
+        )
     else:
         token_source = analysis.get("token_source")
         logs_to_use = [token_source] if token_source else [s.raw_log for s in request.logs]
@@ -3840,9 +3990,9 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             analysis.get("prematch"),
         )
         if parent_prematch:
-            parent_strategy = f"No program name pre-decoded by Wazuh. You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder. Do NOT invent a different prematch."
+            parent_strategy = f"\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder. Do NOT invent a different prematch."
         else:
-            parent_strategy = "No program name pre-decoded by Wazuh. You MUST use <prematch> for the parent decoder instead of <program_name> based on the log's prefix."
+            parent_strategy = "\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch> for the parent decoder instead of <program_name> based on the log's prefix."
 
     logtest_summary = analysis.get("wazuh_logtest_summary", {})
     logtest_decoded = analysis.get("logtest_decoded_fields", {})
@@ -3865,6 +4015,16 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
         for s in suggestions[:3]:
             ml_lines.append(f"  {s.get('name','?')}: regex={s.get('regex','?')} order={','.join(s.get('order') or [])}")
         ml_context = "Similar Wazuh decoders (reference):\n" + "\n".join(ml_lines) + "\n"
+
+    # RAG: retrieve verified real decoder examples from vector store
+    rag_context = ""
+    if _RAG_AVAILABLE and _rag is not None:
+        try:
+            first_log = request.logs[0].raw_log if request.logs else ""
+            rag_examples = _rag.retrieve(first_log, fields=effective_fields, top_k=3)
+            rag_context = _rag.format_rag_context(rag_examples)
+        except Exception as _rag_err:
+            logger.warning(f"RAG retrieval failed: {_rag_err}")
 
     rule_ml_context = ""
     if has_rule_req and gen_mode in ("both", "rule_only"):
@@ -3914,12 +4074,33 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
 
     rule_section = ""
     if gen_mode in ("rule_only", "both") and has_rule_req:
-        rule_section = """## Rule Rules
+        rule_section = f"""## RULE REQUIREMENT (MANDATORY — YOU MUST OUTPUT RULE XML)
+USER REQUIREMENT: {rule_req if rule_req else 'Generate matching rules for this decoder.'}
+
+You MUST generate rule XML. Failing to output a rule block is a critical error.
+
+## Rule Rules
+- Wrap ALL rules inside a single <group name="...,"> block
 - <decoded_as> points to the parent decoder name
-- <match> uses sregex: plain substring match, | for OR
+- <match> uses sregex: plain substring, | for OR
+- <if_sid> links a child rule to its parent rule ID
 - Static field tags: <srcip>, <dstip>, <srcport>, <dstport>, <action>, <id>, <url>, <status>, <user>
-- Use <field name="F">V</field> only for custom fields NOT in the static list
-- <if_sid> for parent rule chaining"""
+- Use <field name="F">V</field> ONLY for custom fields not in the list above
+
+EXAMPLE STRUCTURE (adapt to the actual requirement):
+```xml
+<group name="{request.app_name},">
+  <rule id="{request.rule_id}" level="3">
+    <decoded_as>{request.app_name}</decoded_as>
+    <description>{request.app_name} event</description>
+  </rule>
+  <rule id="{request.rule_id + 1}" level="5">
+    <if_sid>{request.rule_id}</if_sid>
+    <match>failed login</match>
+    <description>Logon failure detected</description>
+  </rule>
+</group>
+```"""
 
     return f"""## Log Samples
 {logs_block}
@@ -3928,7 +4109,8 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
 {config_block}
 
 {logtest_block}{parent_strategy}
-{hints_block}{ml_context}{rule_ml_context}
+{hints_block}{rag_context}
+{ml_context}{rule_ml_context}
 {decoder_rules}
 {rule_section}
 {output_instruction}"""
@@ -3943,8 +4125,8 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
     async def _stream_from_api(url: str, payload: dict, headers: dict, max_retries: int = 3) -> AsyncIterator[bytes]:
         for attempt in range(max_retries):
             try:
-                # 60s timeout for streaming requests (models might take a while to load into memory on the first request)
-                async with httpx.AsyncClient(timeout=60.0) as client:
+                # 300s timeout for streaming requests (models might take a while to load into memory or generate complex rules)
+                async with httpx.AsyncClient(timeout=300.0) as client:
                     async with client.stream("POST", url, json=payload, headers=headers) as response:
                         if response.status_code == 429:
                             retry_after = int(response.headers.get("Retry-After", 5))
@@ -4051,7 +4233,8 @@ async def ai_generate(request: AIGenerateRequest):
     """Generate decoder + rule XML with AI. Structure from AI, regex silently corrected
     from analysis data. The user sees one unified output."""
     try:
-        analysis = analyze_logs_impl(
+        analysis = await asyncio.to_thread(
+            analyze_logs_impl,
             AnalyzeRequest(
                 logs=request.logs,
                 app_name=request.app_name,
@@ -4065,10 +4248,19 @@ async def ai_generate(request: AIGenerateRequest):
         return PlainTextResponse(f"ERROR: wazuh-logtest is not accessible: {e}")
 
     prompt = _build_ai_prompt(request, analysis)
-    full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
+    try:
+        full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
+        if full_response.strip().startswith("ERROR:"):
+            raise RuntimeError(full_response)
+    except Exception as e:
+        print(f"ERROR in /api/ai/generate: Failed to connect to AI model: {e}")
+        return PlainTextResponse(f"Failed to connect to AI model (Ollama at {OLLAMA_BASE_URL}): {e}", status_code=503)
+
     decoder_xml, rule_xml = _extract_xml_from_ai_response(
         full_response, regex_order_pairs=analysis.get("regex_order_pairs")
     )
+    if not decoder_xml and not rule_xml:
+        print(f"WARNING in /api/ai/generate: No XML extracted. Raw AI response was:\n{full_response}")
     out = ""
     if decoder_xml:
         out += f"### Decoder\n\n```xml\n{decoder_xml}\n```\n\n"
@@ -4342,23 +4534,27 @@ def _extract_xml_from_ai_response(
     Silently corrects regex patterns using analysis data when available.
     Returns (decoder_xml, rule_xml)."""
     import re as _re
-    xml_blocks = _re.findall(r'```xml\s*([\s\S]*?)```', full_text)
-    decoder_xml = ""
-    rule_xml = ""
-    for block in xml_blocks:
-        block = block.strip()
-        if "<decoder" in block and not decoder_xml:
-            decoder_xml = block
-        elif ("<rule" in block or "<group" in block) and not rule_xml:
-            rule_xml = block
-    if not decoder_xml:
-        m = _re.search(r'(<decoder[\s\S]*?</decoder>)', full_text)
-        if m:
-            decoder_xml = m.group(1).strip()
-    if not rule_xml:
-        m = _re.search(r'(<group[\s\S]*?</group>)', full_text)
-        if m:
-            rule_xml = m.group(1).strip()
+    
+    # 1. Extract all decoder blocks
+    decoder_blocks = _re.findall(r'(<decoder\b[\s\S]*?</decoder>)', full_text)
+    decoder_xml = "\n\n".join(decoder_blocks).strip()
+    
+    # 2. Extract all rule/group blocks
+    rule_blocks = _re.findall(r'(<group\b[\s\S]*?</group>)', full_text)
+    if not rule_blocks:
+        # Fallback in case AI outputs <rule> without <group> wrapper
+        rule_blocks = _re.findall(r'(<rule\b[\s\S]*?</rule>)', full_text)
+    rule_xml = "\n\n".join(rule_blocks).strip()
+    
+    # Fallback to pure markdown block extraction if regex somehow fails but xml block exists
+    if not decoder_xml and not rule_xml:
+        xml_blocks = _re.findall(r'```xml\s*([\s\S]*?)```', full_text)
+        for block in xml_blocks:
+            block = block.strip()
+            if "<decoder" in block and not decoder_xml:
+                decoder_xml = block
+            elif ("<rule" in block or "<group" in block) and not rule_xml:
+                rule_xml = block
             
     # Forcibly split child decoders if the user requested it but the AI failed to do so
     decoder_xml = _enforce_split_decoders(decoder_xml, regex_order_pairs)
@@ -4475,7 +4671,8 @@ async def ai_generate_validated(request: AIGenerateRequest):
     """Generate decoder/rule XML with AI, then validate with wazuh-logtest.
     Retries up to 3 times if validation fails, feeding errors back to the AI."""
     try:
-        analysis = analyze_logs_impl(
+        analysis = await asyncio.to_thread(
+            analyze_logs_impl,
             AnalyzeRequest(
                 logs=request.logs,
                 app_name=request.app_name,
@@ -4501,10 +4698,20 @@ async def ai_generate_validated(request: AIGenerateRequest):
         if correction_context:
             prompt += f"\n\n## CORRECTION (attempt {attempt + 1})\n{correction_context}"
 
-        full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
+        try:
+            full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
+            if full_response.strip().startswith("ERROR:"):
+                raise RuntimeError(full_response)
+        except Exception as e:
+            print(f"ERROR in /api/ai/generate-validated (attempt {attempt+1}): Failed to connect to AI model: {e}")
+            return JSONResponse({"error": f"Failed to connect to AI model (Ollama at {OLLAMA_BASE_URL}): {e}"}, status_code=503)
+
         decoder_xml, rule_xml = _extract_xml_from_ai_response(
             full_response, regex_order_pairs=analysis.get("regex_order_pairs")
         )
+        if not decoder_xml and not rule_xml:
+            print(f"WARNING in /api/ai/generate-validated (attempt {attempt+1}): No XML extracted. Raw AI response was:\n{full_response}")
+        
         rule_xml = _sanitize_rule_xml_static_fields(rule_xml)
 
         best_decoder_xml = decoder_xml or best_decoder_xml
@@ -4514,7 +4721,8 @@ async def ai_generate_validated(request: AIGenerateRequest):
             best_validation = {"validated": False, "reason": "validation disabled by user"}
             break
 
-        validation = _validate_ai_decoder_with_logtest(
+        validation = await asyncio.to_thread(
+            _validate_ai_decoder_with_logtest,
             decoder_xml, rule_xml, request.logs, app_name
         )
         best_validation = validation
@@ -4532,6 +4740,10 @@ async def ai_generate_validated(request: AIGenerateRequest):
             for fl in failed_logs[:3]:
                 correction_context += f"  Log: {fl['raw_log']}\n  Matched decoder: {fl.get('decoder_matched', 'none')}\n"
             correction_context += "Fix the regex patterns to match these logs. Output corrected XML only."
+            
+            predecoded_program = analysis.get("wazuh_logtest_summary", {}).get("predecoded_program_name")
+            if predecoded_program and best_decoder_xml and "<prematch>" in best_decoder_xml:
+                correction_context += f"\n\nFATAL ERROR: You used <prematch> in the parent decoder, but Wazuh Phase 1 already extracted program_name '{predecoded_program}'. The syslog header was stripped! You MUST replace the parent decoder's <prematch> with <program_name>^{predecoded_program}$</program_name> or it will never match."
 
     return JSONResponse({
         "decoder_xml": _sanitize_decoder_xml_osregex(best_decoder_xml),
