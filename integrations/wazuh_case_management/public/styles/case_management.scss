@@ -1,0 +1,938 @@
+/*
+ * Wazuh Case Management Plugin
+ * Premium dark-theme stylesheet with glassmorphism, gradients, and micro-animations
+ */
+
+// ─── Theme Variables ──────────────────────────────────────────
+:root {
+  --cm-bg: transparent;
+  --cm-surface: #FFFFFF;
+  --cm-surface-hover: #F8F9FA;
+  --cm-surface-raised: #FFFFFF;
+  --cm-border: #D3DAE6;
+  --cm-border-light: #E2E8F0;
+  --cm-primary: #006BB4;
+  --cm-primary-light: #1D76EE;
+  --cm-primary-dark: #00508a;
+  --cm-primary-glow: transparent;
+  --cm-success: #017D73;
+  --cm-success-glow: transparent;
+  --cm-warning: #F5A623;
+  --cm-warning-glow: transparent;
+  --cm-danger: #BD271E;
+  --cm-danger-glow: transparent;
+  --cm-critical: #9333EA;
+  --cm-critical-glow: transparent;
+  --cm-info: #006BB4;
+  --cm-info-glow: transparent;
+  --cm-text: #343741;
+  --cm-text-secondary: #535966;
+  --cm-text-muted: #98A2B3;
+  --cm-radius: 4px;
+  --cm-radius-sm: 4px;
+  --cm-radius-xs: 2px;
+  --cm-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --cm-shadow-hover: 0 4px 8px rgba(0, 0, 0, 0.1);
+  --cm-transition: all 0.2s ease-in-out;
+  --cm-glass-bg: #FFFFFF;
+  --cm-glass-border: #D3DAE6;
+  --cm-glass-blur: none;
+}
+
+// ─── Page Layout ──────────────────────────────────────────────
+.caseManagement__page {
+  background-color: transparent !important;
+  min-height: 100vh;
+  color: var(--cm-text);
+
+  .euiPageBody {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+}
+
+// ─── Navigation Bar ───────────────────────────────────────────
+.caseManagement__navBar {
+  background: var(--cm-glass-bg);
+  backdrop-filter: var(--cm-glass-blur);
+  border: 1px solid var(--cm-glass-border);
+  border-radius: var(--cm-radius);
+  padding: 4px 8px;
+  margin-bottom: 8px;
+
+  .euiTabs {
+    border-bottom: none !important;
+  }
+
+  .euiTab {
+    color: var(--cm-text-secondary) !important;
+    transition: var(--cm-transition);
+    border-radius: var(--cm-radius-sm);
+    padding: 8px 16px;
+    margin: 0 2px;
+
+    &:hover {
+      color: var(--cm-text) !important;
+      background: var(--cm-surface-hover);
+      text-decoration: none !important;
+    }
+
+    &.euiTab-isSelected {
+      color: #000000 !important;
+      background: #DCE8F4 !important;
+      border-bottom: none !important;
+      box-shadow: none;
+      font-weight: 500;
+    }
+  }
+}
+
+// ─── Glass Card ───────────────────────────────────────────────
+.caseManagement__card {
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  padding: 24px;
+  box-shadow: var(--cm-shadow);
+  transition: var(--cm-transition);
+
+  &:hover {
+    border-color: var(--cm-border-light);
+    box-shadow: var(--cm-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  &--no-hover:hover {
+    transform: none;
+    box-shadow: var(--cm-shadow);
+  }
+}
+
+// ─── Page Headers ─────────────────────────────────────────────
+.caseManagement__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+
+  &Title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--cm-text);
+    letter-spacing: -0.5px;
+
+    span {
+      color: var(--cm-text);
+    }
+  }
+
+  &Actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+}
+
+// ─── Status Badges ────────────────────────────────────────────
+.caseManagement__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  transition: var(--cm-transition);
+
+  &--open {
+    background: #EBF5FF;
+    color: #006BB4;
+    border: 1px solid #99C5E5;
+  }
+  &--in_progress {
+    background: #E8F2FF;
+    color: #1D76EE;
+    border: 1px solid #A3C7F7;
+  }
+  &--waiting {
+    background: #FFF9ED;
+    color: #F5A623;
+    border: 1px solid #FCE4B2;
+  }
+  &--resolved {
+    background: #E6F2F1;
+    color: #017D73;
+    border: 1px solid #99CDC9;
+  }
+  &--closed {
+    background: #F2F3F5;
+    color: #535966;
+    border: 1px solid #D3DAE6;
+  }
+
+  &--informational { background: #F2F3F5; color: #535966; border: 1px solid #D3DAE6; }
+  &--low { background: #EBF5FF; color: #006BB4; border: 1px solid #99C5E5; }
+  &--medium { background: #FFF9ED; color: #F5A623; border: 1px solid #FCE4B2; }
+  &--high { background: #FFECEB; color: #BD271E; border: 1px solid #E5938E; }
+  &--critical { background: #F8EFFF; color: #9333EA; border: 1px solid #D4B2F7; }
+}
+
+// ─── Filter Bar ───────────────────────────────────────────────
+.caseManagement__filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+
+  &__chip {
+    background: var(--cm-surface);
+    border: 1px solid var(--cm-border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: var(--cm-text-secondary);
+    cursor: pointer;
+    transition: var(--cm-transition);
+    user-select: none;
+
+    &:hover {
+      background: var(--cm-surface-hover);
+      color: var(--cm-text);
+      border-color: var(--cm-border-light);
+    }
+
+    &--active {
+      background: #E8F2FF;
+      color: var(--cm-primary-light);
+      border-color: #A3C7F7;
+    }
+  }
+}
+
+// ─── Case Table ───────────────────────────────────────────────
+.caseManagement__table {
+  .euiTable {
+    background: var(--cm-surface) !important;
+    border-radius: var(--cm-radius);
+    overflow: hidden;
+  }
+
+  .euiTableRow {
+    transition: var(--cm-transition);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--cm-surface-hover) !important;
+    }
+
+    td {
+      border-color: var(--cm-border) !important;
+      color: var(--cm-text) !important;
+    }
+
+    td * {
+      color: var(--cm-text) !important;
+    }
+  }
+
+  .euiTableCellContent,
+  .euiTableCellContent__text,
+  .euiTableCellContent * {
+    color: var(--cm-text) !important;
+  }
+
+  .euiTableHeaderCell {
+    background: var(--cm-surface-raised) !important;
+    border-color: var(--cm-border) !important;
+    color: var(--cm-text-secondary) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  .caseManagement__caseIdCell {
+    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+    color: var(--cm-primary-light);
+    font-weight: 500;
+  }
+}
+
+// ─── Kanban Board ─────────────────────────────────────────────
+.caseManagement__kanban {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  min-height: 500px;
+
+  &__column {
+    flex: 1;
+    min-width: 260px;
+    max-width: 320px;
+    background: var(--cm-surface);
+    border-radius: var(--cm-radius);
+    border: 1px solid var(--cm-border);
+    display: flex;
+    flex-direction: column;
+    transition: var(--cm-transition);
+
+    &:hover {
+      border-color: var(--cm-border-light);
+    }
+
+    &Header {
+      padding: 16px;
+      border-bottom: 2px solid;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+
+      &--open { border-color: #6366f1; color: #818cf8; }
+      &--in_progress { border-color: #3b82f6; color: #60a5fa; }
+      &--waiting { border-color: #f59e0b; color: #fbbf24; }
+      &--resolved { border-color: #10b981; color: #34d399; }
+      &--closed { border-color: #6b7280; color: #9ca3af; }
+    }
+
+    &Count {
+      background: var(--cm-surface-raised);
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    &Body {
+      padding: 12px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+  }
+}
+
+// ─── Case Card (Kanban) ───────────────────────────────────────
+.caseManagement__caseCard {
+  background: var(--cm-glass-bg);
+  backdrop-filter: var(--cm-glass-blur);
+  border: 1px solid var(--cm-glass-border);
+  border-radius: var(--cm-radius-sm);
+  padding: 14px;
+  cursor: pointer;
+  transition: var(--cm-transition);
+
+  &:hover {
+    background: var(--cm-surface-hover);
+    border-color: var(--cm-border-light);
+    transform: translateY(-2px);
+    box-shadow: var(--cm-shadow);
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--cm-text);
+    margin-bottom: 8px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  &__id {
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    color: var(--cm-text-muted);
+    margin-bottom: 10px;
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--cm-text-muted);
+
+    span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  }
+}
+
+// ─── Case Detail ──────────────────────────────────────────────
+.caseManagement__detail {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: 1fr;
+  }
+
+  &__main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__section {
+    background: var(--cm-glass-bg);
+    backdrop-filter: var(--cm-glass-blur);
+    border: 1px solid var(--cm-glass-border);
+    border-radius: var(--cm-radius);
+    padding: 20px;
+
+    &Title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--cm-text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--cm-border);
+    }
+  }
+}
+
+// ─── Timeline ─────────────────────────────────────────────────
+.caseManagement__timeline {
+  position: relative;
+  padding-left: 36px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--cm-primary), var(--cm-border));
+    border-radius: 1px;
+  }
+
+  &__entry {
+    position: relative;
+    padding: 12px 0;
+    animation: fadeSlideIn 0.3s ease;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -26px;
+      top: 16px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--cm-primary);
+      border: 2px solid var(--cm-bg);
+      box-shadow: 0 0 10px var(--cm-primary-glow);
+    }
+
+    &--status_changed::before { background: var(--cm-info); box-shadow: 0 0 10px var(--cm-info-glow); }
+    &--comment_added::before { background: var(--cm-success); box-shadow: 0 0 10px var(--cm-success-glow); }
+    &--alert_linked::before { background: var(--cm-warning); box-shadow: 0 0 10px var(--cm-warning-glow); }
+    &--case_closed::before { background: var(--cm-danger); box-shadow: 0 0 10px var(--cm-danger-glow); }
+
+    &__text {
+      font-size: 13px;
+      color: var(--cm-text-secondary);
+      line-height: 1.5;
+    }
+
+    &__time {
+      font-size: 11px;
+      color: var(--cm-text-muted);
+      margin-top: 4px;
+    }
+  }
+}
+
+// ─── Comments ─────────────────────────────────────────────────
+.caseManagement__comments {
+  &__item {
+    padding: 16px;
+    border: 1px solid var(--cm-border);
+    border-radius: var(--cm-radius-sm);
+    margin-bottom: 12px;
+    transition: var(--cm-transition);
+    animation: fadeSlideIn 0.3s ease;
+
+    &:hover {
+      border-color: var(--cm-border-light);
+    }
+
+    &__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    &__author {
+      font-weight: 600;
+      color: var(--cm-primary-light);
+      font-size: 13px;
+    }
+
+    &__time {
+      font-size: 11px;
+      color: var(--cm-text-muted);
+    }
+
+    &__content {
+      font-size: 14px;
+      color: var(--cm-text);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+  }
+
+  &__form {
+    margin-top: 16px;
+    
+    textarea {
+      background: var(--cm-surface) !important;
+      border-color: var(--cm-border) !important;
+      color: var(--cm-text) !important;
+      border-radius: var(--cm-radius-sm);
+
+      &:focus {
+        border-color: var(--cm-primary) !important;
+        box-shadow: 0 0 0 1px var(--cm-primary), 0 0 20px var(--cm-primary-glow) !important;
+      }
+    }
+  }
+}
+
+// ─── Metrics Cards (Dashboard) ────────────────────────────────
+.caseManagement__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+
+  &__card {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--cm-radius);
+    padding: 20px;
+    transition: var(--cm-transition);
+    border: 1px solid transparent;
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--cm-shadow-hover);
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0.9;
+      z-index: 0;
+    }
+
+    &--total { background: linear-gradient(135deg, #1e1b4b, #312e81); border-color: rgba(99, 102, 241, 0.2); }
+    &--open { background: linear-gradient(135deg, #1e1b4b, #3730a3); border-color: rgba(99, 102, 241, 0.2); }
+    &--progress { background: linear-gradient(135deg, #172554, #1e40af); border-color: rgba(59, 130, 246, 0.2); }
+    &--resolved { background: linear-gradient(135deg, #052e16, #065f46); border-color: rgba(16, 185, 129, 0.2); }
+    &--mttr { background: linear-gradient(135deg, #451a03, #78350f); border-color: rgba(245, 158, 11, 0.2); }
+
+    &__value {
+      position: relative;
+      z-index: 1;
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    &__label {
+      position: relative;
+      z-index: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+}
+
+// ─── Chart Containers ─────────────────────────────────────────
+.caseManagement__chart {
+  &__bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 120px;
+    padding: 0 8px;
+  }
+
+  &__barItem {
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    min-width: 8px;
+    transition: var(--cm-transition);
+    position: relative;
+    cursor: pointer;
+
+    &:hover {
+      opacity: 0.85;
+      transform: scaleY(1.05);
+      transform-origin: bottom;
+    }
+  }
+
+  &__donut {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  &__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+
+    &Item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--cm-text-secondary);
+
+      &__dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+    }
+  }
+}
+
+// ─── Linked Alerts ────────────────────────────────────────────
+.caseManagement__alerts {
+  &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border: 1px solid var(--cm-border);
+    border-radius: var(--cm-radius-sm);
+    margin-bottom: 8px;
+    transition: var(--cm-transition);
+
+    &:hover {
+      border-color: var(--cm-border-light);
+      background: var(--cm-surface-hover);
+    }
+
+    &__info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__rule {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--cm-text);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    &__meta {
+      font-size: 11px;
+      color: var(--cm-text-muted);
+      display: flex;
+      gap: 12px;
+    }
+
+    &__level {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+
+      &--low { background: rgba(34, 211, 238, 0.15); color: #22d3ee; }
+      &--medium { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+      &--high { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+    }
+  }
+}
+
+// ─── Observables ──────────────────────────────────────────────
+.caseManagement__observables {
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--cm-border);
+    border-radius: var(--cm-radius-xs);
+    margin-bottom: 8px;
+    transition: var(--cm-transition);
+
+    &:hover {
+      border-color: var(--cm-border-light);
+    }
+
+    &__type {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--cm-primary-light);
+      padding: 2px 8px;
+      background: var(--cm-primary-glow);
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    &__value {
+      font-family: 'SF Mono', monospace;
+      font-size: 13px;
+      color: var(--cm-text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    &__ioc {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--cm-danger);
+      background: var(--cm-danger-glow);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  }
+}
+
+// ─── Empty States ─────────────────────────────────────────────
+.caseManagement__empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--cm-text-muted);
+
+  &__icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  &__title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--cm-text-secondary);
+    margin-bottom: 8px;
+  }
+
+  &__description {
+    font-size: 14px;
+    max-width: 400px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+}
+
+// ─── Button Overrides ─────────────────────────────────────────
+.caseManagement__button--primary {
+  background: linear-gradient(135deg, var(--cm-primary), var(--cm-primary-dark)) !important;
+  border: none !important;
+  box-shadow: 0 2px 12px var(--cm-primary-glow) !important;
+  transition: var(--cm-transition);
+
+  &:hover {
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35) !important;
+    transform: translateY(-1px);
+  }
+}
+
+// ─── Form Overrides ───────────────────────────────────────────
+.caseManagement__form {
+  .euiFormRow__labelWrapper {
+    label {
+      color: var(--cm-text-secondary) !important;
+      font-weight: 600;
+    }
+  }
+
+  .euiFieldText,
+  .euiTextArea,
+  .euiSelect,
+  .euiSuperSelectControl {
+    background: var(--cm-surface) !important;
+    border-color: var(--cm-border) !important;
+    color: var(--cm-text) !important;
+
+    &:focus {
+      border-color: var(--cm-primary) !important;
+      box-shadow: 0 0 0 1px var(--cm-primary), 0 0 16px var(--cm-primary-glow) !important;
+    }
+  }
+}
+
+// ─── Animations ───────────────────────────────────────────────
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.caseManagement__fadeIn {
+  animation: fadeSlideIn 0.4s ease;
+}
+
+// ─── Scrollbar Styling ────────────────────────────────────────
+.caseManagement__page {
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--cm-border);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--cm-border-light);
+    }
+  }
+}
+
+// ─── Responsive ───────────────────────────────────────────────
+@media (max-width: 768px) {
+  .caseManagement__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .caseManagement__metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .caseManagement__kanban {
+    flex-direction: column;
+
+    &__column {
+      max-width: none;
+    }
+  }
+}
+
+// ─── Print / PDF export ───────────────────────────────────────
+// Applied when user clicks "Export PDF" on the Dashboard page.
+// Hides chrome, nav, and action buttons; forces a clean white layout.
+
+@media print {
+  // Hide OSD global chrome and navigation
+  .globalNav,
+  .euiHeader,
+  .euiHeader--dark,
+  .euiHeader--fixed,
+  header[data-test-subj="headerGlobalNav"],
+  nav,
+  .euiCollapsibleNav,
+  .euiCollapsibleNavButton,
+  #opensearch-dashboards-body > header {
+    display: none !important;
+  }
+
+  // Hide plugin-internal header action buttons and refresh controls
+  .caseManagement__headerActions,
+  .cm-no-print {
+    display: none !important;
+  }
+
+  // Force white background so charts and cards print cleanly
+  body,
+  .caseManagement__page,
+  .euiPageBody {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  // Flatten cards — no shadows or glassmorphism
+  .caseManagement__card,
+  .caseManagement__detail__section,
+  .caseManagement__metrics__item {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  // Ensure chart bars print with colour (browsers suppress backgrounds by default)
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  // Page margins
+  @page {
+    margin: 15mm 12mm;
+    size: A4 landscape;
+  }
+}
+

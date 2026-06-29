@@ -1,190 +1,351 @@
-# Wazuh Decoder Rule Creator MVP
+# Wazuh Decoder & Rule Creator
 
-A small FastAPI app that:
-- analyzes pasted logs with heuristics,
-- checks logs against `wazuh-logtest` first and reuses built-ins when they exist,
-- learns decoder patterns from official Wazuh decoders in the Wazuh GitHub repo (ML similarity model),
-- generates custom decoder XML only when no decoder matches,
-- generates custom rule XML from natural-language requirement when provided,
-- tests each sample against `/var/ossec/bin/wazuh-logtest` when available.
+A FastAPI web application that intelligently generates custom Wazuh decoder and rule XML for any log format. It combines `wazuh-logtest` verification, machine learning similarity search, RAG (Retrieval-Augmented Generation), and a local LLM to produce accurate, ready-to-use Wazuh XML — without manual regex writing.
 
-## What is included
+---
 
-- `app/main.py` – backend API and HTML UI
-- `app/templates/index.html` – single-page frontend
-- `app/static/*` – JS and CSS
-- `app/decoder_ml.py` – ML decoder similarity model (TF-IDF)
-- `app/decoder_ml_enhanced.py` – Enhanced ensemble ML model (TF-IDF + SBERT)
-- `requirements.txt`
-- `Modelfile` – Ollama model configuration for Wazuh decoder/rule expert
+## How It Works
 
-## Run locally
+```mermaid
+flowchart TD
+    A[Raw Log] --> B{wazuh-logtest}
+    B -- "Already Matched" --> C[Skip Custom Generation<br/>Use Built-in Decoder]
+    B -- "Not Matched" --> D[Python Heuristics<br/>Calculate Regex Skeleton]
+    D --> E[ML Similarity Engine<br/>SBERT + TF-IDF]
+    E --> F[RAG Engine<br/>Retrieve 3 Verified XMLs from ChromaDB]
+    F --> G[Local LLM<br/>Ollama]
+    G --> H[Post-Processor<br/>Sanitize OS_Regex Syntax]
+    H --> I((Clean Wazuh<br/>Decoder & Rule XML))
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style I fill:#bbf,stroke:#333,stroke-width:2px
+    style B fill:#dfd,stroke:#333
+    style D fill:#eee,stroke:#333
+    style E fill:#eee,stroke:#333
+    style F fill:#eee,stroke:#333
+    style G fill:#ffd,stroke:#333
+    style H fill:#eee,stroke:#333
+```
 
-To run the application over HTTPS on port 8443 (ideal for secure access from other machines):
+### Key Intelligence Rules
+- If `wazuh-logtest` **pre-decodes a `program_name`** → parent decoder uses `<program_name>^value</program_name>`
+- If **no program name** is pre-decoded → parent decoder uses `<prematch>` based on the log's actual prefix
+- The LLM never guesses structure — it always copies from verified real examples injected via RAG
 
-1. **Set up the virtual environment and install dependencies:**
+---
+
+## What Is Included
+
+| File / Directory | Purpose |
+|---|---|
+| `app/main.py` | FastAPI backend — all API endpoints and generation logic |
+| `app/rag_engine.py` | RAG engine — ChromaDB vector store for real decoder retrieval |
+| `app/decoder_ml.py` | ML similarity model (TF-IDF baseline) |
+| `app/decoder_ml_enhanced.py` | Enhanced ensemble ML model (TF-IDF 30% + SBERT 70%) |
+| `app/templates/index.html` | Single-page frontend UI |
+| `app/static/` | JavaScript and CSS |
+| `Modelfile` | Custom Ollama model config (`wazuh-decoder` built on `qwen2.5:7b`) |
+| `data/wazuh_repo/` | Cached clone of official Wazuh decoder XMLs |
+| `data/rag_store/` | ChromaDB vector store (auto-built on first startup) |
+| `data/models/decoder-sbert/` | Fine-tuned SBERT similarity model |
+| `data/datasets/` | Feedback and training datasets |
+| `requirements.txt` | Python dependencies |
+
+---
+
+## Deployment Modes
+
+The app supports two deployment modes. **Mode A (on-server) is recommended** — it gives you a fully local setup with no SSH overhead.
+
+### Mode A — Run Directly on the Wazuh Server (Recommended)
+
+Install and run the app directly on the machine where Wazuh is installed. `wazuh-logtest` is called locally and files are written directly to `/var/ossec/`.
+
+**When to use:** The app and Wazuh are on the same machine.
+
+### Mode B — Run Remotely via SSH
+
+Run the app on a separate machine (e.g. your laptop or a dev VM) and connect to the Wazuh server over SSH. `wazuh-logtest` is executed via SSH and files are written remotely.
+
+**When to use:** You are developing on a separate machine from where Wazuh runs.
+
+---
+
+## Quick Start
+
+### 1. Clone and Set Up Python Environment
+
 ```bash
+cd integrations/wazuh_decoder_rule_tool
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. **Generate SSL Certificates:**
-Create a `certs` directory and generate a self-signed certificate:
+### 2. Configure Environment
+
+Copy the `.env` file and choose your deployment mode:
+
+```bash
+# The .env file is pre-configured for Mode A (on-server).
+# Edit it if you need Mode B (remote SSH) instead.
+nano .env
+```
+
+**Mode A — On-server (default `.env`):**
+
+```ini
+WAZUH_REMOTE_ENABLED=false
+
+# Enable sudo if the app does not run as root:
+WAZUH_USE_SUDO=true
+# WAZUH_SUDO_PASSWORD=yourpassword   # only if passwordless sudo is not configured
+
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:latest
+```
+
+**Mode B — Remote SSH:**
+
+```ini
+WAZUH_REMOTE_ENABLED=true
+WAZUH_SSH_HOST=192.168.8.171
+WAZUH_SSH_USER=vagrant
+WAZUH_SSH_PASSWORD=vagrant
+WAZUH_SSH_PORT=22
+
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:latest
+```
+
+### 3. Generate SSL Certificates
+
+The app runs over HTTPS. Generate a self-signed certificate for local use:
+
 ```bash
 mkdir -p certs
-openssl req -x509 -newkey rsa:4096 -keyout certs/localhost.key -out certs/localhost.crt -days 365 -nodes -subj "/CN=localhost"
+openssl req -x509 -newkey rsa:4096 \
+  -keyout certs/localhost.key \
+  -out certs/localhost.crt \
+  -days 365 -nodes -subj "/CN=localhost"
 ```
 
-3. **Start the Application:**
-Run `uvicorn` with the generated certificates:
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8443 --ssl-certfile certs/localhost.crt --ssl-keyfile certs/localhost.key --reload
-```
+> **Note:** `certs/` is in `.gitignore` — your private keys will never be committed.
 
-Open `https://localhost:8443` (or use your machine's IP address). Note: You may need to bypass your browser's self-signed certificate warning.
+### 4. (Optional) Set Up a Custom Ollama Model
 
-### With AI generation enabled
-
-If you have Ollama running locally, set the environment variables before starting:
+The app works with any Ollama model. A custom `wazuh-decoder` model built on `qwen2.5:7b` is provided via `Modelfile` for best results:
 
 ```bash
-export OLLAMA_BASE_URL=http://localhost:11434/v1
-export OLLAMA_MODEL=llama3.2:3b
-uvicorn app.main:app --host 0.0.0.0 --port 8443 --ssl-certfile certs/localhost.crt --ssl-keyfile certs/localhost.key
+# Install Ollama: https://ollama.com
+ollama pull llama3.1        # general-purpose default
+# or build the custom wazuh-tuned model:
+ollama create wazuh-decoder -f Modelfile
+# then set in .env: OLLAMA_MODEL=wazuh-decoder
 ```
 
-## Wazuh integration
-
-By default the app looks for:
+### 5. Start the Application
 
 ```bash
-/var/ossec/bin/wazuh-logtest
+uvicorn app.main:app \
+  --host 0.0.0.0 --port 8443 \
+  --ssl-certfile certs/localhost.crt \
+  --ssl-keyfile certs/localhost.key
 ```
 
-You can override that path:
+Open **`https://localhost:8443`** in your browser (or `https://<server-ip>:8443` when running on the Wazuh server).
+
+> On first startup, the RAG vector store is built automatically in the background (~1–2 min). The app is fully usable while it builds.
+
+---
+
+## AI Provider Configuration
+
+The app supports three AI providers. Configure **one** in `.env` or via environment variables:
+
+### Ollama (Recommended — Local, No Rate Limits)
 
 ```bash
-export WAZUH_LOGTEST_PATH=/custom/path/to/wazuh-logtest
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:latest   # or wazuh-decoder, qwen2.5:7b, etc.
 ```
 
-### Remote VM mode (SSH)
+Accepts both `http://localhost:11434` and `http://localhost:11434/v1` — the `/v1` suffix is normalised automatically.
 
-If Wazuh runs in a VM, configure:
+### DashScope (Alibaba Cloud — Qwen)
 
 ```bash
-export WAZUH_SSH_HOST=127.0.0.1
-export WAZUH_SSH_PORT=2222
-export WAZUH_SSH_USER=vagrant
-export WAZUH_SSH_PASSWORD=vagrant
-# optional:
-export WAZUH_SSH_KEY=/path/to/private_key
+DASHSCOPE_API_KEY=your_key_here
 ```
 
-You can configure it like so:
+### OpenRouter
 
 ```bash
-export WAZUH_SSH_HOST=192.168.56.10
-export WAZUH_SSH_PORT=22
-export WAZUH_SSH_USER=your_ssh_user
-export WAZUH_SSH_PASSWORD=your_ssh_password
+OPENROUTER_API_KEY=your_key_here
 ```
 
-Environment variables will override any internal fallbacks.
+**Priority:** Ollama → DashScope → OpenRouter. Ollama is always preferred when `OLLAMA_BASE_URL` is set.
 
-When `WAZUH_SSH_HOST` and `WAZUH_SSH_USER` are set, the app will:
-- run `wazuh-logtest` over SSH with sudo
-- write `local_*.xml` directly to `/var/ossec/etc/decoders` and `/var/ossec/etc/rules` on the VM
+---
 
-## ML decoder learning
+## Wazuh Integration
 
-The app can build a similarity model from official Wazuh decoders in a cached clone of:
+### Mode A — Local (On-server)
+
+When `WAZUH_REMOTE_ENABLED=false`, the app calls `wazuh-logtest` and writes files directly on the local machine.
+
+If the app runs as a non-root user, enable sudo:
 
 ```bash
-https://github.com/wazuh/wazuh.git
+WAZUH_USE_SUDO=true
+# WAZUH_SUDO_PASSWORD=yourpassword   # omit if passwordless sudo is configured
 ```
 
-Config:
+Override the logtest binary path if needed:
 
 ```bash
-export WAZUH_REPO_URL=https://github.com/wazuh/wazuh.git
-export WAZUH_REPO_CACHE_DIR=/path/to/cache/wazuh_repo
-export WAZUH_REPO_DECODER_SUBPATH=ruleset/decoders
+WAZUH_LOGTEST_PATH=/var/ossec/bin/wazuh-logtest   # default
 ```
 
-API:
+### Mode B — Remote Wazuh Server (SSH)
 
-- `GET /api/ml/status` shows model and cache status.
-- `POST /api/ml/refresh` refreshes the repo cache and rebuilds the model.
-
-### Training a better similarity model (SentenceTransformer)
-
-1. Ensure the Wazuh repo cache exists (run the app once or `POST /api/ml/refresh`).
-2. Build a dataset:
-   ```bash
-   python scripts/build_dataset.py
-   ```
-   Outputs `data/datasets/train.jsonl` and `val.jsonl`.
-3. Train a small SBERT model:
-   ```bash
-   python scripts/train_similarity.py
-   ```
-   Outputs `data/models/decoder-sbert/`.
-4. Set `ML_MODEL_DIR=data/models/decoder-sbert` (or leave default) and restart the app. If `sentence-transformers` is installed (see `requirements.txt`), ML suggestions will use the trained model; otherwise the TF‑IDF fallback is used.
-
-If you are following your VM-based workflow, run `/api/ml/refresh` once, then test logs through `/api/test` with remote mode enabled.
-
-## AI-Powered Generation
-
-The app supports decoder and rule generation using LLMs via a **hybrid approach**:
-
-1. **wazuh-logtest analysis** — the log is tested against Wazuh's built-in decoders first
-2. **Programmatic base generation** — using the same proven decoder/rule builder that produces syntactically correct Wazuh XML
-3. **AI review** — an LLM reviews the generated XML and improves osregex patterns
-
-This ensures the XML structure is always valid while leveraging LLM capabilities for pattern refinement.
-
-### Supported AI Providers
-
-Set one of the following environment variable sets:
-
-**Ollama (local, recommended — no rate limits):**
-```bash
-export OLLAMA_BASE_URL=http://localhost:11434/v1
-export OLLAMA_MODEL=llama3.2:3b
-```
-
-**DashScope (Qwen 3.6 Plus):**
-```bash
-export DASHSCOPE_API_KEY=your_key_here
-```
-
-**OpenRouter:**
-```bash
-export OPENROUTER_API_KEY=your_key_here
-```
-
-Priority: Ollama > DashScope > OpenRouter. When Ollama is configured, it is always used first to avoid rate limits.
-
-### AI Generation Flow
-
-1. User provides log samples and requests specific fields to extract
-2. App runs `wazuh-logtest` to check what built-in decoders already match
-3. Fields already decoded by built-in decoders are skipped
-4. The app programmatically generates decoder XML using the heuristic + ML analysis
-5. The LLM receives the analysis results and the programmatic XML
-6. The LLM reviews and improves regex patterns while keeping the structure intact
-
-## Optional file output
-
-The `/api/test` endpoint supports `install_mode="write_files"` and writes generated files to:
-
-- `/var/ossec/etc/decoders/`
-- `/var/ossec/etc/rules/`
-
-Override these with:
+Set `WAZUH_REMOTE_ENABLED=true` and provide SSH credentials:
 
 ```bash
-export WAZUH_DECODERS_DIR=/custom/decoders
-export WAZUH_RULES_DIR=/custom/rules
+WAZUH_REMOTE_ENABLED=true
+WAZUH_SSH_HOST=192.168.56.10
+WAZUH_SSH_PORT=22
+WAZUH_SSH_USER=vagrant
+WAZUH_SSH_PASSWORD=vagrant
+# optional — key-based auth instead of password:
+# WAZUH_SSH_KEY=/path/to/private_key
 ```
+
+When SSH is configured, the app will:
+- Run `wazuh-logtest` over SSH to validate logs against your live Wazuh instance
+- Write generated decoder/rule XML directly to `/var/ossec/etc/decoders/` and `/var/ossec/etc/rules/` on the remote server
+
+---
+
+## ML Similarity Model
+
+The app uses an ensemble of **TF-IDF (30%) + SBERT (70%)** to find the closest official Wazuh decoder patterns for any new log.
+
+### Configuration
+
+```bash
+WAZUH_REPO_URL=https://github.com/wazuh/wazuh.git
+WAZUH_REPO_CACHE_DIR=/path/to/cache/wazuh_repo    # default: data/wazuh_repo
+WAZUH_REPO_DECODER_SUBPATH=ruleset/decoders
+```
+
+### API
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/ml/status` | Show model status, pattern count, cache location |
+| `POST /api/ml/refresh` | Pull latest Wazuh decoders, rebuild ML model **and** RAG store |
+
+### Training a Fine-Tuned SBERT Model
+
+For best accuracy, train the SBERT model on official Wazuh decoders:
+
+```bash
+# 1. Make sure the Wazuh repo cache exists
+#    (run the app once or POST /api/ml/refresh)
+
+# 2. Build training dataset
+python scripts/build_dataset.py
+# Outputs: data/datasets/train.jsonl, val.jsonl
+
+# 3. Train SBERT
+python scripts/train_similarity.py
+# Outputs: data/models/decoder-sbert/final/
+```
+
+The app automatically uses the fine-tuned model if `data/models/decoder-sbert/final/` exists, otherwise falls back to TF-IDF.
+
+---
+
+## RAG (Retrieval-Augmented Generation)
+
+The RAG engine indexes **1,700+ real Wazuh decoder XMLs** into a local ChromaDB vector store. Before the LLM generates anything, the 3 most similar real decoder examples are retrieved and injected into the prompt.
+
+This prevents the LLM from hallucinating incorrect OS_Regex syntax — it copies from proven, verified patterns instead.
+
+### RAG Data Sources
+
+| Source | Content |
+|---|---|
+| `data/wazuh_repo/ruleset/decoders/*.xml` | Official Wazuh decoder XMLs (~120 files, 1,500+ decoders) |
+| `data/datasets/feedback.jsonl` | Your approved log→decoder pairs |
+| `data/datasets/train.jsonl` | Generated training pairs |
+
+### API
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/rag/status` | Show RAG store status and document count |
+| `POST /api/ml/refresh` | Rebuilds both the ML model **and** the RAG store |
+
+The vector store is saved to `data/rag_store/` and persists across restarts.
+
+---
+
+## API Reference
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | GET | Web UI |
+| `/api/analyze` | POST | Analyze a log — run logtest, extract fields, ML suggestions |
+| `/api/generate` | POST | Generate decoder + rule XML (programmatic only) |
+| `/api/ai/generate` | POST | Generate decoder + rule XML with AI (RAG + LLM) |
+| `/api/test` | POST | Generate + install + test via `wazuh-logtest` |
+| `/api/install` | POST | Install generated XML to Wazuh (local or remote) |
+| `/api/uninstall` | POST | Remove installed XML files |
+| `/api/ml/status` | GET | ML model status |
+| `/api/ml/refresh` | POST | Rebuild ML model and RAG store |
+| `/api/rag/status` | GET | RAG vector store status |
+| `/api/logtest/raw` | POST | Run raw `wazuh-logtest` on a log line |
+| `/api/feedback` | POST | Save an approved log→decoder pair to feedback dataset |
+| `/health` | GET | Health check and connectivity status |
+
+---
+
+## Optional File Output
+
+The `/api/test` endpoint supports `install_mode="write_files"` which writes generated XML to:
+
+- `/var/ossec/etc/decoders/local_<appname>_decoder_<stamp>.xml`
+- `/var/ossec/etc/rules/local_<appname>_rule_<stamp>.xml`
+
+Override the output directories:
+
+```bash
+WAZUH_DECODERS_DIR=/custom/decoders
+WAZUH_RULES_DIR=/custom/rules
+```
+
+---
+
+## Environment Variable Reference
+
+| Variable | Default | Description |
+|---|---|---|
+| `WAZUH_REMOTE_ENABLED` | `false` | `true` = SSH mode, `false` = local/on-server mode |
+| `WAZUH_USE_SUDO` | `false` | Use `sudo` for local logtest and file writes (when not running as root) |
+| `WAZUH_SUDO_PASSWORD` | *(none)* | Sudo password — omit if passwordless sudo is configured |
+| `WAZUH_LOGTEST_PATH` | `/var/ossec/bin/wazuh-logtest` | Path to wazuh-logtest binary |
+| `WAZUH_SSH_HOST` | *(none)* | SSH host for remote Wazuh server (Mode B only) |
+| `WAZUH_SSH_PORT` | `22` | SSH port (Mode B only) |
+| `WAZUH_SSH_USER` | *(none)* | SSH username (Mode B only) |
+| `WAZUH_SSH_PASSWORD` | *(none)* | SSH password (Mode B only) |
+| `WAZUH_SSH_KEY` | *(none)* | Path to SSH private key (Mode B only) |
+| `WAZUH_DECODERS_DIR` | `/var/ossec/etc/decoders` | Output directory for decoder XML |
+| `WAZUH_RULES_DIR` | `/var/ossec/etc/rules` | Output directory for rule XML |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API base URL |
+| `OLLAMA_MODEL` | `llama3.1:latest` | Ollama model name |
+| `DASHSCOPE_API_KEY` | *(none)* | DashScope API key |
+| `OPENROUTER_API_KEY` | *(none)* | OpenRouter API key |
+| `WAZUH_REPO_URL` | `https://github.com/wazuh/wazuh.git` | Wazuh repo for ML training data |
+| `WAZUH_REPO_CACHE_DIR` | `data/wazuh_repo` | Local cache for Wazuh repo |

@@ -190,6 +190,7 @@ async function checkHealth() {
   }
 }
 checkHealth();
+setInterval(checkHealth, 5000);
 
 /* ══ Test: Install / Uninstall / Raw Logtest ══ */
 let _installedFiles = JSON.parse(localStorage.getItem('wds_installed') || '[]');
@@ -425,6 +426,7 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
 
     const temperature = parseFloat(document.getElementById('aiTemperature').value);
     const extraContext = document.getElementById('aiExtraContext').value.trim();
+    const ruleRequirement = (document.getElementById('aiRuleRequirement')?.value || '').trim();
     const genMode = document.getElementById('generationMode')?.value || 'auto';
 
     const ruleSection = document.getElementById('aiRuleSection');
@@ -435,7 +437,7 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
     const res = await fetch('/api/ai/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...p, temperature, extra_context: extraContext }),
+      body: JSON.stringify({ ...p, temperature, extra_context: extraContext, rule_requirement: ruleRequirement }),
     });
 
     if (!res.ok) throw new Error(await res.text());
@@ -443,12 +445,15 @@ document.getElementById('aiGenerateBtn').addEventListener('click', async () => {
     const fullText = await res.text();
     statusEl.style.display = 'none';
 
-    // Extract XML blocks from AI response
-    const decoderMatch = fullText.match(/```xml\s*([\s\S]*?decoder[\s\S]*?)```/i) || fullText.match(/<decoder[\s\S]*?<\/decoder>/i);
-    const ruleMatch = fullText.match(/```xml\s*([\s\S]*?rule[\s\S]*?)```/i) || fullText.match(/<group[\s\S]*?<\/group>/i);
-
-    const decoderXml = sanitizeOsRegex(decoderMatch ? (decoderMatch[1] || decoderMatch[0]).trim() : '');
-    const ruleXml = sanitizeOsRegex(ruleMatch ? (ruleMatch[1] || ruleMatch[0]).trim() : '');
+    // Extract XML blocks from AI response robustly
+    const decoderMatches = fullText.match(/<decoder\b[\s\S]*?<\/decoder>/gi) || [];
+    const decoderXml = sanitizeOsRegex(decoderMatches.join('\n\n').trim());
+    
+    let ruleMatches = fullText.match(/<group\b[\s\S]*?<\/group>/gi) || [];
+    if (!ruleMatches.length) {
+      ruleMatches = fullText.match(/<rule\b[\s\S]*?<\/rule>/gi) || [];
+    }
+    const ruleXml = sanitizeOsRegex(ruleMatches.join('\n\n').trim());
 
     if (decoderXml || ruleXml) {
       document.getElementById('aiDecoderXml').innerHTML = highlightXml(decoderXml || '— no decoder block found —');
@@ -493,6 +498,7 @@ document.getElementById('aiGenerateValidateBtn').addEventListener('click', async
 
     const temperature = parseFloat(document.getElementById('aiTemperature').value);
     const extraContext = document.getElementById('aiExtraContext').value.trim();
+    const ruleRequirement = (document.getElementById('aiRuleRequirement')?.value || '').trim();
     const genMode = document.getElementById('generationMode')?.value || 'auto';
 
     const ruleSection = document.getElementById('aiRuleSection');
@@ -501,7 +507,7 @@ document.getElementById('aiGenerateValidateBtn').addEventListener('click', async
     }
 
     const result = await postJson('/api/ai/generate-validated', {
-      ...p, temperature, extra_context: extraContext,
+      ...p, temperature, extra_context: extraContext, rule_requirement: ruleRequirement,
     });
 
     // Show validation results
