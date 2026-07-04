@@ -1,7 +1,7 @@
 wazuh_api:
   host: "https://localhost:55000"
   username: "wazuh"
-  password: "dJy+c.M0skanQEaXkarpYD6PoJ37GtDs"
+  password: ""
   verify_ssl: false
 
 indexer:
@@ -11,7 +11,7 @@ indexer:
 
 kibana:
   username: "kibanaserver"
-  password: "hYIN6CXoJSoMqxq4qzj547E?dtaqTGjh"
+  password: ""
 
 ollama:
   url: "http://localhost:11434"
