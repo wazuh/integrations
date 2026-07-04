@@ -7,7 +7,7 @@ wazuh_api:
 indexer:
   url: "https://localhost:9200"
   username: "admin"
-  password: "6npQBGTecV?IAP8V.rxI0e93ZVOx4yhA"
+  password: "YOUR_INDEXER_PASSWORD"
 
 kibana:
   username: "kibanaserver"
