@@ -473,6 +473,11 @@ patch_dashboard_assistant() {
     return 0
   fi
 
+  if ! command_exists perl; then
+    warn "perl not found. Skipping dashboard assistant UI patch."
+    return 0
+  fi
+
   # remove old compressed assets
   rm -f "$public_dir"/*.js.br "$public_dir"/*.js.gz
 
@@ -485,6 +490,7 @@ patch_dashboard_assistant() {
     return 0
   fi
 
+  local patched_count=0
   for js_file in "${js_files[@]}"; do
     perl -0777 -i -pe '
       s/OpenSearch Assistant/$ENV{ASSISTANT_NAME}/g;
@@ -494,6 +500,10 @@ patch_dashboard_assistant() {
       s/const usernamePlaceHolder="[^"]*";/const usernamePlaceHolder=" $ENV{USER_ROLE} ";/g;
       s|data:image/svg\+xml;base64,[A-Za-z0-9+/=]+|data:image/svg+xml;base64,$ENV{ICON_BASE64}|g;
     ' "$js_file"
+
+    if grep -qF -- "$ASSISTANT_NAME" "$js_file" 2>/dev/null; then
+      patched_count=$((patched_count + 1))
+    fi
 
     gzip -c -9 "$js_file" > "$js_file.gz" 2>/dev/null || true
     if command_exists brotli; then
@@ -505,7 +515,12 @@ patch_dashboard_assistant() {
   done
 
   shopt -u nullglob
-  log "Dashboard assistant UI patched successfully."
+
+  if (( patched_count == 0 )); then
+    warn "No JS file matched the expected patterns. The upstream plugin bundle may have changed; dashboard assistant UI was not rebranded."
+  else
+    log "Dashboard assistant UI patched successfully ($patched_count file(s) updated)."
+  fi
 }
 
 install_dashboard_plugins() {
