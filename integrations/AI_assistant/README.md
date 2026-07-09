@@ -101,12 +101,31 @@ The installation and configuration of all components (System Preparation, OpenSe
    ```
    
    **Important Environment File Variables:**
-   - `DEPLOYMENT_TYPE`: Set to `"all-in-one"` (default), if it is distributed deployment then set `"indexer"`, or `"dashboard"` depending on the node you are installing on.
-   - `WAZUH_INDEXER_IP`: Set to `127.0.0.1` if installing directly on the indexer, or its IP if distributed.
-   - `WAZUH_INDEXER_PUBLIC_IP`: The IP of your indexer server (used for PDF generation links).
-   - `WAZUH_MANAGER_IP` & `WAZUH_DASHBOARD_IP`: The IP addresses of your Wazuh Manager and Dashboard servers.
-   - `OPENAI_API_KEY` / `GEMINI_API_KEY` / AWS Credentials: Add your preferred LLM provider credentials.
-   - Update the respective `..._USER` and `..._PASS` fields with your actual Wazuh credentials.
+
+   The following table describes the variables you configure before running the installer script. The remaining variables in the file have working defaults for a single-host deployment.
+
+   | Variable | Description | Example value |
+   |---|---|---|
+   | `DEPLOYMENT_TYPE` | Defines which components the installer configures on the node. Set `"all-in-one"` for a single-host deployment, or `"indexer"` / `"dashboard"` when the Wazuh indexer and dashboard run on separate servers. | `"all-in-one"` |
+   | `WAZUH_INDEXER_IP` | IP address of the Wazuh indexer. Keep the default `127.0.0.1` when installing on the indexer node. | `"127.0.0.1"` |
+   | `WAZUH_INDEXER_PUBLIC_IP` | Reachable IP of the indexer host. Used to build the download links for generated PDF reports. | `"192.168.1.10"` |
+   | `WAZUH_INDEXER_USER` / `WAZUH_INDEXER_PASS` | Wazuh indexer credentials. | `"admin"` / `"<INDEXER_PASSWORD>"` |
+   | `WAZUH_MANAGER_IP` | IP address of the Wazuh manager. | `"127.0.0.1"` |
+   | `WAZUH_MANAGER_USER` / `WAZUH_MANAGER_PASS` | Wazuh server API credentials. | `"wazuh-wui"` / `"<MANAGER_PASSWORD>"` |
+   | `WAZUH_DASHBOARD_IP` | IP address of the Wazuh dashboard. | `"127.0.0.1"` |
+   | `WAZUH_DASHBOARD_USER` / `WAZUH_DASHBOARD_PASS` | Wazuh dashboard credentials. | `"admin"` / `"<DASHBOARD_PASSWORD>"` |
+   | `MCP_SERVER_PUBLIC_HOST` | IP address where the MCP server is reachable. | `"192.168.1.10"` |
+   | `MCP_SSE_URL` | URL of the MCP server SSE endpoint that the gateway connects to. | `"http://192.168.1.10:9900/sse"` |
+   | `GATEWAY_PUBLIC_HOST` | IP address where the ML commons connector reaches the MCP-LLM gateway. | `"192.168.1.10"` |
+   | `GATEWAY_API_KEY` | API key that authenticates requests to the gateway. Set a strong random value; the gateway does not start with the default value. | `"<STRONG_RANDOM_KEY>"` |
+   | `LLM_PROVIDER` | LLM backend used by the gateway: `"openai"`, `"gemini"`, or `"claude_bedrock"`. | `"openai"` |
+   | `OPENAI_API_KEY` | OpenAI API key. Required when `LLM_PROVIDER` is `"openai"`. | `"<YOUR_OPENAI_API_KEY>"` |
+   | `OPENAI_MODEL` | OpenAI model used by the gateway. | `"gpt-4o"` |
+   | `SMTP_HOST` / `SMTP_PORT` | SMTP server and port used to send the generated PDF reports via email. | `"smtp.gmail.com"` / `"587"` |
+   | `SMTP_USER` / `SMTP_PASS` | Sender email address and its password or app password. | `"<SENDER_EMAIL>"` / `"<APP_PASSWORD>"` |
+   | `SMTP_FROM` | From address shown on the report emails. | `"<SENDER_EMAIL>"` |
+
+   > **NOTE:** If you use Google Gemini or Amazon Bedrock instead of OpenAI, set `LLM_PROVIDER` to `"gemini"` or `"claude_bedrock"`, and configure `GEMINI_API_KEY` and `GEMINI_MODEL`, or `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, and `BEDROCK_MODEL_ID`.
 
 3. **Run the installer script** as root:
    ```bash
