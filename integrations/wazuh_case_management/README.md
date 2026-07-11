@@ -26,7 +26,7 @@ Key capabilities:
 - **Kanban board** — drag-and-drop workflow visualization across Open / In-Progress / Resolved / Closed columns.
 - **Activity timeline** — full audit trail of every case change with timestamps and actor.
 - **Analytics dashboard** — MTTR, case-load, severity breakdowns, and SLA insights.
-- **Webhook notifications** — configurable outbound webhooks on case events.
+- **Automated case creation from alerts** — an inbound webhook endpoint accepts Wazuh alerts (e.g. from the Manager's integrator) and automatically opens or updates a case.
 
 ---
 
@@ -44,23 +44,9 @@ Key capabilities:
 
 #### Installing the Plugin
 
-**Option A — Install from the pre-built zip (recommended)**
-
-The pre-built zip `wazuhCaseManagement-2.19.5.zip` is included in this directory.
-
-```bash
-# Copy the zip to the Wazuh Dashboard host
-scp wazuhCaseManagement-2.19.5.zip user@dashboard-host:/tmp/
-
-# Install
-sudo -u wazuh-dashboard /usr/share/wazuh-dashboard/bin/opensearch-dashboards-plugin \
-  install file:///tmp/wazuhCaseManagement-2.19.5.zip
-
-# Restart the service
-sudo systemctl restart wazuh-dashboard
-```
-
-**Option B — Build and install from source**
+The plugin is distributed as source only — build the installable zip yourself so
+you can verify exactly what gets installed on the Dashboard host (a pre-built
+binary artifact is not committed to this repository for that reason).
 
 ```bash
 # Prerequisites: Node 18, Yarn
@@ -100,6 +86,22 @@ Ensure the OpenSearch user configured in `opensearch_dashboards.yml` has at mini
 indices_allow: ["read", "write", "create_index", "delete", "manage"]
 ```
 
+#### Configuring the Alert Webhook
+
+The plugin exposes an inbound endpoint, `POST /api/wazuh-case-management/webhook/alert`, that
+the Wazuh Manager (via an [integrator](https://documentation.wazuh.com/current/user-manual/manager/manual-integration.html)
+or custom script) can call to automatically open or update a case from an alert.
+
+Set the `WAZUH_CASE_MANAGEMENT_WEBHOOK_SECRET` environment variable on the Dashboard process
+to a random shared secret, then have the caller send it back on every request as the
+`X-Wazuh-Webhook-Secret` header — requests without a matching header are rejected with `403`.
+If the variable is left unset, the endpoint accepts unauthenticated requests (logged as a
+warning on startup); this is only appropriate when the endpoint is not reachable from anything
+other than the trusted alert source.
+
+There is currently no outbound webhook support (e.g. pushing case events to an external
+SOAR/ticketing platform) — only this inbound, alert-to-case direction exists.
+
 #### Using the Integration Files
 
 The plugin source is organized as a standard OpenSearch Dashboards plugin:
@@ -130,7 +132,7 @@ wazuh_case_management/
 6. **Add observables** — document relevant artefacts (IPs, hashes, domains, URLs) and mark IOCs as needed.
 7. **Track work** — use the Kanban board to move cases across workflow stages.
 8. **Close the case** — set the status to *Resolved* or *Closed*. The plugin automatically calculates MTTR for analytics.
-9. *(Optional)* Configure **webhook notifications** in *Settings* to push case events to external SOAR/ticketing platforms.
+9. *(Optional)* Wire up the Wazuh Manager's [integrator](https://documentation.wazuh.com/current/user-manual/manager/manual-integration.html) to call the alert webhook so matching alerts automatically open or update a case — see [Configuring the Alert Webhook](#installing-the-plugin).
 
 ---
 

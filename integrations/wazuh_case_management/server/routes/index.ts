@@ -12,7 +12,6 @@ import { registerAlertRoutes } from './alerts';
 import { registerAnalyticsRoutes } from './analytics';
 import { registerWebhookRoutes } from './webhooks';
 import { registerUserRoutes } from './users';
-import { registerDebugRoutes } from './debug';
 import { registerMonitorRoutes } from './monitor';
 
 /**
@@ -26,7 +25,6 @@ export function defineRoutes(router: IRouter, logger: Logger): void {
   registerAnalyticsRoutes(router, logger);
   registerWebhookRoutes(router, logger);
   registerUserRoutes(router, logger);
-  registerDebugRoutes(router, logger);
   registerMonitorRoutes(router, logger);
 
   logger.info('All API routes registered');
