@@ -8,6 +8,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
@@ -123,13 +124,13 @@ async def lifespan(app: FastAPI):
     import threading
     import time
 
-    def _background_startup():
+    def _run_startup_tasks():
         # Check Wazuh connectivity immediately
         try:
             _refresh_wazuh_accessible()
         except Exception as e:
             print(f"WARNING: _refresh_wazuh_accessible failed during startup: {e}")
-            
+
         # Pre-load ML patterns
         try:
             print("INFO:     Pre-loading ML model and patterns (background)...")
@@ -137,13 +138,13 @@ async def lifespan(app: FastAPI):
             print(f"INFO:     ML patterns loaded: {_ML_PATTERN_COUNT}")
         except Exception as e:
             print(f"WARNING: ML model pre-loading failed: {e}")
-            
+
         # Pre-load rule patterns from wazuh-ruleset repo
         try:
             _load_rule_ml_model()
         except Exception as e:
             print(f"WARNING: Rule ML model pre-loading failed: {e}")
-            
+
         # Build RAG vector store
         try:
             if _RAG_AVAILABLE:
@@ -152,17 +153,31 @@ async def lifespan(app: FastAPI):
                 print(f"INFO:     RAG store ready: {result}")
         except Exception as e:
             print(f"WARNING: RAG store building failed: {e}")
-            
-        # Keep refreshing Wazuh status every 30s
+
+    def _refresh_loop():
+        # Keep refreshing Wazuh status every 30s. Failures are logged (not
+        # swallowed) so a persistent problem is visible instead of just
+        # freezing the cached /health connectivity signal.
         while True:
-            import time
             time.sleep(30)
             try:
                 _refresh_wazuh_accessible()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"WARNING: Wazuh status refresh failed, will retry in 30s: {e}")
 
-    threading.Thread(target=_background_startup, daemon=True).start()
+    def _background_startup():
+        _run_startup_tasks()
+        # Supervise the refresh loop: if it ever dies from an unhandled
+        # exception, the health signal would silently freeze forever with no
+        # indication anything is wrong. Log loudly and restart it instead.
+        while True:
+            try:
+                _refresh_loop()
+            except Exception as e:
+                print(f"ERROR:    Background Wazuh refresh loop crashed, restarting in 5s: {e}")
+                time.sleep(5)
+
+    threading.Thread(target=_background_startup, daemon=True, name="wazuh-background-refresh").start()
     yield
 
 app = FastAPI(title="Wazuh Decoder Rule Creator", lifespan=lifespan)
@@ -3248,22 +3263,63 @@ def build_remote_stdin(payload: Optional[str] = None, requires_sudo: bool = Fals
     return "\n".join(parts) + "\n"
 
 
+_SUDO_ASKPASS_SCRIPT: Optional[str] = None
+_SUDO_ASKPASS_SECRET_VAR = "WAZUH_SUDO_ASKPASS_SECRET"
+
+
+def _sudo_askpass_env() -> Optional[Dict[str, str]]:
+    """Build the environment for an askpass-based local sudo invocation.
+
+    Feeds WAZUH_SUDO_PASSWORD to sudo via SUDO_ASKPASS (its own private
+    channel) instead of prepending it to the command's stdin, so the secret
+    never shares a stream with user-controlled input (pasted log lines,
+    generated XML) and can't end up echoed back through it. Returns None when
+    no sudo password is configured (e.g. passwordless sudo).
+    """
+    global _SUDO_ASKPASS_SCRIPT
+    if not WAZUH_SUDO_PASSWORD:
+        return None
+    if _SUDO_ASKPASS_SCRIPT is None or not os.path.exists(_SUDO_ASKPASS_SCRIPT):
+        fd, path = tempfile.mkstemp(prefix="wazuh_askpass_", suffix=".sh")
+        with os.fdopen(fd, "w") as f:
+            f.write(f'#!/bin/sh\nprintf \'%s\\n\' "${_SUDO_ASKPASS_SECRET_VAR}"\n')
+        os.chmod(path, 0o700)
+        _SUDO_ASKPASS_SCRIPT = path
+    env = dict(os.environ)
+    env["SUDO_ASKPASS"] = _SUDO_ASKPASS_SCRIPT
+    env[_SUDO_ASKPASS_SECRET_VAR] = WAZUH_SUDO_PASSWORD
+    return env
+
+
+def _redact_secrets(text: Optional[str]) -> str:
+    """Strip configured secrets from subprocess output before it can be
+    returned through an API response (defense in depth in case a sudo
+    failure or misbehaving command echoes raw input back)."""
+    if not text:
+        return text or ""
+    redacted = text
+    for secret in (WAZUH_SUDO_PASSWORD, WAZUH_SSH_PASSWORD):
+        if secret:
+            redacted = redacted.replace(secret, "***REDACTED***")
+    return redacted
+
+
 def run_local_sudo_command(args: List[str], input_data: Optional[str] = None, timeout: int = 20) -> Dict[str, Any]:
     """Run a local command under sudo. Used when the app runs ON the Wazuh server."""
-    cmd: List[str] = []
-    if WAZUH_SUDO_PASSWORD:
-        cmd = ["sudo", "-S", "-p", ""] + args
-        stdin = (WAZUH_SUDO_PASSWORD + "\n") + (input_data or "")
-    else:
-        cmd = ["sudo"] + args
-        stdin = input_data
+    askpass_env = _sudo_askpass_env()
+    cmd = (["sudo", "-A", "-p", ""] if askpass_env is not None else ["sudo"]) + args
     try:
-        proc = subprocess.run(cmd, input=stdin, text=True, capture_output=True, timeout=timeout)
-        return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr, "connection_error": False}
+        proc = subprocess.run(cmd, input=input_data, text=True, capture_output=True, timeout=timeout, env=askpass_env)
+        return {
+            "returncode": proc.returncode,
+            "stdout": _redact_secrets(proc.stdout),
+            "stderr": _redact_secrets(proc.stderr),
+            "connection_error": False,
+        }
     except subprocess.TimeoutExpired:
         return {"returncode": None, "stdout": "", "stderr": "Local sudo command timed out", "connection_error": False}
     except Exception as e:
-        return {"returncode": None, "stdout": "", "stderr": str(e), "connection_error": False}
+        return {"returncode": None, "stdout": "", "stderr": _redact_secrets(str(e)), "connection_error": False}
 
 
 def _refresh_wazuh_accessible() -> None:
@@ -3317,8 +3373,8 @@ def run_ssh_command(remote_cmd: str, input_data: Optional[str] = None, timeout: 
         )
         return {
             "returncode": proc.returncode,
-            "stdout": proc.stdout,
-            "stderr": proc.stderr,
+            "stdout": _redact_secrets(proc.stdout),
+            "stderr": _redact_secrets(proc.stderr),
             "connection_error": connection_error,
         }
     except subprocess.TimeoutExpired:
@@ -3332,7 +3388,7 @@ def run_ssh_command(remote_cmd: str, input_data: Optional[str] = None, timeout: 
         return {
             "returncode": None,
             "stdout": "",
-            "stderr": f"wazuh-logtest is not accessible: SSH command failed — {e}",
+            "stderr": f"wazuh-logtest is not accessible: SSH command failed — {_redact_secrets(str(e))}",
             "connection_error": True,
         }
 
@@ -3370,10 +3426,11 @@ def run_wazuh_logtest(log_line: str, expected: Optional[str] = None) -> Dict[str
             "stderr": f"wazuh-logtest not found at {WAZUH_LOGTEST}",
         }
 
-    cmd = (["sudo", "-S", "-p", ""] if WAZUH_USE_SUDO and WAZUH_SUDO_PASSWORD else (["sudo"] if WAZUH_USE_SUDO else [])) + [binary]
+    askpass_env = _sudo_askpass_env() if WAZUH_USE_SUDO else None
+    cmd = (["sudo", "-A", "-p", ""] if askpass_env is not None else (["sudo"] if WAZUH_USE_SUDO else [])) + [binary]
     if expected:
         cmd.extend(["-U", expected])
-    input_data = (WAZUH_SUDO_PASSWORD + "\n" if WAZUH_USE_SUDO and WAZUH_SUDO_PASSWORD else "") + log_line + "\n"
+    input_data = log_line + "\n"
 
     try:
         proc = subprocess.run(
@@ -3382,6 +3439,7 @@ def run_wazuh_logtest(log_line: str, expected: Optional[str] = None) -> Dict[str
             text=True,
             capture_output=True,
             timeout=10,
+            env=askpass_env,
         )
     except FileNotFoundError:
         return {
@@ -3405,14 +3463,14 @@ def run_wazuh_logtest(log_line: str, expected: Optional[str] = None) -> Dict[str
             "ok": False,
             "returncode": None,
             "stdout": "",
-            "stderr": f"wazuh-logtest is not accessible: {e}",
+            "stderr": f"wazuh-logtest is not accessible: {_redact_secrets(str(e))}",
         }
     return {
         "available": True,
         "ok": proc.returncode == 0,
         "returncode": proc.returncode,
-        "stdout": proc.stdout,
-        "stderr": proc.stderr,
+        "stdout": _redact_secrets(proc.stdout),
+        "stderr": _redact_secrets(proc.stderr),
     }
 
 
@@ -3825,7 +3883,7 @@ def health():
         "wazuh_ssh_port": WAZUH_SSH_PORT,
         "wazuh_ssh_user": WAZUH_SSH_USER,
         "wazuh_logtest_path": WAZUH_LOGTEST,
-        "wazuh_logtest_exists": WAZUH_REMOTE_ENABLED,
+        "wazuh_logtest_exists": bool(find_wazuh_logtest()),
         "wazuh_logtest_accessible": logtest_accessible,
         "wazuh_decoders_dir": WAZUH_DECODERS_DIR,
         "wazuh_rules_dir": WAZUH_RULES_DIR,

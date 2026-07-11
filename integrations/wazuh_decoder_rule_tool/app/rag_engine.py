@@ -19,6 +19,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from xml.sax.saxutils import escape as _xml_escape
 
 logger = logging.getLogger("rag_engine")
 
@@ -146,19 +147,19 @@ def _parse_decoder_xml_file(xml_path: Path) -> List[Dict[str, Any]]:
         seen_ids.add(doc_id)
 
         # Build the XML string for this parent+child pair
-        parent_xml = f'<decoder name="{child["parent"]}">\n'
+        parent_xml = f'<decoder name="{_xml_escape(child["parent"], {chr(34): "&quot;"})}">\n'
         if pinfo.get("program_name"):
-            parent_xml += f'  <program_name>{pinfo["program_name"]}</program_name>\n'
+            parent_xml += f'  <program_name>{_xml_escape(pinfo["program_name"])}</program_name>\n'
         elif pinfo.get("prematch"):
-            parent_xml += f'  <prematch>{pinfo["prematch"]}</prematch>\n'
+            parent_xml += f'  <prematch>{_xml_escape(pinfo["prematch"])}</prematch>\n'
         parent_xml += "</decoder>"
 
-        child_xml = f'<decoder name="{child["name"]}">\n'
-        child_xml += f'  <parent>{child["parent"]}</parent>\n'
+        child_xml = f'<decoder name="{_xml_escape(child["name"], {chr(34): "&quot;"})}">\n'
+        child_xml += f'  <parent>{_xml_escape(child["parent"])}</parent>\n'
         if child.get("regex"):
-            child_xml += f'  <regex>{child["regex"]}</regex>\n'
+            child_xml += f'  <regex>{_xml_escape(child["regex"])}</regex>\n'
         if child.get("order"):
-            child_xml += f'  <order>{child["order"]}</order>\n'
+            child_xml += f'  <order>{_xml_escape(child["order"])}</order>\n'
         child_xml += "</decoder>"
 
         full_xml = parent_xml + "\n\n" + child_xml
@@ -214,25 +215,27 @@ def _parse_feedback_jsonl(jsonl_path: Path) -> List[Dict[str, Any]]:
         else:
             order_str = str(order)
 
-        # Build XML
+        # Build XML — these values come from user-submitted feedback, so every
+        # interpolated field must be escaped to avoid corrupting the document
+        # structure (or injecting content into the LLM's grounding context).
         parent_xml = ""
         if parent:
-            parent_xml = f'<decoder name="{parent}">\n'
+            parent_xml = f'<decoder name="{_xml_escape(parent, {chr(34): "&quot;"})}">\n'
             if program_name:
-                parent_xml += f"  <program_name>{program_name}</program_name>\n"
+                parent_xml += f"  <program_name>{_xml_escape(program_name)}</program_name>\n"
             elif prematch:
-                parent_xml += f"  <prematch>{prematch}</prematch>\n"
+                parent_xml += f"  <prematch>{_xml_escape(prematch)}</prematch>\n"
             parent_xml += "</decoder>\n\n"
 
-        child_xml = f'<decoder name="{name}">\n'
+        child_xml = f'<decoder name="{_xml_escape(name, {chr(34): "&quot;"})}">\n'
         if parent:
-            child_xml += f"  <parent>{parent}</parent>\n"
+            child_xml += f"  <parent>{_xml_escape(parent)}</parent>\n"
         if prematch and not parent:
-            child_xml += f"  <prematch>{prematch}</prematch>\n"
+            child_xml += f"  <prematch>{_xml_escape(prematch)}</prematch>\n"
         if regex:
-            child_xml += f"  <regex>{regex}</regex>\n"
+            child_xml += f"  <regex>{_xml_escape(regex)}</regex>\n"
         if order_str:
-            child_xml += f"  <order>{order_str}</order>\n"
+            child_xml += f"  <order>{_xml_escape(order_str)}</order>\n"
         child_xml += "</decoder>"
 
         full_xml = parent_xml + child_xml
