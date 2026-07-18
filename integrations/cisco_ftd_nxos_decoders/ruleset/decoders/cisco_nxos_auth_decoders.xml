@@ -1,0 +1,109 @@
+<!--
+  -  Cisco NX-OS (Nexus) and IOS-XE authentication and user-administration
+  -  decoders for %<facility>-<severity>-SYSTEM_MSG messages.
+  -
+  -  These cover login results and account-management events that the stock
+  -  Cisco IOS decoders do not extract, because NX-OS wraps them in SYSTEM_MSG
+  -  with a message body that differs from the classic IOS formats.
+  -
+  -  IMPORTANT - PLACEMENT
+  -  These blocks MUST be merged into the stock Cisco IOS decoder file ABOVE
+  -  cisco-ios-login, cisco-ios-auth and cisco-ios-default. Wazuh commits the
+  -  first child decoder whose <prematch> matches even if its <regex> then fails,
+  -  and:
+  -    - cisco-ios-login has prematch "Login \w+", which also matches
+  -      "Login failed for user ...",
+  -    - cisco-ios-auth has prematch "Authentication \w+", which also matches
+  -      "Authentication failure for illegal user ...",
+  -    - cisco-ios-default has NO prematch at all, so it matches everything.
+  -  Placed after any of these, the decoders below would never run. Each
+  -  prematch here is specific enough that it does not collide with the classic
+  -  IOS login and auth formats.
+  -
+  -  The NX-OS timestamp is year-first and preceded by the switch hostname,
+  -  for example:
+  -    NEXUS-SW-01: 2026 Jun 26 07:34:55 UTC: %AUTHPRIV-6-SYSTEM_MSG: ...
+  -  The stock cisco-ios parent prematch is unanchored and matches from the
+  -  month token onwards, so the leading hostname and year are simply ignored
+  -  for parent selection. No change to the parent decoder is required.
+  -
+  -  This program is free software; you can redistribute it and/or modify it
+  -  under the terms of GPLv2.
+-->
+
+<!--
+  - usermod: password change.
+  - Sample:
+  -   %AUTHPRIV-6-SYSTEM_MSG: change user 'jdoe.adm' password - usermod[5837]
+-->
+<decoder name="cisco-nxos-user-passwd">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: change user '\S+' password</prematch>
+  <regex>%(\w+)-(\d)-(\w+): change user '(\S+)' password</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser</order>
+</decoder>
+
+<!--
+  - usermod: account expiration change.
+  - Sample:
+  -   %AUTHPRIV-6-SYSTEM_MSG: change user 'jdoe.adm' expiration from
+  -     '2026-06-27' to '2026-06-28' - usermod[11063]
+-->
+<decoder name="cisco-nxos-user-expiration">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: change user '\S+' expiration</prematch>
+  <regex>%(\w+)-(\d)-(\w+): change user '(\S+)' expiration from '(\S+)' to '(\S+)'</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser, cisco.old_expiration, cisco.new_expiration</order>
+</decoder>
+
+<!--
+  - usermod: user added to a role or group.
+  - Sample:
+  -   %AUTHPRIV-6-SYSTEM_MSG: add 'jdoe.adm' to group 'network-admin' - usermod[11063]
+-->
+<decoder name="cisco-nxos-user-addgroup">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: add '\S+' to group</prematch>
+  <regex>%(\w+)-(\d)-(\w+): add '(\S+)' to group '(\S+)'</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser, cisco.group</order>
+</decoder>
+
+<!--
+  - dcos_sshd: interactive login result. The username may be masked by the
+  - device, so it is captured with \S+ rather than a stricter pattern.
+  - Sample:
+  -   %AUTHPRIV-5-SYSTEM_MSG: Login failed for user **** - dcos_sshd[20522]
+-->
+<decoder name="cisco-nxos-login">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: Login \w+ for user</prematch>
+  <regex>%(\w+)-(\d)-(\w+): Login (\w+) for user (\S+)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, login_status, dstuser</order>
+</decoder>
+
+<!--
+  - PAM via dcos_sshd: authentication failure for an unknown ("illegal") user,
+  - including the source address of the attempt.
+  - Sample:
+  -   %DAEMON-3-SYSTEM_MSG: error: PAM: Authentication failure for illegal
+  -     user ***** from 198.51.100.191 - dcos_sshd[20518]
+-->
+<decoder name="cisco-nxos-pam-illegaluser">
+  <parent>cisco-ios</parent>
+  <prematch>Authentication failure for illegal user</prematch>
+  <regex>%(\w+)-(\d)-(\w+): \.+Authentication failure for illegal user (\S+) from (\d+.\d+.\d+.\d+)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser, srcip</order>
+</decoder>
+
+<!--
+  - pam_unix session open/close, as emitted by NX-OS.
+  - Sample:
+  -   %AUTHPRIV-6-SYSTEM_MSG: pam_unix(dcos_sshd:session): session closed for
+  -     user jdoe.adm - dcos_sshd[11008]
+-->
+<decoder name="cisco-nxos-pam-session">
+  <parent>cisco-ios</parent>
+  <prematch>pam_unix\(\S+\): session \w+</prematch>
+  <regex>%(\w+)-(\d)-(\w+): \S+: session (\w+) for user (\S+)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, auth_status, srcuser</order>
+</decoder>

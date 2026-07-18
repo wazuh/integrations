@@ -1,0 +1,87 @@
+<!--
+  -  Cisco NX-OS (Nexus) and IOS-XE authentication and user-administration rules.
+  -
+  -  Covers interactive login results, PAM authentication failures for unknown
+  -  users, and account-management events (password change, role/group
+  -  assignment, account expiry change) that the stock Cisco IOS ruleset does
+  -  not alert on.
+  -
+  -  Rule IDs use the 110000 block, inside the range reserved for user-defined
+  -  rules. Adjust if that block is already in use on your manager.
+  -
+  -  This program is free software; you can redistribute it and/or modify it
+  -  under the terms of GPLv2.
+-->
+
+<group name="cisco,cisco-nxos,syslog,">
+
+  <rule id="110020" level="0">
+    <decoded_as>cisco-ios</decoded_as>
+    <description>Cisco IOS/NX-OS messages grouped.</description>
+  </rule>
+
+  <!-- Interactive login result. The device may mask the username, in which
+       case $(dstuser) renders as the masked value the device emitted. -->
+  <rule id="110021" level="5">
+    <if_sid>110020</if_sid>
+    <field name="login_status">^failed$</field>
+    <description>Cisco NX-OS: login failed for user $(dstuser).</description>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_AU.14,nist_800_53_AC.7,tsc_CC6.1,tsc_CC6.8,</group>
+  </rule>
+
+  <rule id="110022" level="3">
+    <if_sid>110020</if_sid>
+    <field name="login_status">^success</field>
+    <description>Cisco NX-OS: successful login for user $(dstuser).</description>
+    <group>authentication_success,pci_dss_10.2.5,gdpr_IV_32.2,hipaa_164.312.b,nist_800_53_AU.14,nist_800_53_AC.7,tsc_CC6.8,</group>
+  </rule>
+
+  <!-- PAM rejected an unknown account. Carries a source address, so it is the
+       most useful signal for brute-force detection against the switch. -->
+  <rule id="110023" level="6">
+    <if_sid>110020</if_sid>
+    <match>Authentication failure for illegal user</match>
+    <description>Cisco NX-OS: authentication failure for unknown user $(dstuser) from $(srcip).</description>
+    <group>authentication_failed,invalid_login,pci_dss_10.2.4,pci_dss_10.2.5,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_AU.14,nist_800_53_AC.7,tsc_CC6.1,tsc_CC6.8,</group>
+  </rule>
+
+  <!-- Account management. These are privileged changes on network
+       infrastructure and are worth a higher level than a login event. -->
+  <rule id="110024" level="8">
+    <if_sid>110020</if_sid>
+    <regex>change user '\S+' password</regex>
+    <description>Cisco NX-OS: password changed for user $(dstuser).</description>
+    <group>account_changed,pci_dss_10.2.5,pci_dss_8.1.2,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_AU.14,nist_800_53_AC.2,tsc_CC6.1,</group>
+  </rule>
+
+  <rule id="110025" level="8">
+    <if_sid>110020</if_sid>
+    <regex>add '\S+' to group</regex>
+    <description>Cisco NX-OS: user $(dstuser) added to group $(cisco.group).</description>
+    <group>account_changed,privilege_escalation,pci_dss_10.2.5,pci_dss_8.1.2,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_AU.14,nist_800_53_AC.2,tsc_CC6.1,</group>
+  </rule>
+
+  <rule id="110026" level="5">
+    <if_sid>110020</if_sid>
+    <regex>expiration from '\S+' to</regex>
+    <description>Cisco NX-OS: account expiry for user $(dstuser) changed from $(cisco.old_expiration) to $(cisco.new_expiration).</description>
+    <group>account_changed,pci_dss_10.2.5,pci_dss_8.1.2,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_AU.14,nist_800_53_AC.2,tsc_CC6.1,</group>
+  </rule>
+
+  <rule id="110027" level="3">
+    <if_sid>110020</if_sid>
+    <field name="auth_status">^opened$|^closed$</field>
+    <description>Cisco NX-OS: session $(auth_status) for user $(srcuser).</description>
+    <group>authentication_success,pci_dss_10.2.5,gdpr_IV_32.2,hipaa_164.312.b,nist_800_53_AU.14,tsc_CC6.8,</group>
+  </rule>
+
+  <!-- Repeated authentication failures from one source. Tune before enabling
+       in production. -->
+  <rule id="110028" level="10" frequency="6" timeframe="120">
+    <if_matched_sid>110023</if_matched_sid>
+    <same_srcip />
+    <description>Cisco NX-OS: multiple authentication failures from $(srcip).</description>
+    <group>authentication_failures,pci_dss_10.2.4,pci_dss_10.2.5,pci_dss_11.4,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_AU.14,nist_800_53_AC.7,tsc_CC6.1,tsc_CC6.8,</group>
+  </rule>
+
+</group>

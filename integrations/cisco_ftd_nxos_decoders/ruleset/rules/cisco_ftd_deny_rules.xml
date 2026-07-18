@@ -1,0 +1,57 @@
+<!--
+  -  Cisco FTD access-list deny rules.
+  -
+  -  Purpose: surface blocked/denied firewall traffic as alerts. Without these,
+  -  106023 events decode but produce no alert, so denied traffic is visible
+  -  only in the archives when <logall_json> is enabled.
+  -
+  -  Rule IDs use the 110000 block, inside the range reserved for user-defined
+  -  rules. Adjust if that block is already in use on your manager.
+  -
+  -  This program is free software; you can redistribute it and/or modify it
+  -  under the terms of GPLv2.
+-->
+
+<group name="cisco,cisco-ftd,">
+
+  <!-- Base rules. Two parents exist because the "%FTD-session-" prefix is
+       handled by its own top-level decoder. Both are level 0: they classify
+       only, and never alert on their own. -->
+  <rule id="110000" level="0">
+    <decoded_as>cisco-ftd-session</decoded_as>
+    <description>Cisco FTD session-prefixed messages grouped.</description>
+  </rule>
+
+  <rule id="110001" level="0">
+    <decoded_as>cisco-ftd</decoded_as>
+    <description>Cisco FTD messages grouped.</description>
+  </rule>
+
+  <!-- Any traffic denied by an access-group, regardless of protocol. -->
+  <rule id="110010" level="5">
+    <if_sid>110000,110001</if_sid>
+    <field name="action">^Deny$</field>
+    <description>Cisco FTD: $(protocol) traffic from $(srcip) to $(dstip) denied by access-group $(cisco.access_group).</description>
+    <group>firewall_drop,pci_dss_1.4,gdpr_IV_35.7.d,nist_800_53_SC.7,tsc_CC6.7,</group>
+  </rule>
+
+  <!-- ICMP denies, reported separately because they carry type/code rather
+       than ports. Frequently the first sign of host or network sweeping. -->
+  <rule id="110011" level="5">
+    <if_sid>110010</if_sid>
+    <field name="protocol">^icmp$</field>
+    <description>Cisco FTD: ICMP type $(cisco.icmp_type) code $(cisco.icmp_code) from $(srcip) to $(dstip) denied by access-group $(cisco.access_group).</description>
+    <group>firewall_drop,pci_dss_1.4,gdpr_IV_35.7.d,nist_800_53_SC.7,tsc_CC6.7,</group>
+  </rule>
+
+  <!-- Repeated denies from one source in a short window. Tune frequency and
+       timeframe to your environment before enabling in production: a chatty
+       but benign host will otherwise generate level 10 alerts. -->
+  <rule id="110012" level="10" frequency="10" timeframe="120">
+    <if_matched_sid>110010</if_matched_sid>
+    <same_srcip />
+    <description>Cisco FTD: multiple connections denied from source $(srcip).</description>
+    <group>firewall_drop,multiple_drops,pci_dss_1.4,gdpr_IV_35.7.d,nist_800_53_SC.7,tsc_CC6.7,</group>
+  </rule>
+
+</group>
