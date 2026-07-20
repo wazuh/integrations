@@ -4,6 +4,7 @@ const chatOptionButtons = document.getElementById("chat-option-buttons");
 
 let chatContext = {};
 let libraryChatContext = {};
+let libraryWizardId = null; // only set for library flows - dashboard quick-chat never saves history
 
 // Helper: Get elements based on target ('dashboard' or 'library')
 function getChatElements(target) {
@@ -113,6 +114,10 @@ async function sendChatMessageTarget(target, value) {
     // De-focus and show pending indicator
     clearOptionsTarget(target);
     
+    if (target === "library" && !libraryWizardId) {
+        libraryWizardId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+
     try {
         const currentContext = target === "library" ? libraryChatContext : chatContext;
         const res = await fetch(BASE_URL + "/assistant", {
@@ -122,7 +127,8 @@ async function sendChatMessageTarget(target, value) {
             },
             body: JSON.stringify({
                 message: value,
-                context: currentContext
+                context: currentContext,
+                wizard_id: target === "library" ? libraryWizardId : undefined
             })
         });
 
@@ -157,17 +163,25 @@ async function sendChatMessageTarget(target, value) {
             
             // Parse options for any follow-up questions
             if (r.ask && r.ask.length > 0) {
-                const nextQuestion = r.ask[0];
-                const parsed = parseQuestionOptions(nextQuestion);
-                
-                if (parsed && parsed.options.length > 0) {
-                    printBubbleTarget(target, parsed.question, "system");
-                    renderOptionsTarget(target, parsed.options, (selectedOpt) => {
+                if (r.ask.length > 1) {
+                    // Already a list of standalone option labels - render them
+                    // directly as buttons, no parenthetical parsing needed.
+                    renderOptionsTarget(target, r.ask, (selectedOpt) => {
                         sendChatMessageTarget(target, selectedOpt);
                     });
                 } else {
-                    // No choices -> simple text input prompt
-                    printBubbleTarget(target, nextQuestion, "system");
+                    const nextQuestion = r.ask[0];
+                    const parsed = parseQuestionOptions(nextQuestion);
+
+                    if (parsed && parsed.options.length > 0) {
+                        printBubbleTarget(target, parsed.question, "system");
+                        renderOptionsTarget(target, parsed.options, (selectedOpt) => {
+                            sendChatMessageTarget(target, selectedOpt);
+                        });
+                    } else {
+                        // No choices -> simple text input prompt
+                        printBubbleTarget(target, nextQuestion, "system");
+                    }
                 }
             }
 
@@ -175,6 +189,8 @@ async function sendChatMessageTarget(target, value) {
                 printBubbleTarget(target, "✔ Guided diagnostics flow has completed successfully.", "system");
                 if (target === "library") {
                     libraryChatContext = {};
+                    libraryWizardId = null; // saved to history server-side; next flow gets a fresh id
+                    if (window.loadLibraryHistory) window.loadLibraryHistory();
                 } else {
                     chatContext = {};
                 }
@@ -229,7 +245,8 @@ function launchLibraryFlow(issueTitle) {
     }
     clearOptionsTarget("library");
     libraryChatContext = {}; // reset previous context
-    
+    libraryWizardId = null; // starting a new flow gets its own transcript/id
+
     printBubbleTarget("library", `Initializing Troubleshooting script for issue: "${issueTitle}"...`, "system");
     
     // Scroll smoothly to the Troubleshooting Library panel
@@ -252,7 +269,75 @@ function launchLibraryFlow(issueTitle) {
 function resetChatContext() {
     chatContext = {};
     libraryChatContext = {};
+    libraryWizardId = null;
 }
+
+// ── Previous Reports — download-only history, no resume ─────────────────────
+
+function libEscapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+}
+
+function libTimeAgo(isoString) {
+    const seconds = Math.floor((new Date() - new Date(isoString)) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
+}
+
+async function loadLibraryHistory() {
+    const panel = document.getElementById("library-history-panel");
+    if (!panel) return;
+    panel.innerHTML = '<div class="agent-history-empty">Loading...</div>';
+    try {
+        const res = await fetch(BASE_URL + "/assistant/history");
+        const data = await res.json();
+        const runs = data.runs || [];
+        if (!runs.length) {
+            panel.innerHTML = '<div class="agent-history-empty">No completed reports yet.</div>';
+            return;
+        }
+        panel.innerHTML = "";
+        runs.forEach(r => {
+            const row = document.createElement("div");
+            row.className = "agent-history-row";
+            row.style.cursor = "default";
+            row.innerHTML =
+                `<span class="title" title="${libEscapeHtml(r.title)}">${libEscapeHtml(r.title)}</span>` +
+                `<span class="time">${libTimeAgo(r.updated_at)}</span>` +
+                `<button class="icon-btn" title="Download">` +
+                `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>`;
+            row.querySelector("button").addEventListener("click", () => {
+                window.open(`${BASE_URL}/assistant/history/${encodeURIComponent(r.run_id)}/download`, "_blank");
+            });
+            panel.appendChild(row);
+        });
+    } catch (e) {
+        panel.innerHTML = '<div class="agent-history-empty">Failed to load reports.</div>';
+    }
+}
+
+function toggleLibraryHistory() {
+    const panel = document.getElementById("library-history-panel");
+    const showing = panel.style.display === "none" || !panel.style.display;
+    panel.style.display = showing ? "block" : "none";
+    if (showing) loadLibraryHistory();
+}
+
+document.addEventListener("click", (e) => {
+    const panel = document.getElementById("library-history-panel");
+    const btn = document.getElementById("library-history-btn");
+    if (!panel || panel.style.display === "none") return;
+    if (!panel.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+        panel.style.display = "none";
+    }
+});
 
 // Bind to window for inline HTML callbacks and cross-file access
 window.launchLibraryFlow = launchLibraryFlow;
@@ -266,5 +351,7 @@ window.renderOptions = renderOptions;
 window.renderLibraryOptions = renderLibraryOptions;
 window.resetChatContext = resetChatContext;
 window.handleLibraryChatSubmit = handleLibraryChatSubmit;
+window.toggleLibraryHistory = toggleLibraryHistory;
+window.loadLibraryHistory = loadLibraryHistory;
 window.handleChatSubmit = handleChatSubmit;
 

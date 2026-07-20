@@ -2,3 +2,7 @@ Please install:
 fastapi
 uvicorn
 requests
+rapidfuzz
+pyyaml
+anthropic
+numpy

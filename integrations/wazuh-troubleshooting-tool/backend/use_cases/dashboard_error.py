@@ -2,26 +2,8 @@ from executor import run_command
 from utils.fix_engine import FixEngine
 from utils.log_handler import LogHandler
 from utils.log_analyzer import LogAnalyzer
-from flows.ip_cert_flow import ip_cert_flow
-from flows.dashboard_ip_cert_flow import dashboard_ip_cert_flow          # NEW
-
-IP_CERT_STAGES = {
-    "ip_check", "ip_check_choice", "ip_auto_check",
-    "ip_manual_result", "ip_mismatch_fix",
-    "ip_post_auto_fix", "ip_post_manual_fix", "ip_post_manual_resolved",
-    "ip_confirmed_move_to_cert", "ip_recheck",
-    "cert_path_check", "cert_path_fix", "cert_path_wait",
-    "cert_perm_check", "cert_perm_fix", "cert_perm_apply", "cert_perm_final",
-}
-
-DASH_IP_CERT_STAGES = {                                                  # NEW
-    "dash_ip_check", "dash_ip_check_choice", "dash_ip_auto_check",
-    "dash_ip_manual_result", "dash_ip_mismatch_fix",
-    "dash_ip_post_auto_fix", "dash_ip_post_manual_fix",
-    "dash_ip_post_manual_resolved", "dash_ip_recheck",
-    "dash_cert_path_check", "dash_cert_path_fix", "dash_cert_path_wait",
-    "dash_cert_perm_check", "dash_cert_perm_apply", "dash_cert_perm_final",
-}
+from flows.ip_cert_flow import ip_cert_flow, STAGES as IP_CERT_STAGES
+from flows.dashboard_ip_cert_flow import dashboard_ip_cert_flow, STAGES as DASH_IP_CERT_STAGES
 
 
 def dashboard_error_flow(user_choice=None, context=None):
@@ -53,16 +35,38 @@ def dashboard_error_flow(user_choice=None, context=None):
         return response
 
     # -------------------------------------------------------------------------
-    # ROUTE TO ip_cert_flow (indexer checks)
+    # ROUTE TO ip_cert_flow (indexer checks: IP -> cert paths -> heap memory)
     # -------------------------------------------------------------------------
     if context.get("stage") in IP_CERT_STAGES:
-        return ip_cert_flow(user_choice=user_choice, context=context)
+        result = ip_cert_flow(user_choice=user_choice, context=context)
+
+        # "handoff" fires when the last step (heap) is still "ongoing" -
+        # control returns here so the dashboard IP/cert flow can continue.
+        # We fold this step's own message into whatever comes next instead
+        # of letting it get silently dropped at this boundary.
+        if result.get("handoff"):
+            next_result = dashboard_error_flow(context=result["context"])
+            if result.get("display"):
+                next_result["display"] = result["display"] + "\n\n" + next_result["display"]
+            return next_result
+
+        return result
 
     # -------------------------------------------------------------------------
-    # ROUTE TO dashboard_ip_cert_flow (dashboard checks)
+    # ROUTE TO dashboard_ip_cert_flow (dashboard checks: IP -> cert paths)
     # -------------------------------------------------------------------------
     if context.get("stage") in DASH_IP_CERT_STAGES:
-        return dashboard_ip_cert_flow(user_choice=user_choice, context=context)
+        result = dashboard_ip_cert_flow(user_choice=user_choice, context=context)
+
+        # "handoff" fires when the last step (dashboard cert paths) is
+        # still "ongoing" - hands off to log analysis (fetch_logs).
+        if result.get("handoff"):
+            next_result = dashboard_error_flow(context=result["context"])
+            if result.get("display"):
+                next_result["display"] = result["display"] + "\n\n" + next_result["display"]
+            return next_result
+
+        return result
 
     # -------------------------------------------------------------------------
     # START CHOICE
@@ -132,27 +136,54 @@ def dashboard_error_flow(user_choice=None, context=None):
             context["stage"] = "manual_followup"
             return response
 
-        # auto chosen — check indexer status first
-        status = (run_command("systemctl is-active wazuh-indexer") or "").strip()
+        # auto chosen — ask how to determine the indexer status before restarting
+        response["display"] = (
+            "Let's start with the Wazuh indexer service."
+        )
+        response["ask"]  = ["Restart Wazuh Indexer? (auto / inactive / active)"]
+        context["stage"] = "restart_step"
+        return response
+
+    # -------------------------------------------------------------------------
+    # RESTART STEP — determine indexer status, restart if needed
+    # -------------------------------------------------------------------------
+    if context.get("stage") == "restart_step":
+
+        choice = (user_choice or "").lower().strip()
+
+        if "auto" in choice:
+            status = (run_command("systemctl is-active wazuh-indexer") or "").strip()
+        elif "inactive" in choice:
+            status = "inactive"
+        elif "active" in choice:
+            status = "active"
+        else:
+            response["display"] = "Please choose one: auto / inactive / active"
+            response["ask"]  = ["Restart Wazuh Indexer? (auto / inactive / active)"]
+            return response
+
         context["indexer_status"] = status
         response["display"] = f"Indexer status: {status}\n\n"
 
         if status != "active":
-            response["display"] += (
-                "The Wazuh indexer is not running. "
-                "We need to restart it before checking anything else.\n\n"
-                "Would you like me to restart it now?"
-            )
-            response["ask"]  = ["Restart indexer? (yes / no)"]
-            context["stage"] = "indexer_restart"
-            return response
+            response["display"] += "The Wazuh indexer is not running. Restarting it now..."
+            new_status = FixEngine.restart_indexer_and_wait()
+            context["indexer_status"] = new_status
+            response["display"] += f"\n\nStatus after restart: {new_status.upper()}"
 
         response["display"] += (
-            "The Wazuh indexer is active.\n\n"
-            "Let's now check the IP and certificate configuration."
+            "\n\nLet's now go through the indexer checks: "
+            "IP address, certificate paths, and heap memory."
         )
         context["stage"] = "ip_check"
-        return dashboard_error_flow(context=context)
+
+        # Preserve this message — indexer_recovery_flow's own first
+        # response (the Step 1 permission question) would otherwise
+        # completely replace it here.
+        restart_msg = response["display"]
+        next_response = dashboard_error_flow(context=context)
+        next_response["display"] = restart_msg + "\n\n" + next_response["display"]
+        return next_response
 
     # -------------------------------------------------------------------------
     # MANUAL FOLLOW-UP
@@ -195,163 +226,21 @@ def dashboard_error_flow(user_choice=None, context=None):
             response["display"] = "Understood — indexer is active."
 
         if status != "active":
-
-            response["display"] += (
-                "\n\nThe indexer is not running. "
-                "We need to restart wazuh-indexer.\n"
-                "Would you like me to do that for you?"
-            )
-
-            response["ask"]  = ["Restart indexer? (yes / no)"]
-            context["stage"] = "indexer_restart"
-            return response
-
-        else:
-
-            response["display"] += (
-                "\n\nThe indexer is active. "
-                "Let's check the certs and IP configuration."
-            )
-
-            response["ask"] = [
-                "Do you want me to check IP addresses and certificates? (yes/no)"
-            ]
-
-            context["stage"] = "ip_check"
-            return response
-
-    # -------------------------------------------------------------------------
-    # RESTART INDEXER
-    # -------------------------------------------------------------------------
-    if context.get("stage") == "indexer_restart":
-
-        if "yes" in user_choice.lower():
-
-            response["display"] = "Restarting wazuh-indexer..."
-            context["stage"] = "indexer_restart_offer"
-
-            return dashboard_error_flow(
-                user_choice="continue",
-                context=context
-            )
-
-    # -------------------------------------------------------------------------
-    # INDEXER RESTART OFFER
-    # -------------------------------------------------------------------------
-    if context.get("stage") == "indexer_restart_offer":
-
-        import time
-
-        FixEngine.restart_indexer()
-
-        status = ""
-
-        for _ in range(5):
-            time.sleep(2)
-
-            status = (
-                run_command("systemctl is-active wazuh-indexer") or ""
-            ).strip()
-
-            if status == "active":
-                break
-
-        context["indexer_status"] = status
-        response["display"] = f"Current status: {status}"
-
-        if status == "active":
-
-            response["display"] += (
-                "\n\nIndexer is now active.\n"
-                "Are you still getting the same dashboard error?"
-            )
-
-            response["ask"]  = ["Still getting the error? (resolved / not resolved)"]
-            context["stage"] = "post_restart_check"
-            return response
+            response["display"] += "\n\nThe indexer is not running. Restarting wazuh-indexer now..."
+            new_status = FixEngine.restart_indexer_and_wait()
+            context["indexer_status"] = new_status
+            response["display"] += f"\n\nStatus after restart: {new_status.upper()}"
 
         response["display"] += (
-            "\n\nIndexer is still inactive after restart.\n"
-            "Let's fetch the logs to find out why."
+            "\n\nLet's now go through the indexer checks: "
+            "IP address, certificate paths, and heap memory."
         )
+        context["stage"] = "ip_check"
 
-        context["stage"] = "fetch_logs"
-        return dashboard_error_flow(context=context)
-
-    # -------------------------------------------------------------------------
-    # POST RESTART CHECK
-    # -------------------------------------------------------------------------
-    if context.get("stage") == "post_restart_check":
-
-        if user_choice.lower().strip() == "resolved":
-            response["display"] = "Great! The issue is resolved."
-            response["done"]    = True
-            return response
-
-        elif user_choice.lower().strip() == "not resolved":
-
-            response["display"] = (
-                "The issue still persists.\n"
-                "Let's check the logs to find out why."
-            )
-
-            context["stage"] = "fetch_logs"
-            return dashboard_error_flow(context=context)
-
-    # -------------------------------------------------------------------------
-    # MANUAL SPECIFIC HELP
-    # -------------------------------------------------------------------------
-    if context.get("stage") == "manual_specific_help":
-
-        choice = (user_choice or "").lower()
-
-        if "cert" in choice:
-            context["stage"] = "dash_cert_perm_check"
-            return dashboard_error_flow(context=context)
-
-        elif "ip" in choice:
-            context["stage"] = "dash_ip_check"
-            return dashboard_error_flow(context=context)
-
-        elif "log" in choice:
-            context["stage"] = "fetch_logs"
-            return dashboard_error_flow(context=context)
-
-        elif "password" in choice:
-
-            response["display"] = (
-                "To reset the kibanaserver password:\n\n"
-
-                "Step 1 — Change the password "
-                "(8-64 chars, upper/lowercase, numbers, symbol from .*+?-):\n"
-
-                "  /usr/share/wazuh-indexer/plugins/opensearch-security/tools/"
-                "wazuh-passwords-tool.sh -u kibanaserver -p '<new_password>'\n\n"
-
-                "Step 2 — Update the dashboard keystore:\n"
-
-                "  echo <new_password> | "
-                "/usr/share/wazuh-dashboard/bin/opensearch-dashboards-keystore "
-                "--allow-root add -f --stdin opensearch.password\n\n"
-
-                "Step 3 — Restart the dashboard:\n"
-                "  systemctl restart wazuh-dashboard\n\n"
-
-                "Ref: https://documentation.wazuh.com/current/user-manual/"
-                "user-administration/password-management.html"
-            )
-
-            response["ask"]  = ["Did that help? (resolved / need more help)"]
-            context["stage"] = "final_status_check"
-            return response
-
-        elif "restart" in choice:
-            context["stage"] = "indexer_restart_offer"
-            return dashboard_error_flow(user_choice="yes", context=context)
-
-        else:
-            context["stage"] = "fetch_logs"
-            return dashboard_error_flow(context=context)
+        restart_msg = response["display"]
+        next_response = dashboard_error_flow(context=context)
+        next_response["display"] = restart_msg + "\n\n" + next_response["display"]
+        return next_response
 
     # -------------------------------------------------------------------------
     # FETCH LOGS
@@ -563,7 +452,7 @@ def dashboard_error_flow(user_choice=None, context=None):
         return dashboard_error_flow(context=context)
 
     # -------------------------------------------------------------------------
-    # JVM HEAP CHECK
+    # JVM HEAP CHECK (legacy — triggered from log analysis path)
     # -------------------------------------------------------------------------
     if context.get("stage") == "jvm_check":
 
@@ -596,20 +485,20 @@ def dashboard_error_flow(user_choice=None, context=None):
         return response
 
     # -------------------------------------------------------------------------
-    # JVM FIX
+    # JVM FIX (legacy — triggered from log analysis path)
     # -------------------------------------------------------------------------
     if context.get("stage") == "jvm_fix":
 
         if user_choice and "auto" in user_choice.lower():
 
             heap_gb = context.get("recommended_heap", 2)
-            updated = FixEngine.fix_jvm_heap(heap_gb)
+            result = FixEngine.fix_jvm_heap(heap_gb)
 
             response["display"] = (
                 "Edited /etc/wazuh-indexer/jvm.options\n\n"
-                "Restarted wazuh-indexer.\n\n"
+                f"Restarted wazuh-indexer (status: {result['status'].upper()}).\n\n"
                 "Current JVM heap settings:\n"
-                f"{updated}"
+                f"{result['updated']}"
             )
 
             response["ask"]  = ["Is the dashboard issue fixed? (fixed / ongoing)"]
@@ -633,7 +522,7 @@ def dashboard_error_flow(user_choice=None, context=None):
             return dashboard_error_flow(context=context)
 
     # -------------------------------------------------------------------------
-    # POST HEAP CHECK
+    # POST HEAP CHECK (legacy — triggered from log analysis path)
     # -------------------------------------------------------------------------
     if context.get("stage") == "post_heap_check":
 
@@ -720,9 +609,8 @@ def dashboard_error_flow(user_choice=None, context=None):
         response["done"] = True
         return response
 
-    
+
    # -------------------------------------------------------------------------
-    # -------------------------------------------------------------------------
     # DASHBOARD STATUS + LOGS
     # -------------------------------------------------------------------------
     if context.get("stage") == "dashboard_status_logs":
@@ -962,11 +850,21 @@ def dashboard_error_flow(user_choice=None, context=None):
         if status != "active":
             response["display"] = (
                 f"Indexer status: {status or 'unknown'}\n\n"
-                "The Wazuh indexer service is inactive. "
-                "Let me restart it now..."
+                "The Wazuh indexer service is inactive. Restarting it now..."
             )
-            context["stage"] = "indexer_restart_offer"
-            return dashboard_error_flow(context=context)
+            new_status = FixEngine.restart_indexer_and_wait()
+            context["indexer_status"] = new_status
+            response["display"] += (
+                f"\n\nStatus after restart: {new_status.upper()}\n\n"
+                "Let's now go through the indexer checks: "
+                "IP address, certificate paths, and heap memory."
+            )
+            context["stage"] = "ip_check"
+
+            restart_msg = response["display"]
+            next_response = dashboard_error_flow(context=context)
+            next_response["display"] = restart_msg + "\n\n" + next_response["display"]
+            return next_response
 
         # indexer is active but dashboard still can't connect
         response["display"] = (

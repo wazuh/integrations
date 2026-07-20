@@ -47,6 +47,11 @@ KIBANA_PASSWORD = _cfg.get("kibana", {}).get("password")
 OLLAMA_URL   = _cfg.get("ollama", {}).get("url",   "http://localhost:11434")
 OLLAMA_MODEL = _cfg.get("ollama", {}).get("model", "qwen3:1.7b")
 
+# ── Anthropic / Claude (Wazuh Agent — optional second brain) ─────────────────
+# Not required: if api_key is left blank, the agent simply runs on Ollama only.
+ANTHROPIC_API_KEY = _cfg.get("anthropic", {}).get("api_key", "")
+ANTHROPIC_MODEL   = _cfg.get("anthropic", {}).get("model", "claude-sonnet-5")
+
 if not API_PASSWORD or not INDEXER_PASSWORD or not KIBANA_PASSWORD:
     import sys
     print(f"CRITICAL ERROR: Required credentials missing in configuration file at {CONFIG_PATH}", file=sys.stderr)

@@ -1,7 +1,7 @@
 wazuh_api:
   host: "https://localhost:55000"
   username: "wazuh"
-  password: ""
+  password: "YOUR_WAZUH_PASSWORD"
   verify_ssl: false
 
 indexer:
@@ -11,8 +11,17 @@ indexer:
 
 kibana:
   username: "kibanaserver"
-  password: ""
+  password: "YOUR_KIBANA_PASSWORD"
 
 ollama:
   url: "http://localhost:11434"
   model: "qwen3:1.7b"
+
+anthropic:
+  api_key: ""
+  model: "claude-sonnet-5"
+
+server:
+  host: "localhost"
+  backend_port: "8000"
+  frontend_port: "3000"

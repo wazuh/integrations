@@ -15,7 +15,9 @@ import subprocess
 import json
 import requests
 from assistant_engine import process_assistant
-from copilot_engine import run_copilot, check_ollama_health, list_ollama_models
+import agent_engine
+from utils import wizard_history
+import uuid
 app = FastAPI()
 
 app.add_middleware(
@@ -177,6 +179,30 @@ def fix(service: str = ""):
 # -----------------------------
 # Filebeat Test (ADD HERE)
 # -----------------------------
+# -----------------------------
+# PATCH:CHECK-SERVICE-STATUS-V1
+# Check Service Status (systemctl status)
+# -----------------------------
+ALLOWED_STATUS_SERVICES = {
+    "wazuh-indexer",
+    "wazuh-manager",
+    "wazuh-dashboard"
+}
+
+@app.get("/status")
+def status(service: str = ""):
+    if service not in ALLOWED_STATUS_SERVICES:
+        return {"service": service, "output": "Invalid service"}
+
+    output = run(f"systemctl status {service} --no-pager")
+    is_active = run(f"systemctl is-active {service}")
+
+    return {
+        "service": service,
+        "is_active": is_active,
+        "output": output
+    }
+
 @app.get("/filebeat-test")
 def filebeat_test():
 
@@ -190,11 +216,49 @@ def filebeat_test():
 def assistant(payload: dict):
 
     user_input = payload.get("message", "")
-    context = payload.get("context", {})
+    context = payload.get("context") or {}
+    wizard_id = payload.get("wizard_id")
+
+    # Only present when the Troubleshooting Library sends a wizard_id - the
+    # dashboard's quick-chat never does, so nothing gets saved for it.
+    prior_transcript = context.pop("_transcript", []) if wizard_id else []
 
     result = process_assistant(user_input, context)
 
+    if wizard_id:
+        transcript = prior_transcript + [{"user": user_input, "assistant": result.get("display", "")}]
+        if result.get("done"):
+            wizard_history.save_run(wizard_id, transcript)
+        else:
+            ctx = result.get("context") or {}
+            ctx["_transcript"] = transcript
+            result["context"] = ctx
+
     return {"response": result}
+
+
+@app.get("/assistant/history")
+def assistant_history_list():
+    """Up to the 6 most recent completed Troubleshooting Library runs — download-only, no resume."""
+    return {"runs": wizard_history.list_runs()}
+
+
+@app.get("/assistant/history/{run_id}/download")
+def assistant_history_download(run_id: str):
+    from fastapi.responses import PlainTextResponse
+
+    transcript = wizard_history.load_run(run_id)
+    if transcript is None:
+        return PlainTextResponse("Not found.", status_code=404)
+
+    runs = {r["run_id"]: r for r in wizard_history.list_runs()}
+    title = runs.get(run_id, {}).get("title", run_id)
+    text = wizard_history.format_transcript_text(transcript, title)
+
+    return PlainTextResponse(
+        text,
+        headers={"Content-Disposition": f'attachment; filename="wazuh-troubleshooting-{run_id}.txt"'},
+    )
 
 @app.get("/run")
 def run_command(cmd: str = ""):
@@ -203,62 +267,11 @@ def run_command(cmd: str = ""):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WAZUH COPILOT ROUTES
+# The chat UI itself now lives entirely under /agent/* (agent_engine.py) —
+# it's a strict superset of what this used to do (falls back to a plain
+# answer when it has nothing to call, same as the old copilot). logtest
+# is unrelated to chat and stays here.
 # ─────────────────────────────────────────────────────────────────────────────
-
-@app.get("/copilot/status")
-def copilot_status():
-    """Check Ollama health and return available models."""
-    health = check_ollama_health(OLLAMA_URL)
-    return {
-        "ollama_ok":    health.get("ok", False),
-        "models":       health.get("models", []),
-        "active_model": OLLAMA_MODEL,
-        "ollama_url":   OLLAMA_URL,
-        "error":        health.get("error", ""),
-    }
-
-
-@app.post("/copilot/chat")
-def copilot_chat(payload: dict):
-    """
-    Send a conversation to Ollama and return the Wazuh Copilot reply.
-
-    Payload:
-        messages     : list of {role, content} — full conversation history
-        model        : optional model override
-        include_env  : bool — whether to inject live environment context
-        session_id   : optional unique chat session ID
-        system_prompt: optional custom system prompt string
-    """
-    messages      = payload.get("messages", [])
-    model         = payload.get("model", OLLAMA_MODEL) or OLLAMA_MODEL
-    include_env   = payload.get("include_env", True)
-    session_id    = payload.get("session_id", None)
-    system_prompt = payload.get("system_prompt", None)
-
-    if not messages:
-        return {"reply": "Please send at least one message."}
-
-    try:
-        reply = run_copilot(
-            messages        = messages,
-            ollama_url      = OLLAMA_URL,
-            ollama_model    = model,
-            include_env     = include_env,
-            wazuh_api_url   = WAZUH_API_URL,
-            api_username    = API_USERNAME,
-            api_password    = API_PASSWORD,
-            indexer_url     = INDEXER_URL,
-            indexer_username= INDEXER_USERNAME,
-            indexer_password= INDEXER_PASSWORD,
-            session_id      = session_id,
-            system_prompt   = system_prompt,
-        )
-        return {"reply": reply}
-
-    except Exception as e:
-        return {"reply": f"Error from Ollama: {str(e)}"}
-
 
 @app.post("/copilot/logtest")
 def copilot_logtest(payload: dict):
@@ -271,6 +284,105 @@ def copilot_logtest(payload: dict):
         return {"output": "", "error": "No log_line provided."}
     result = run_logtest(log_line)
     return result
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WAZUH AGENT ROUTES — autonomous, tool-calling troubleshooting
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/agent/tools")
+def agent_tools_list():
+    """List every tool the agent can call, and whether it needs approval."""
+    return {"tools": agent_engine.get_tools_metadata()}
+
+
+@app.get("/agent/brains")
+def agent_brains():
+    """Which reasoning backends (Ollama / Claude) are configured and usable."""
+    return agent_engine.get_brains()
+
+
+@app.post("/agent/message")
+def agent_message(payload: dict):
+    """
+    Send a message to the agent. Starts a new session if session_id is omitted.
+
+    Payload: { session_id?, message, brain? ("ollama"|"claude"), model? }
+    Response: { session_id, status: "final"|"awaiting_approval"|"error", trace,
+                message? , pending_action? }
+    """
+    session_id = payload.get("session_id") or str(uuid.uuid4())
+    message = (payload.get("message") or "").strip()
+    brain = payload.get("brain", "ollama")
+    model = payload.get("model")
+
+    if not message:
+        return {"session_id": session_id, "status": "error", "message": "Please send a message.", "trace": []}
+
+    try:
+        return agent_engine.handle_message(session_id, message, brain=brain, model=model)
+    except Exception as e:
+        return {"session_id": session_id, "status": "error", "message": f"Agent error: {e}", "trace": []}
+
+
+@app.post("/agent/approve")
+def agent_approve(payload: dict):
+    """
+    Approve or reject the action currently awaiting confirmation for a session.
+
+    Payload: { session_id, approve: bool, edited_arguments? }
+    """
+    session_id = payload.get("session_id", "")
+    approve = bool(payload.get("approve", False))
+    edited_arguments = payload.get("edited_arguments")
+
+    if not session_id:
+        return {"status": "error", "message": "session_id is required.", "trace": []}
+
+    try:
+        return agent_engine.handle_approve(session_id, approve, edited_arguments)
+    except Exception as e:
+        return {"session_id": session_id, "status": "error", "message": f"Agent error: {e}", "trace": []}
+
+
+@app.post("/agent/reset")
+def agent_reset(payload: dict):
+    """Start a fresh conversation for this session (drops history + any pending action)."""
+    session_id = payload.get("session_id", "")
+    if not session_id:
+        return {"status": "error", "message": "session_id is required."}
+    return agent_engine.reset_session(session_id)
+
+
+@app.get("/agent/sessions")
+def agent_sessions_list():
+    """Up to the 6 most recent saved chats (id, title, started/updated timestamps)."""
+    return {"sessions": agent_engine.list_session_history()}
+
+
+@app.get("/agent/sessions/{chat_id}")
+def agent_sessions_get(chat_id: str):
+    """Load a saved chat's full turn history and rehydrate it into memory so
+    sending a new message continues this same conversation."""
+    turns = agent_engine.resume_session(chat_id)
+    if turns is None:
+        return {"status": "error", "message": "Session not found."}
+    return {"chat_id": chat_id, "turns": turns}
+
+
+@app.delete("/agent/sessions/{chat_id}")
+def agent_sessions_delete(chat_id: str):
+    agent_engine.delete_session_history(chat_id)
+    return {"status": "deleted"}
+
+
+@app.patch("/agent/sessions/{chat_id}")
+def agent_sessions_rename(chat_id: str, payload: dict):
+    title = (payload.get("title") or "").strip()
+    if not title:
+        return {"status": "error", "message": "title is required."}
+    ok = agent_engine.rename_session_history(chat_id, title)
+    return {"status": "renamed" if ok else "error"}
+
 
 # ----------------------------------------------------------------
 # Reports & Analytics Backend Support
@@ -736,8 +848,8 @@ def summarize(payload: dict):
 
     try:
         res = requests.post(
-            "http://localhost:11434/api/generate",
-            json={"model": "qwen2:0.5b", "prompt": prompt, "stream": False},
+            OLLAMA_URL + "/api/generate",
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
             timeout=30
         )
         data = res.json()

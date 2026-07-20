@@ -9,6 +9,9 @@ import json
 import requests
 import urllib3
 
+from utils.lgtm_utils import find_relevant_issues, format_lgtm_context
+from utils.public_repo_search import search_public_issues, search_public_discussions, format_public_context
+
 urllib3.disable_warnings()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -228,6 +231,17 @@ def run_copilot(
         )
     else:
         system_content = base_prompt
+
+    lgtm_issues = find_relevant_issues(last_user_msg)
+    lgtm_context = format_lgtm_context(lgtm_issues)
+    if lgtm_context:
+        system_content += "\n\n" + lgtm_context
+
+    public_issues = search_public_issues(last_user_msg)
+    public_discussions = search_public_discussions(last_user_msg)
+    public_context = format_public_context(public_issues, public_discussions)
+    if public_context:
+        system_content += "\n\n" + public_context
 
     if include_env:
         try:
