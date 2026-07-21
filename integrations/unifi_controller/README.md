@@ -12,7 +12,7 @@
 
 This guide outlines the steps to integrate UniFi Network Application (controller) CEF syslog events with Wazuh. This integration relies on parsing CEF activity logs (`CEF:0|Ubiquiti|UniFi Network|...`) to track WiFi client connect, disconnect, and roam events, as well as administrator access to the UniFi Network UI/API.
 
-This ruleset is separate from the UniFi AP syslog ruleset in `content/ruleset/unifi_ap/`.
+This ruleset is separate from the UniFi AP syslog ruleset (the `unifi_ap` integration).
 
 ### Prerequisites
 
@@ -34,7 +34,7 @@ Ensure log collection is active so Wazuh can ingest the raw CEF lines and begin 
 The custom decoders instruct Wazuh on how to parse the UniFi Network Application CEF format. Copy the decoders file to the Wazuh Manager's custom decoders directory:
 
 ```bash
-cp content/ruleset/unifi_controller/unifi_controller_decoder.xml /var/ossec/etc/decoders/
+cp integrations/unifi_controller/unifi_controller_decoder.xml /var/ossec/etc/decoders/
 ```
 
 Or navigate to **Server Management** --\> **Decoders** --\> **Add new decoders file** --\> paste the content, save the file and reload the cluster.
@@ -44,7 +44,7 @@ Or navigate to **Server Management** --\> **Decoders** --\> **Add new decoders f
 The custom rules map the decoded fields to specific connectivity and auditing alerts, such as alerting when a WiFi client connects, disconnects, or roams, or when an administrator accesses UniFi Network. Copy the rules file to the Wazuh Manager's custom rules directory:
 
 ```bash
-cp content/ruleset/unifi_controller/unifi_controller_rules.xml /var/ossec/etc/rules/
+cp integrations/unifi_controller/unifi_controller_rules.xml /var/ossec/etc/rules/
 ```
 
 Or navigate to **Server Management** --\> **Rules** --\> **Add new rules file** --\> paste the content, save the file and reload the cluster.
