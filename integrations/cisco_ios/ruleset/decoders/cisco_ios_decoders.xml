@@ -1,0 +1,376 @@
+<!--
+  -  Cisco IOS decoders
+  -  Updated by Wazuh, Inc.
+  -  Copyright (C) 2015, Wazuh Inc.
+  -  Copyright (C) 2009 Trend Micro Inc.
+  -  This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2.
+  -
+  -  DROP-IN REPLACEMENT for the stock Wazuh Cisco IOS decoder file
+  -  (0016-cisco-ios_decoders.xml). It is the stock decoder set with six added
+  -  NX-OS / IOS-XE authentication decoders (cisco-nxos-*) merged in ABOVE
+  -  cisco-ios-default so they win the first-match. Install by copying this file
+  -  into etc/decoders/ and excluding the stock file. See the README (Method B).
+-->
+
+<!--
+Background on Cisco syslog format:
+
+1111: ROUTERHOSTNAME: 000012: 00:11:22: %SYS-5-CONFIG_I: text...
+ f1  |       f2      |  f3   |    f4   |   message
+
+1111: ROUTERHOSTNAME: 000012: .Mar  3 19:31:51: %SYS-5-CONFIG_I: text...
+ f1  |       f2      |  f3   |    f4           |   message
+
+All f0-4 fields are optional and their appearance and format depends on configuration.
+
+- f1: message counter
+- f2: origin-id (hostname, ip, custom string)
+- f3: sequence number
+- f4: uptime or datetime
+
+When f4 is datetime, there are number of optional options for the format.
+These include year, miliseconds, timezone (local or UTC).
+
+Examples:
+
+*Mar  3 2019 21:42:11.351 UTC
+.Mar  3 21:42:11.351 UTC
+.Mar  3 21:42:11
+Mar  3 21:42:11 UTC
+
+(*) - Clock has not been set. NTP is not configured. Time could be wrong and needs to be verified
+(.) - NTP is setup, but time is out of sync
+
+If neither (*) nor (.) are present then clock is in-sync via NTP
+
+Details: https://www.cisco.com/c/en/us/td/docs/routers/access/wireless/software/guide/SysMsgLogging.html
+
+-->
+
+
+<!--
+  - Group for Cisco IOS messages.
+ -->
+
+<decoder name="cisco-ios">
+  <prematch>^%\w+-\d-\w+: </prematch>
+</decoder>
+
+<!--
+  - With "empty" program name
+-->
+<decoder name="cisco-ios">
+  <program_name />
+  <prematch>^%\w+-\d-\w+: </prematch>
+</decoder>
+
+<!--
+  - Uptime, no date or sequence number
+  - 00:00:46: %LINK-3-UPDOWN: Interface Port-channel1, changed state to up
+-->
+
+<decoder name="cisco-ios">
+  <prematch>^\d+:\d+:\d+: %\w+-\d-\w+: </prematch>
+</decoder>
+
+<!--
+  - Sequence number, no date or time
+  - 000019: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+-->
+
+<decoder name="cisco-ios">
+  <prematch>^\d+: %\w+-\d-\w+: </prematch>
+</decoder>
+
+<decoder name="cisco-ios">
+  <program_name />
+  <prematch>^\d+: %\w+-\d-\w+: </prematch>
+</decoder>
+
+<!--
+  - Date (preceded by * or . or nothing) and time (w/wo ms or timezone)
+  - *Mar  1 18:46:11: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - *Mar  1 2019 18:46:11: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 18:46:11: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 2019 18:46:11: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+
+  - *Mar  1 18:48:50 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - *Mar  1 2019 18:48:50 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 18:48:50 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 2019 18:48:50 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+
+  - *Mar  1 18:46:11.444: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - *Mar  1 2019 18:46:11.444: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 18:46:11.444: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 2019 18:46:11.444: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+
+  - *Mar  1 18:48:50.483 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - *Mar  1 2019 18:48:50.483 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 18:48:50.483 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+  - Mar  1 2019 18:48:50.483 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (10.34.195.36)
+-->
+
+<decoder name="cisco-ios">
+  <prematch>\p*\w+\s+\d*\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>\p*\w+\s+\d*\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>\p*\w+\s+\d*\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>\p*\w+\s+\d*\s\d+:\d+:\d+.\d+\s+\w+:\s+%|</prematch>
+  <prematch>\w+\s+\d\p*\s\d+\s\d+:\d+:\d+.\d+\s+\w+:\s+%</prematch>
+</decoder>
+
+<decoder name="cisco-ios">
+  <program_name />
+  <prematch>^\p*\w+\s+\d*\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\p*\w+\s+\d*\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\p*\w+\s+\d*\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\p*\w+\s+\d*\s\d+:\d+:\d+.\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+\s+\w+:\s+%</prematch>
+</decoder>
+
+<!--
+  - message counter, Date (preceded by * or . or nothing) and time (w/wo ms or timezone)
+  - 1348: .Jun 12 18:22:22: %SYS-5-CONFIG_I:
+  - 1348: .Jun 12 2019 18:22:22: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 18:22:22: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 2019 18:22:22: %SYS-5-CONFIG_I:
+
+  - 1348: .Jun 12 18:22:22.555: %SYS-5-CONFIG_I:
+  - 1348: .Jun 12 2019 18:22:22.555: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 18:22:22.555: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 2019 18:22:22.555: %SYS-5-CONFIG_I:
+
+  - 1348: .Jun 12 18:22:22 UTC: %SYS-5-CONFIG_I:
+  - 1348: .Jun 12 2019 18:22:22 UTC: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 18:22:22 UTC: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 2019 18:22:22 UTC: %SYS-5-CONFIG_I:
+
+  - 1348: .Jun 12 18:22:22.555 UTC: %SYS-5-CONFIG_I:
+  - 1348: .Jun 12 2019 18:22:22.555 UTC: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 18:22:22.555 UTC: %SYS-5-CONFIG_I:
+  - 1348: Jun 12 2019 18:22:22.555 UTC: %SYS-5-CONFIG_I:
+-->
+
+<decoder name="cisco-ios">
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+\s+\w+:\s+%</prematch>
+</decoder>
+
+<decoder name="cisco-ios">
+  <program_name />
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+\s+\w+:\s+%</prematch>
+</decoder>
+
+<!--
+  - message counter, origin-id, Date (preceded by * or . or nothing) and time (w/wo ms or timezone)
+  - 1348: HOSTNAME: .Jun 12 18:22:22: %SYS-5-CONFIG_I:
+  - 1348: HOSTNAME: Jun 12 18:22:22: %SYS-5-CONFIG_I:
+  - 1348: HOSTNAME: .Jun 12 18:22:22.555: %SYS-5-CONFIG_I:
+  - 1348: HOSTNAME: Jun 12 18:22:22.555: %SYS-5-CONFIG_I:
+  - 1348: HOSTNAME: .Jun 12 18:22:22 UTC: %SYS-5-CONFIG_I:
+  - 1348: HOSTNAME: Jun 12 18:22:22 UTC: %SYS-5-CONFIG_I:
+  - 1348: HOSTNAME: .Jun 12 18:22:22.555 UTC: %SYS-5-CONFIG_I:
+  - 1348: HOSTNAME: Jun 12 18:22:22.555 UTC: %SYS-5-CONFIG_I:
+-->
+
+<decoder name="cisco-ios">
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+\s+\w+:\s+%</prematch>
+</decoder>
+
+<decoder name="cisco-ios">
+  <program_name />
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+:\d+:\d+.\d+\s+\w+:\s+%|</prematch>
+  <prematch>^\d+:\s\.+:\s\p*\w+\s+\d*\s\d+\s\d+:\d+:\d+.\d+\s+\w+:\s+%</prematch>
+</decoder>
+
+<!-- Cisco IOS
+  - Will extract the action, srcip, srcport, dstip and dstport
+  - Samples:
+  -
+  - %SEC-6-IPACCESSLOGP: list 102 denied tcp 10.0.6.56(3067) -> 172.36.4.7(139), 1 packet
+  - %SEC-6-IPACCESSLOGP: list 199 denied tcp 10.0.61.108(1477) -> 10.0.127.20(445), 1 packet
+  -->
+
+<decoder name="cisco-ios-acl">
+  <parent>cisco-ios</parent>
+  <prematch>%SEC-6-IPACCESSLOGP: list \S+ \S+ \S+</prematch>
+  <regex>%(\w+)-(\d)-(\w+): list \S+ (\w+) (\w+) (\d+.\d+.\d+.\d+)\((\d+)\) \S+ \S+ -> (\d+.\d+.\d+.\d+)\((\d+)\),|</regex>
+  <regex>%(\w+)-(\d)-(\w+): list \S+ (\w+) (\w+) (\d+.\d+.\d+.\d+)\((\d+)\) -> (\d+.\d+.\d+.\d+)\((\d+)\),</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, action, protocol, srcip, srcport, dstip, dstport</order>
+</decoder>
+
+
+<!-- Cisco IOS IDS/IPS module
+  - Will extract the id, srcip, srcport, dstip and dstport
+  - Sep  1 10:25:29 10.10.10.1 %IPS-4-SIGNATURE: Sig:3051 Subsig:1 Sev:4 TCP Connection Window Size DoS [192.168.100.11:51654 -> 10.10.10.10:4444]
+  - Sep  1 10:25:29 10.10.10.1 %IPS-4-SIGNATURE: Sig:3051 Subsig:1 Sev:4 TCP Connection Window Size DoS [192.168.100.11:60797 -> 10.10.10.10:80]
+  - Sep  1 10:25:29 10.10.10.1 %IPS-4-SIGNATURE: Sig:5123 Subsig:2 Sev:5 WWW IIS Internet Printing Overflow [192.168.100.11:60797 -> 10.10.10.10:80]
+  -->
+<decoder name="cisco-ios-ids">
+  <parent>cisco-ios</parent>
+  <type>ids</type>
+  <prematch>%IPS-4-SIGNATURE: Sig:\d+ </prematch>
+  <regex>%(\w+)-(\d)-(\w+): Sig:(\d+) \.+[(\d+.\d+.\d+.\d+):(\d+) -> (\d+.\d+.\d+.\d+):(\d+)]</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, id, srcip, srcport, dstip, dstport</order>
+  <fts>name, id, srcip, dstip</fts>
+  <ftscomment>First time Cisco IOS IDS/IPS module rule fired.</ftscomment>
+</decoder>
+
+<!-- Cisco IOS config changed via console
+ - Mar  1 18:48:50 UTC: %SYS-5-CONFIG_I: Configured from console by vty2 (1.2.3.4)
+ - Mar  1 18:48:50 UTC: %SYS-5-CONFIG_I: Configured from console by johnsmith on vty2 (1.2.3.4)
+ -->
+
+<decoder name="cisco-ios-chcfg">
+  <parent>cisco-ios</parent>
+  <prematch>%SYS-5-CONFIG_I: Configured from console by \w+ \(</prematch>
+  <regex>%(\w+)-(\d)-(\w+): Configured from console by \w+ \((\d+.\d+.\d+.\d+)\)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, srcip</order>
+</decoder>
+
+<decoder name="cisco-ios-chcfg-user">
+  <parent>cisco-ios</parent>
+  <prematch>%SYS-5-CONFIG_I: Configured from console by \S+ on \w+ \(</prematch>
+  <regex>%(\w+)-(\d)-(\w+): Configured from console by (\S+) on \w+ \((\d+.\d+.\d+.\d+)\)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, srcuser, srcip</order>
+</decoder>
+
+<!--
+  - ADDED: Cisco NX-OS / IOS-XE authentication and user-administration decoders
+  - for %<facility>-<severity>-SYSTEM_MSG messages. Each prematch is specific
+  - enough that it does not collide with the classic IOS login/auth formats.
+-->
+
+<!--
+  - usermod: password change.
+  -   %AUTHPRIV-6-SYSTEM_MSG: change user 'jdoe.adm' password - usermod[5837]
+-->
+<decoder name="cisco-nxos-user-passwd">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: change user '\S+' password</prematch>
+  <regex>%(\w+)-(\d)-(\w+): change user '(\S+)' password</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser</order>
+</decoder>
+
+<!--
+  - usermod: account expiration change.
+  -   %AUTHPRIV-6-SYSTEM_MSG: change user 'jdoe.adm' expiration from '2026-06-27' to '2026-06-28' - usermod[11063]
+-->
+<decoder name="cisco-nxos-user-expiration">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: change user '\S+' expiration</prematch>
+  <regex>%(\w+)-(\d)-(\w+): change user '(\S+)' expiration from '(\S+)' to '(\S+)'</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser, cisco.old_expiration, cisco.new_expiration</order>
+</decoder>
+
+<!--
+  - usermod: user added to a role or group.
+  -   %AUTHPRIV-6-SYSTEM_MSG: add 'jdoe.adm' to group 'network-admin' - usermod[11063]
+-->
+<decoder name="cisco-nxos-user-addgroup">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: add '\S+' to group</prematch>
+  <regex>%(\w+)-(\d)-(\w+): add '(\S+)' to group '(\S+)'</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser, cisco.group</order>
+</decoder>
+
+<!--
+  - dcos_sshd: interactive login result. The username may be masked by the
+  - device, so it is captured with \S+ rather than a stricter pattern.
+  -   %AUTHPRIV-5-SYSTEM_MSG: Login failed for user **** - dcos_sshd[20522]
+-->
+<decoder name="cisco-nxos-login">
+  <parent>cisco-ios</parent>
+  <prematch>%\w+-\d-\w+: Login \w+ for user</prematch>
+  <regex>%(\w+)-(\d)-(\w+): Login (\w+) for user (\S+)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, login_status, dstuser</order>
+</decoder>
+
+<!--
+  - PAM via dcos_sshd: authentication failure for an unknown ("illegal") user,
+  - including the source address of the attempt.
+  -   %DAEMON-3-SYSTEM_MSG: error: PAM: Authentication failure for illegal user ***** from 198.51.100.191 - dcos_sshd[20518]
+-->
+<decoder name="cisco-nxos-pam-illegaluser">
+  <parent>cisco-ios</parent>
+  <prematch>Authentication failure for illegal user</prematch>
+  <regex>%(\w+)-(\d)-(\w+): \.+Authentication failure for illegal user (\S+) from (\d+.\d+.\d+.\d+)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, dstuser, srcip</order>
+</decoder>
+
+<!--
+  - pam_unix session open/close, as emitted by NX-OS.
+  -   %AUTHPRIV-6-SYSTEM_MSG: pam_unix(dcos_sshd:session): session closed for user jdoe.adm - dcos_sshd[11008]
+-->
+<decoder name="cisco-nxos-pam-session">
+  <parent>cisco-ios</parent>
+  <prematch>pam_unix\(\S+\): session \w+</prematch>
+  <regex>%(\w+)-(\d)-(\w+): \S+: session (\w+) for user (\S+)</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic, auth_status, srcuser</order>
+</decoder>
+
+<decoder name="cisco-ios-default">
+    <parent>cisco-ios</parent>
+    <regex>User \p(\w+)\p\.+vty0\p(\d+.\d+.\d+.\d+)\p</regex>
+    <order>user, srcip</order>
+</decoder>
+
+<decoder name="cisco-ios-default">
+    <parent>cisco-ios</parent>
+    <regex>Login Success \puser: (\.+)\p \pSource: (\d+.\d+.\d+.\d+)\p \plocalport: (\d+)\p</regex>
+    <order>user, srcip, srcport</order>
+</decoder>
+
+<decoder name="cisco-ios-default">
+    <parent>cisco-ios</parent>
+    <regex>connection from (\d+.\d+.\d+.\d+)</regex>
+    <order>srcip</order>
+</decoder>
+
+<decoder name="cisco-ios-default">
+    <parent>cisco-ios</parent>
+    <regex>server (\d+.\d+.\d+.\d+):(\d+),(\d+)</regex>
+    <order>srcip, srcport, dstport</order>
+</decoder>
+
+<!-- Cisco IOS
+  - Extracts the ID of cisco ios messages IF NOT IDS/ACL log.
+  -->
+
+<decoder name="cisco-ios-default">
+  <parent>cisco-ios</parent>
+  <regex>%(\w+)-(\d)-(\w+):</regex>
+  <order>cisco.facility, cisco.severity, cisco.mnemonic</order>
+</decoder>
+

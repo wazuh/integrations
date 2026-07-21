@@ -1,0 +1,2 @@
+Jul 10 11:04:18 192.0.2.1  : : %FTD-session-4-106023: Deny tcp src LAN-INT:192.0.2.124/65191 dst LAN-EXT:198.51.100.157/80 by access-group "CSM_FW_ACL_" [0x0, 0x0]
+Jul 10 11:09:19 192.0.2.1  : : %FTD-session-4-106023: Deny icmp src DMZ-INT:192.0.2.23 dst LAN-EXT:198.51.100.5 (type 8, code 0) by access-group "CSM_FW_ACL_" [0x0, 0x0]

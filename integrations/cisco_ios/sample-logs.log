@@ -1,0 +1,20 @@
+NEXUS-SW-01: 2026 Jun 26 07:34:55 UTC: %AUTHPRIV-6-SYSTEM_MSG: change user 'jdoe.adm' password - usermod[5837]
+NEXUS-SW-01: 2026 Jun 26 06:52:41 UTC: %AUTHPRIV-6-SYSTEM_MSG: pam_unix(dcos_sshd:session): session closed for user jdoe.adm - dcos_sshd[11008]
+NEXUS-SW-01: 2026 Jun 26 06:47:39 UTC: %AUTHPRIV-6-SYSTEM_MSG: change user 'jdoe.adm' expiration from '2026-06-27' to '2026-06-28' - usermod[11063]
+NEXUS-SW-01: 2026 Jun 26 06:47:39 UTC: %AUTHPRIV-6-SYSTEM_MSG: add 'jdoe.adm' to group 'network-admin' - usermod[11063]
+NEXUS-SW-01: 2026 Jun 26 08:00:15 UTC: %AUTHPRIV-5-SYSTEM_MSG: Login failed for user **** - dcos_sshd[20522]
+NEXUS-SW-01: 2026 Jun 26 08:00:15 UTC: %DAEMON-3-SYSTEM_MSG: error: PAM: Authentication failure for illegal user ***** from 198.51.100.191 - dcos_sshd[20518]
+
+Jul 15 15:25:30: %TTY-5-LOGIN: user1, vty0(192.0.2.10), User (user1) logout from vty0(192.0.2.10) successfully
+
+Jul 15 15:26:00: %TTY-5-LOGIN: user1, vty0(192.0.2.10), User (user1) login from vty0(192.0.2.10) successfully
+
+Jul 15 15:20:28: %LINK-5-CHANGED: Interface TenGigabitEthernet 2/0/14, changed state to administratively down.
+
+695334: Jul 14 21:16:59.101: %SEC_LOGIN-5-LOGIN_SUCCESS: Login Success [user: user2] [Source: 192.0.2.11] [localport: 22] at 18:16:59 utc Tue Jul 14 2026
+
+146375: .Jul 14 21:13:10.077: %SSH-4-SSH2_UNEXPECTED_MSG: Unexpected message type has arrived. Terminating the connection from 192.0.2.11
+
+15128: .Jul 13 00:43:58.138: %RADIUS-4-RADIUS_ALIVE: RADIUS server 192.0.2.30:1645,1646 is being marked alive.
+
+15127: .Jul 13 00:43:58.129: %RADIUS-4-RADIUS_DEAD: RADIUS server 192.0.2.30:1645,1646 is not responding.
