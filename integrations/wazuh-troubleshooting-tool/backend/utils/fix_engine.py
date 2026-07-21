@@ -241,7 +241,7 @@ class FixEngine:
             f"wazuh-passwords-tool.sh -u kibanaserver -p '{password}'"
         )
         cmd2 = (
-            f"echo {password} | "
+            f"printf '%s' '{password}' | "
             "/usr/share/wazuh-dashboard/bin/opensearch-dashboards-keystore "
             "--allow-root add -f --stdin opensearch.password"
         )

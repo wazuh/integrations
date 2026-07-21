@@ -225,7 +225,7 @@ def run_copilot(
         system_content = (
             base_prompt + 
             f"\n\n=== Official Wazuh Cloud Service Documentation ===\n{doc_context}\n=================================================\n\n"
-            "Instructions: Greet the user as @4Ø4S0υł. Use the above official documentation to answer their question. "
+            "Instructions: Use the above official documentation to answer their question. "
             "Explain that Wazuh Cloud trial credentials (username/password) are sent in a welcome email once provisioned, "
             "or can be retrieved in the Environments console. Provide links if relevant."
         )

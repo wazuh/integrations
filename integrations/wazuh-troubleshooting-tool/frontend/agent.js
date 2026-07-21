@@ -32,8 +32,15 @@ function agentAvatarSvg() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function renderMarkdown(text) {
+    // Escape the raw text FIRST, then apply markdown formatting on the
+    // escaped string — otherwise a compromised backend response or a
+    // prompt-injected tool result could inject live HTML/JS via innerHTML.
+    // None of the regexes below match &<>"', so escaping first doesn't
+    // change how any of them match.
+    text = escapeHtml(text);
+
     text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-        const langLabel = lang ? `<span class="copilot-code-lang">${escapeHtml(lang)}</span>` : "";
+        const langLabel = lang ? `<span class="copilot-code-lang">${lang}</span>` : "";
         return `<div class="copilot-code-block">
             <div class="copilot-code-header">${langLabel}
                 <button class="copilot-copy-btn" onclick="agentCopyCode(this)" title="Copy">
@@ -41,7 +48,7 @@ function renderMarkdown(text) {
                     Copy
                 </button>
             </div>
-            <pre><code>${escapeHtml(code.trim())}</code></pre>
+            <pre><code>${code.trim()}</code></pre>
         </div>`;
     });
 

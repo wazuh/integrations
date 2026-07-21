@@ -7,6 +7,8 @@ from config import (
     INDEXER_URL,
     OLLAMA_URL,
     OLLAMA_MODEL,
+    SERVER_HOST,
+    FRONTEND_PORT,
 )
 from wazuh_api import get_token
 from fastapi import FastAPI
@@ -20,10 +22,19 @@ from utils import wizard_history
 import uuid
 app = FastAPI()
 
+# Only the frontend origin(s) need to call this API — never "*", and never
+# combined with allow_credentials (invalid per the CORS spec, and this app
+# doesn't use cookie-based auth anyway).
+ALLOWED_ORIGINS = [
+    f"http://{SERVER_HOST}:{FRONTEND_PORT}",
+    f"http://localhost:{FRONTEND_PORT}",
+    f"http://127.0.0.1:{FRONTEND_PORT}",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -53,26 +64,44 @@ def check():
     dashboard = run("systemctl is-active wazuh-dashboard")
 
     # ---------------------------
-    # API (uses config.py)
+    # API (uses config.py) — via get_token()/requests, not a shelled curl
+    # (curl -u embeds the password in the process list and is injectable)
     # ---------------------------
-    token = run(
-        f"curl -k -u {API_USERNAME}:{API_PASSWORD} "
-        f"-X POST '{WAZUH_API_URL}/security/user/authenticate?raw=true'"
-    )
+    token = get_token()
+    if token:
+        try:
+            api_response = requests.get(
+                f"{WAZUH_API_URL}/",
+                headers={"Authorization": f"Bearer {token}"},
+                verify=False,
+                timeout=5,
+            ).text
+        except requests.RequestException as e:
+            api_response = str(e)
+    else:
+        api_response = "error"
 
-    api_response = run(
-        f"curl -k -H 'Authorization: Bearer {token}' {WAZUH_API_URL}"
-    )
-
-    api_status = "ok" if "error" not in api_response.lower() else "error"
+    # Wazuh API success responses always include a JSON "error": 0 field, so
+    # a naive substring check on api_response flags every successful call as
+    # an error. Parse it properly; fall back to the substring heuristic only
+    # for non-JSON failure text (e.g. a connection error message).
+    try:
+        api_status = "ok" if json.loads(api_response).get("error") == 0 else "error"
+    except (ValueError, AttributeError):
+        api_status = "ok" if "error" not in api_response.lower() else "error"
 
     # ---------------------------
-    # Cluster (LOCALHOST)
+    # Cluster (LOCALHOST) — same reasoning as above, use requests directly
     # ---------------------------
-    cluster_raw = run(
-        f"curl -s -k -u {INDEXER_USERNAME}:'{INDEXER_PASSWORD}' {INDEXER_URL}/_cluster/health"
-    )
-    print("DEBUG CLUSTER RAW:", cluster_raw)  # 👈 ADD THIS
+    try:
+        cluster_raw = requests.get(
+            f"{INDEXER_URL}/_cluster/health",
+            auth=(INDEXER_USERNAME, INDEXER_PASSWORD),
+            verify=False,
+            timeout=5,
+        ).text
+    except requests.RequestException:
+        cluster_raw = ""
     try:
         cluster_json = json.loads(cluster_raw)
 
@@ -260,30 +289,11 @@ def assistant_history_download(run_id: str):
         headers={"Content-Disposition": f'attachment; filename="wazuh-troubleshooting-{run_id}.txt"'},
     )
 
-@app.get("/run")
-def run_command(cmd: str = ""):
-    output = run(cmd)
-    return {"output": output}
-
 # ─────────────────────────────────────────────────────────────────────────────
-# WAZUH COPILOT ROUTES
 # The chat UI itself now lives entirely under /agent/* (agent_engine.py) —
-# it's a strict superset of what this used to do (falls back to a plain
-# answer when it has nothing to call, same as the old copilot). logtest
-# is unrelated to chat and stays here.
+# it's a strict superset of what the old Copilot chat used to do (falls back
+# to a plain answer when it has nothing to call).
 # ─────────────────────────────────────────────────────────────────────────────
-
-@app.post("/copilot/logtest")
-def copilot_logtest(payload: dict):
-    """
-    Run a log line through wazuh-logtest on the server and return the output.
-    Payload: { "log_line": "raw log string" }
-    """
-    log_line = payload.get("log_line", "").strip()
-    if not log_line:
-        return {"output": "", "error": "No log_line provided."}
-    result = run_logtest(log_line)
-    return result
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WAZUH AGENT ROUTES — autonomous, tool-calling troubleshooting

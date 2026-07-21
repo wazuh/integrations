@@ -74,17 +74,6 @@ USE_CASES = [
         "handler": "indexing_error"
     },
     {
-        "name": "Missing API Username",
-        "phrases": [
-            "could not connect to api - missing api username",
-            "missing api username",
-            "api username error",
-            "api connectivity issues",
-            "could not connect to api"
-        ],
-        "handler": "api_error"
-    },
-    {
         "name": "Cluster Health Issues",
         "phrases": [
             "cluster health issues",
@@ -147,9 +136,6 @@ def run_use_cases(user_input, context):
         elif handler == "indexing_error":
             from .indexing_error import indexing_error_flow
             return indexing_error_flow(user_input, context)
-        elif handler == "api_error":
-            from .api_error import api_error_flow
-            return api_error_flow(user_input, context)
         elif handler == "no_alerts_are_showing":
             from .no_alerts_are_showing import no_alerts_are_showing_flow
             return no_alerts_are_showing_flow(user_input, context)
@@ -182,9 +168,6 @@ def run_use_cases(user_input, context):
         elif handler == "indexing_error":
             from .indexing_error import indexing_error_flow
             result = indexing_error_flow(None, {})
-        elif handler == "api_error":
-            from .api_error import api_error_flow
-            result = api_error_flow(None, {})
         elif handler == "no_alerts_are_showing":
             from .no_alerts_are_showing import no_alerts_are_showing_flow
             result = no_alerts_are_showing_flow(None, {})

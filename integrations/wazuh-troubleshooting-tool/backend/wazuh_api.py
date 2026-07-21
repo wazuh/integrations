@@ -10,11 +10,12 @@ def get_token():
         res = requests.post(
             url,
             auth=(API_USERNAME, API_PASSWORD),
-            verify=False
+            verify=False,
+            timeout=5,
         )
 
         return res.text.strip()
-    except:
+    except requests.RequestException:
         return None
 
 
@@ -30,9 +31,10 @@ def check_api():
         res = requests.get(
             f"{WAZUH_API_URL}/",
             headers=headers,
-            verify=False
+            verify=False,
+            timeout=5,
         )
 
         return res.text
-    except:
+    except requests.RequestException:
         return "API CONNECTION FAILED"

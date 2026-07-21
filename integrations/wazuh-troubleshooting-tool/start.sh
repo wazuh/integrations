@@ -1,5 +1,5 @@
 #!/bin/bash
-BASE="/home/vagrant/wazuh-troubleshooting_backup/wazuh-troubleshooting-tool"
+BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Extract server config using python safely
 HOST=$(python3 -c '
@@ -7,9 +7,9 @@ import yaml
 try:
     with open("'$BASE'/config") as f:
         config = yaml.safe_load(f)
-    print(config.get("server", {}).get("host", "192.168.56.57"))
+    print(config.get("server", {}).get("host", "localhost"))
 except:
-    print("192.168.56.57")
+    print("localhost")
 ')
 
 B_PORT=$(python3 -c '
@@ -38,13 +38,13 @@ pkill -f http.server || true
 pkill -f "python3 app.py" || true
 sleep 2
 
-echo "Starting backend on port $B_PORT..."
+echo "Starting backend on $HOST:$B_PORT..."
 cd $BASE/backend || exit
-uvicorn main:app --host 0.0.0.0 --port $B_PORT --reload &
+uvicorn main:app --host $HOST --port $B_PORT --reload &
 
-echo "Starting frontend on port $F_PORT..."
+echo "Starting frontend on $HOST:$F_PORT..."
 cd $BASE/frontend || exit
-python3 -m http.server $F_PORT &
+python3 -m http.server $F_PORT --bind $HOST &
 
 echo "-----------------------------------"
 echo "UI: http://$HOST:$F_PORT"

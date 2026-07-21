@@ -52,6 +52,10 @@ OLLAMA_MODEL = _cfg.get("ollama", {}).get("model", "qwen3:1.7b")
 ANTHROPIC_API_KEY = _cfg.get("anthropic", {}).get("api_key", "")
 ANTHROPIC_MODEL   = _cfg.get("anthropic", {}).get("model", "claude-sonnet-5")
 
+# ── Server (used to build the CORS allowlist — see main.py) ─────────────────
+SERVER_HOST   = _cfg.get("server", {}).get("host", "localhost")
+FRONTEND_PORT = _cfg.get("server", {}).get("frontend_port", "3000")
+
 if not API_PASSWORD or not INDEXER_PASSWORD or not KIBANA_PASSWORD:
     import sys
     print(f"CRITICAL ERROR: Required credentials missing in configuration file at {CONFIG_PATH}", file=sys.stderr)
