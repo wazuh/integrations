@@ -233,7 +233,40 @@ The **History** sidebar view shows your last 30 sessions, stored in browser `loc
 
 ## Quick Start
 
-### 1. Set Up Python Environment
+### Prerequisites
+
+- `git` and OpenSSL installed
+- Python 3.9 or later
+- On Linux, `sudo` access to install system packages
+
+### 1. Install Python 3.9 or later
+
+On Ubuntu or Debian:
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip
+python3 --version
+```
+
+### 2. Install Ollama
+
+On macOS or Windows, download the installer from [ollama.com/download](https://ollama.com/download). On Linux, run:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+> Ollama is the default (local, no rate limits) AI provider. To use DashScope or OpenRouter instead, skip this step and see [AI Provider Configuration](#ai-provider-configuration).
+
+### 3. Clone the Repository
+
+```bash
+git clone https://github.com/wazuh/integrations.git
+cd integrations/integrations/wazuh_decoder_rule_tool
+```
+
+### 4. Set Up the Python Environment
 
 ```bash
 python3 -m venv .venv
@@ -241,7 +274,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Generate SSL Certificates
+### 5. Generate SSL Certificates
 
 The app runs over HTTPS. Generate a self-signed certificate for local use:
 
@@ -255,32 +288,35 @@ openssl req -x509 -newkey rsa:4096 \
 
 > **Note:** `certs/` is in `.gitignore` — your private keys will never be committed.
 
-### 3. (Optional) Set Up the Ollama AI Model
+### 6. Create the Ollama Model
 
-The app uses a custom Ollama model called `wazuh-decoder` built on top of `qwen2.5:7b`. It has Wazuh OS_Regex rules baked into its system prompt.
+The app uses a custom Ollama model called `wazuh-decoder` built on top of `qwen2.5:7b`. It has Wazuh OS_Regex rules baked into its system prompt. The repository includes the `Modelfile`:
 
 ```bash
-# Install Ollama: https://ollama.com
 ollama create wazuh-decoder -f Modelfile
 ```
 
-Then set environment variables before starting:
+Then set the required environment variables:
 
 ```bash
 export OLLAMA_BASE_URL=http://localhost:11434
 export OLLAMA_MODEL=wazuh-decoder
 ```
 
-### 4. Start the Application
+### 7. Start the Application
 
 ```bash
-.venv/bin/uvicorn app.main:app \
+uvicorn app.main:app \
   --host 0.0.0.0 --port 8443 \
   --ssl-certfile certs/localhost.crt \
   --ssl-keyfile certs/localhost.key
 ```
 
-Open **`https://localhost:8443`** in your browser.
+> If you did not activate the virtual environment (step 4), call the binary directly with `.venv/bin/uvicorn` instead of `uvicorn`.
+
+### 8. Open the UI
+
+Open **`https://<NodeIP>:8443`** in your browser, replacing `<NodeIP>` with the IP address of the machine running the Wazuh Decoder and Rule Creator (use `localhost` if it runs on your own machine).
 
 > On first startup, the RAG vector store is built automatically in the background (~1–2 min). The app is fully usable while it builds.
 
