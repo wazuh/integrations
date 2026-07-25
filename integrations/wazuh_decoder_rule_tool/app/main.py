@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
@@ -296,22 +297,20 @@ def infer_log_type(logs: List[str]) -> str:
 
 
 def infer_program_name(logs: List[str], fallback: str) -> str:
-    syslog_prog = re.compile(r"^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\s+\S+\s+([\w.-]+)(?:\[\d+\])?:")
     for line in logs:
-        m = syslog_prog.match(line)
-        if m:
-            return m.group(1)
+        program = parse_phase1_predecode(line).get("program_name")
+        if program:
+            return program
     return sanitize_name(fallback)
 
 
 def extract_program_from_log(logs: List[str]) -> Optional[str]:
-    syslog_prog = re.compile(r"^[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}\s+\S+\s+([\w.-]+)(?:\[\d+\])?:")
     bracket_prog = re.compile(r"^\[[^\]]+\]\s+([\w.-]+)\s+-")
     java_prog = re.compile(r"^\d{2,4}[/-]\d{2}[/-]\d{2}\s+\d{2}:\d{2}:\d{2}\s+[A-Z]+\s+([\w.$-]+):")
     for line in logs:
-        m1 = syslog_prog.match(line)
-        if m1:
-            return m1.group(1)
+        program = parse_phase1_predecode(line).get("program_name")
+        if program:
+            return program
         m2 = bracket_prog.match(line.strip())
         if m2:
             return m2.group(1)
@@ -353,6 +352,35 @@ def prematch_from_current_logs(logs: List[str], *candidates: Optional[str]) -> O
     return None
 
 
+_DIGIT_RUN_MARKER = "\x00"
+
+
+def _generalize_with_digit_runs(text: str) -> str:
+    """Like generalize_regex_literal, but also turns bare digit runs (years, IP
+    octets, ports, pids not already inside brackets) into \\d+ instead of
+    leaving them as literal digits. Scoped to prematch generation only —
+    generalize_regex_literal's other callers (child regex/order building) are
+    intentionally left untouched.
+    """
+    marked = re.sub(r"\d+", _DIGIT_RUN_MARKER, text)
+    escaped = generalize_regex_literal(marked)
+    return escaped.replace(_DIGIT_RUN_MARKER, r"\d+")
+
+
+def default_prematch_boundary(text: str) -> str:
+    """Bound a prematch candidate at the end of the syslog-style header
+    (program[pid]: or program:) so we don't drag the entire log body into the
+    prematch when no earlier candidate matched."""
+    m = re.match(r"^(.{0,120}?\[\d+\]:\s*)", text)
+    if m:
+        return m.group(1)
+    m = re.match(r"^(\S+(?:\s+\S+){0,5}:\s*)", text)
+    if m:
+        return m.group(1)
+    tokens = text.split()
+    return " ".join(tokens[:6])
+
+
 def generalize_prefix_literal(prefix: str) -> str:
     # Check for bracketed timestamp at start
     # [2026-05-19 05:52:24 +0200] or [2026/05/19 05:52:24 +0200]
@@ -361,7 +389,7 @@ def generalize_prefix_literal(prefix: str) -> str:
         sep = re.escape(m1.group(2))
         ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+ \S+]'
         rest = m1.group(3)
-        return ts_part + generalize_regex_literal(rest)
+        return ts_part + _generalize_with_digit_runs(rest)
 
     # [2026-05-19 05:52:24]
     m2 = re.match(r'^(\[\d{4}([-/])\d{2}\2\d{2}\s+\d{2}:\d{2}:\d{2}\])(.*)$', prefix)
@@ -369,7 +397,7 @@ def generalize_prefix_literal(prefix: str) -> str:
         sep = re.escape(m2.group(2))
         ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+]'
         rest = m2.group(3)
-        return ts_part + generalize_regex_literal(rest)
+        return ts_part + _generalize_with_digit_runs(rest)
 
     # [2026-05-19T05:52:24.123Z]
     m3 = re.match(r'^(\[\d{4}([-/])\d{2}\2\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\])(.*)$', prefix)
@@ -377,7 +405,7 @@ def generalize_prefix_literal(prefix: str) -> str:
         sep = re.escape(m3.group(2))
         ts_part = rf'\d+{sep}\d+{sep}\d+T\d+\p\d+\p\d+\S+]'
         rest = m3.group(3)
-        return ts_part + generalize_regex_literal(rest)
+        return ts_part + _generalize_with_digit_runs(rest)
 
     # 2026-05-19 05:52:24 +0200
     m4 = re.match(r'^(\d{4}([-/])\d{2}\2\d{2}\s+\d{2}:\d{2}:\d{2}\s+[-+]\d{4})(.*)$', prefix)
@@ -385,7 +413,7 @@ def generalize_prefix_literal(prefix: str) -> str:
         sep = re.escape(m4.group(2))
         ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+ \S+'
         rest = m4.group(3)
-        return ts_part + generalize_regex_literal(rest)
+        return ts_part + _generalize_with_digit_runs(rest)
 
     # 2026-05-19 05:52:24
     m5 = re.match(r'^(\d{4}([-/])\d{2}\2\d{2}\s+\d{2}:\d{2}:\d{2})(.*)$', prefix)
@@ -393,22 +421,27 @@ def generalize_prefix_literal(prefix: str) -> str:
         sep = re.escape(m5.group(2))
         ts_part = rf'\d+{sep}\d+{sep}\d+ \d+\p\d+\p\d+'
         rest = m5.group(3)
-        return ts_part + generalize_regex_literal(rest)
+        return ts_part + _generalize_with_digit_runs(rest)
 
     # Dec 25 20:45:02
     m6 = re.match(r'^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})(.*)$', prefix)
     if m6:
         ts_part = r'\S+ \d+ \d+\p\d+\p\d+'
         rest = m6.group(2)
-        return ts_part + generalize_regex_literal(rest)
+        return ts_part + _generalize_with_digit_runs(rest)
 
-    return generalize_regex_literal(prefix)
+    return _generalize_with_digit_runs(prefix)
 
 
 def prematch_osregex_from_current_logs(logs: List[str], *candidates: Optional[str]) -> Optional[str]:
     matched = prematch_from_current_logs(logs, *candidates)
     if not matched:
-        return None
+        first_log = first_non_empty(logs)
+        if not first_log:
+            return None
+        boundary = default_prematch_boundary(first_log)
+        generalized = generalize_prefix_literal(boundary)
+        return f"^{generalized}" if generalized else None
     if matched.startswith(r'\p') or matched.startswith('^') or re.search(r'\\[spd]', matched):
         return matched if matched.startswith('^') else f'^{matched}'
 
@@ -836,11 +869,11 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                     capture_group = r"(\d+)"
                 
             prefix_candidate = target_text[:start]
-            # Try to grab the last two preceding words/tokens and any attached punctuation for high specificity
-            m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*[A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
-            if not m_prefix:
-                # Fall back to a single word/token if there aren't two
-                m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
+            # Grab just the single preceding word/token (plus attached punctuation)
+            # as anchor context. A wider multi-token grab risks pulling in an
+            # unrelated neighboring value (e.g. another field's MAC/IP) and
+            # producing a confusing, hard-to-read regex.
+            m_prefix = re.search(r'([A-Za-z0-9_.:-]+[\s]*[^A-Za-z0-9\s]*\s*)$', prefix_candidate)
             if m_prefix:
                 prefix_text = m_prefix.group(1)
             else:
@@ -1535,20 +1568,73 @@ def select_ml_decoder_template(
     return selected
 
 
+_SYSLOG_TIMESTAMP_RE = re.compile(r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+(?P<rest>\S.*)$")
+_SYSLOG_PROGRAM_RE = re.compile(r"^(?P<program>[\w.-]+)(?:\[\d+\])?:\s*(?P<body>.*)$")
+# How many extra whitespace-separated tokens (beyond a single hostname) we'll
+# tolerate between the timestamp and the "program[pid]:" marker. Real-world
+# vendors sometimes wedge extra fields in there (e.g. a bare year, an IP
+# address) that the classic 3-field BSD syslog shape doesn't account for.
+_SYSLOG_MAX_HOSTNAME_TOKENS = 3
+
+
 def parse_phase1_predecode(log_line: str) -> Dict[str, str]:
+    """Best-effort local approximation of Wazuh's Phase 1 pre-decoding.
+
+    Handles common syslog style: Dec 25 20:45:02 host program[pid]: message
+    Only ever strips a timestamp + hostname + program marker it can actually
+    identify — if nothing matches, returns {} rather than guessing, so callers
+    must not treat a missing "body" as "safe to use the raw log instead" (the
+    raw log still has the header in it).
+    """
     data: Dict[str, str] = {}
-    # Handles common syslog style: Dec 25 20:45:02 host program[pid]: message
-    syslog_re = re.compile(
-        r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+(?P<hostname>\S+)\s+(?P<program>[\w.-]+)(?:\[\d+\])?:\s*(?P<body>.*)$"
-    )
-    m = syslog_re.match(log_line.strip())
-    if not m:
+    line = log_line.strip()
+
+    ts_match = _SYSLOG_TIMESTAMP_RE.match(line)
+    if not ts_match:
         return data
-    data["timestamp"] = m.group("timestamp")
-    data["hostname"] = m.group("hostname")
-    data["program_name"] = m.group("program")
-    data["body"] = m.group("body")
+    data["timestamp"] = ts_match.group("timestamp")
+    rest = ts_match.group("rest")
+
+    tokens = rest.split(" ")
+    for token_count in range(1, min(len(tokens), _SYSLOG_MAX_HOSTNAME_TOKENS) + 1):
+        hostname_candidate = " ".join(tokens[:token_count])
+        remainder = " ".join(tokens[token_count:])
+        prog_match = _SYSLOG_PROGRAM_RE.match(remainder)
+        if prog_match:
+            data["hostname"] = hostname_candidate
+            data["program_name"] = prog_match.group("program")
+            data["body"] = prog_match.group("body")
+            return data
+
     return data
+
+
+def postpredecode_remainder(
+    raw_log: str,
+    predecoded_timestamp: Optional[str],
+    predecoded_hostname: Optional[str],
+) -> Optional[str]:
+    """What Phase 2 decoders actually see once Wazuh's real Phase 1 pre-decoding
+    (per wazuh-logtest) has consumed the timestamp and, if matched, the hostname
+    token — even when it failed to extract a program_name.
+
+    A custom parent decoder's <prematch> must match against THIS remainder, not
+    the original raw log, or it will never fire once Wazuh strips the header.
+    Returns None when nothing was pre-decoded (timestamp not found), signalling
+    callers to fall back to generalizing from the start of the raw log instead.
+    """
+    if not predecoded_timestamp:
+        return None
+    idx = raw_log.find(predecoded_timestamp)
+    if idx < 0:
+        return None
+    end = idx + len(predecoded_timestamp)
+    if predecoded_hostname:
+        host_match = re.match(r"\s+" + re.escape(predecoded_hostname) + r"(?=\s|$)", raw_log[end:])
+        if host_match:
+            end += host_match.end()
+    remainder = raw_log[end:].lstrip()
+    return remainder or None
 
 
 def clean_rule_description(text: str) -> str:
@@ -2677,6 +2763,14 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
     parsed_entries = logtest_scan["parsed_entries"]
     first_parsed = parsed_entries[0] if parsed_entries else {}
     predecoded_program = first_parsed.get("program_name")
+    predecoded_timestamp = first_parsed.get("predecoded_timestamp")
+    predecoded_hostname = first_parsed.get("predecoded_hostname")
+    # What Wazuh's real Phase 1 (per wazuh-logtest, not our local heuristic) leaves
+    # for Phase 2 to see, when it consumed a timestamp/hostname but no program_name.
+    postdecode_remainder = (
+        None if predecoded_program
+        else postpredecode_remainder(first_non_empty(raw_logs), predecoded_timestamp, predecoded_hostname)
+    )
     prematch_seed = predecoded_program or extracted_program or ""
     prematch = choose_prematch(raw_logs, app_name, predecoded_program=predecoded_program)
     predecoded = parse_phase1_predecode(first_non_empty(raw_logs))
@@ -2731,6 +2825,9 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
         "program_name": program_name,
         "extracted_program_name": extracted_program,
         "predecoded_program_name": predecoded_program,
+        "predecoded_timestamp": predecoded_timestamp,
+        "predecoded_hostname": predecoded_hostname,
+        "postdecode_remainder": postdecode_remainder,
         "prematch": prematch,
         "unique_after_predecoded": unique_after_predecoded,
         "token_source": token_source,
@@ -4039,18 +4136,48 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
             "DO NOT use <prematch> in the parent decoder, because the header is no longer there to be matched!"
         )
     else:
-        token_source = analysis.get("token_source")
-        logs_to_use = [token_source] if token_source else [s.raw_log for s in request.logs]
-        parent_prematch = prematch_osregex_from_current_logs(
-            logs_to_use,
-            extracted_program,
-            analysis.get("unique_after_predecoded"),
-            analysis.get("prematch"),
-        )
-        if parent_prematch:
-            parent_strategy = f"\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder. Do NOT invent a different prematch."
+        postdecode_remainder = analysis.get("postdecode_remainder")
+        if postdecode_remainder:
+            # Wazuh's real Phase 1 (per wazuh-logtest) consumed a timestamp — and
+            # maybe a hostname token — but never found a program_name. Phase 2
+            # only ever sees what's left over, so the prematch MUST be anchored
+            # there, not at the original start of the log.
+            boundary = default_prematch_boundary(postdecode_remainder)
+            generalized = generalize_prefix_literal(boundary)
+            parent_prematch = f"^{generalized}" if generalized else None
+            consumed_desc = f"timestamp ('{analysis.get('predecoded_timestamp')}')"
+            if analysis.get("predecoded_hostname"):
+                consumed_desc += f" and hostname ('{analysis.get('predecoded_hostname')}')"
+            if parent_prematch:
+                parent_strategy = (
+                    f"\n\nCRITICAL: Wazuh Phase 1 pre-decoding consumed the {consumed_desc} but found NO program_name. "
+                    f"Phase 2 decoders therefore only ever see the log starting AFTER that point: "
+                    f"'{postdecode_remainder[:80]}'. "
+                    f"You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder — written to match "
+                    "starting from THAT remainder. Do NOT include the timestamp or hostname in the prematch; Wazuh "
+                    "has already stripped them before Phase 2 runs, so a prematch anchored at the original log start "
+                    "will never fire."
+                )
+            else:
+                parent_strategy = (
+                    f"\n\nWazuh Phase 1 pre-decoding consumed the {consumed_desc} but found NO program_name. "
+                    f"Phase 2 decoders only ever see the log starting AFTER that point: '{postdecode_remainder}'. "
+                    "You MUST write <prematch> to match starting from THAT remainder, not from the original "
+                    "timestamp/hostname — those are already stripped before Phase 2 runs."
+                )
         else:
-            parent_strategy = "\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch> for the parent decoder instead of <program_name> based on the log's prefix."
+            token_source = analysis.get("token_source")
+            logs_to_use = [token_source] if token_source else [s.raw_log for s in request.logs]
+            parent_prematch = prematch_osregex_from_current_logs(
+                logs_to_use,
+                extracted_program,
+                analysis.get("unique_after_predecoded"),
+                analysis.get("prematch"),
+            )
+            if parent_prematch:
+                parent_strategy = f"\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch>{parent_prematch}</prematch> for the parent decoder. Do NOT invent a different prematch."
+            else:
+                parent_strategy = "\n\nNo program name pre-decoded by Wazuh. You MUST use <prematch> for the parent decoder instead of <program_name> based on the log's prefix."
 
     logtest_summary = analysis.get("wazuh_logtest_summary", {})
     logtest_decoded = analysis.get("logtest_decoded_fields", {})
@@ -4111,6 +4238,9 @@ def _build_ai_prompt(request: AIGenerateRequest, analysis: Dict[str, Any]) -> st
 
     decoder_rules_list = [
         "- Parent: MUST use <prematch> UNLESS Wazuh explicitly predecoded a program_name. Do NOT guess program_name.",
+        "- NEVER hardcode a literal month/day/year/timestamp value (e.g. <prematch>^Jul</prematch>) from the sample "
+        "log into a regex or prematch — generalize it (\\S+ for month names, \\d+ for numeric date/time parts) or it "
+        "will only ever match logs from that exact date.",
     ]
     if getattr(request, 'split_decoders', False):
         decoder_rules_list.append("- Child: YOU MUST SPLIT CHILD DECODERS. Create a SEPARATE child decoder block for EVERY SINGLE field you extract. Each child decoder should have <parent>, a specific <regex> for just that field, and an <order> containing ONLY that single field name. All children share the same decoder name.")
@@ -4194,11 +4324,11 @@ async def _stream_ai(prompt: str, model: str, temperature: float) -> AsyncIterat
                                 await asyncio.sleep(backoff)
                                 continue
                             else:
-                                yield f"ERROR 429: Rate limit exceeded after {max_retries} retries. Try again later.".encode()
+                                yield f"ERROR: 429 Rate limit exceeded after {max_retries} retries. Try again later.".encode()
                                 return
                         if response.status_code != 200:
                             body = await response.aread()
-                            yield f"ERROR {response.status_code}: {body.decode()}".encode()
+                            yield f"ERROR: HTTP {response.status_code} from AI provider: {body.decode()}".encode()
                             return
                         async for line in response.aiter_lines():
                             if not line.startswith("data: "):
@@ -4666,6 +4796,30 @@ def _sanitize_rule_xml_static_fields(rule_xml: str) -> str:
     return sanitized
 
 
+def _xml_wellformed_error(xml_text: str) -> Optional[str]:
+    """Reject obviously-broken XML before wasting an install+logtest round trip on
+    it, and name the exact parse error so the fix-it retry knows what to change."""
+    if not xml_text or not xml_text.strip():
+        return None
+    try:
+        ET.fromstring(f"<root>\n{xml_text}\n</root>")
+    except ET.ParseError as exc:
+        return f"malformed XML — {exc}"
+    return None
+
+
+_LOGTEST_ERROR_LINE_RE = re.compile(r"^.*\b(?:error|invalid|fatal)\b.*$", re.IGNORECASE | re.MULTILINE)
+
+
+def _extract_logtest_errors(stdout: str, stderr: str) -> List[str]:
+    """Pull out the wazuh-logtest lines that actually explain a decoder/rule
+    load failure (OS_Regex compile errors, XML config errors, etc.) so they can
+    be handed back verbatim instead of a generic 'didn't match' message."""
+    combined = "\n".join(part for part in [stdout, stderr] if part)
+    lines = {m.strip() for m in _LOGTEST_ERROR_LINE_RE.findall(combined) if m.strip()}
+    return sorted(lines)[:5]
+
+
 def _validate_ai_decoder_with_logtest(
     decoder_xml: str,
     rule_xml: str,
@@ -4678,6 +4832,13 @@ def _validate_ai_decoder_with_logtest(
         return {"validated": False, "reason": "no decoder XML to validate"}
     if not find_wazuh_logtest():
         return {"validated": False, "reason": "wazuh-logtest unavailable"}
+
+    decoder_xml_error = _xml_wellformed_error(decoder_xml)
+    if decoder_xml_error:
+        return {"validated": False, "reason": f"decoder XML {decoder_xml_error}", "logtest_errors": [decoder_xml_error]}
+    rule_xml_error = _xml_wellformed_error(rule_xml) if rule_xml else None
+    if rule_xml_error:
+        return {"validated": False, "reason": f"rule XML {rule_xml_error}", "logtest_errors": [rule_xml_error]}
 
     stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     safe_name = sanitize_name(app_name)
@@ -4700,6 +4861,7 @@ def _validate_ai_decoder_with_logtest(
     try:
         results = []
         all_matched = True
+        logtest_errors: List[str] = []
         for sample in logs:
             output = run_wazuh_logtest(sample.raw_log)
             parsed = parse_logtest_output(combined_logtest_output(output)) if output["available"] else {}
@@ -4707,21 +4869,54 @@ def _validate_ai_decoder_with_logtest(
             matched = bool(decoder_name and decoder_name != "unknown")
             if not matched:
                 all_matched = False
+                logtest_errors.extend(_extract_logtest_errors(output.get("stdout", ""), output.get("stderr", "")))
             results.append({
                 "raw_log": sample.raw_log[:200],
                 "decoder_matched": decoder_name,
                 "fields": {k: v for k, v in parsed.items() if k not in ("decoder_name", "rule_id", "rule_level")},
                 "matched": matched,
+                "logtest_stderr": output.get("stderr", "")[:500],
             })
         return {
             "validated": all_matched,
             "results": results,
+            "logtest_errors": sorted(set(logtest_errors))[:5],
             "reason": "all logs matched decoder" if all_matched else "some logs did not match decoder",
         }
     finally:
         remove_temp_content(WAZUH_DECODERS_DIR, decoder_filename)
         if rule_installed:
             remove_temp_content(WAZUH_RULES_DIR, rule_filename)
+
+
+_MONTH_ABBR_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b")
+
+
+def detect_overfit_prematch(decoder_xml: str, predecoded_timestamp: Optional[str]) -> Optional[str]:
+    """Catch a decoder that passed logtest only because it was tested against the
+    exact log it was overfit to — e.g. <prematch>^Jul</prematch> hardcoding the
+    one month/day/year seen in the sample instead of generalizing it. This slips
+    past behavioral validation (the training sample still matches), so it must be
+    checked for explicitly rather than relying on logtest pass/fail alone.
+    """
+    if not decoder_xml:
+        return None
+    for prematch_text in re.findall(r"<prematch>([^<]*)</prematch>", decoder_xml):
+        if predecoded_timestamp and predecoded_timestamp in prematch_text:
+            return (
+                f"FATAL ERROR: <prematch>{prematch_text}</prematch> still contains the literal "
+                f"timestamp ('{predecoded_timestamp}') that Wazuh's real Phase 1 pre-decoding already "
+                "strips before Phase 2 runs. Rewrite the prematch to match only what's left over after "
+                "that timestamp (and hostname, if any) — never the timestamp itself."
+            )
+        if _MONTH_ABBR_RE.search(prematch_text) and not re.search(r"\\[dwsp.SWD]", prematch_text):
+            return (
+                f"FATAL ERROR: <prematch>{prematch_text}</prematch> hardcodes a literal month "
+                "abbreviation instead of generalizing the date. This will only match logs from that "
+                "one month. Use \\S+ (or \\w+) for the month token, \\d+ for day/time/year digits — "
+                "never a literal calendar value."
+            )
+    return None
 
 
 @app.post("/api/ai/generate-validated")
@@ -4779,6 +4974,15 @@ async def ai_generate_validated(request: AIGenerateRequest):
             best_validation = {"validated": False, "reason": "validation disabled by user"}
             break
 
+        overfit_reason = detect_overfit_prematch(decoder_xml, analysis.get("predecoded_timestamp"))
+        if overfit_reason:
+            # Don't trust logtest pass/fail here — the training sample will still
+            # match an overfit prematch, which is exactly what makes this bug
+            # invisible to behavioral validation alone.
+            best_validation = {"validated": False, "reason": overfit_reason}
+            correction_context = overfit_reason + " Output corrected XML only."
+            continue
+
         validation = await asyncio.to_thread(
             _validate_ai_decoder_with_logtest,
             decoder_xml, rule_xml, request.logs, app_name
@@ -4788,26 +4992,43 @@ async def ai_generate_validated(request: AIGenerateRequest):
         if validation.get("validated"):
             break
 
-        # Build correction context for retry
+        # Build correction context for retry — always give the next attempt a
+        # concrete reason, even when there's no per-sample "results" (e.g. a
+        # malformed-XML or install failure short-circuits before logs are run).
         failed_logs = [r for r in validation.get("results", []) if not r.get("matched")]
+        correction_context = (
+            f"The previous decoder/rule XML FAILED wazuh-logtest validation "
+            f"(reason: {validation.get('reason', 'unknown')}).\n"
+        )
+        logtest_errors = validation.get("logtest_errors") or []
+        if logtest_errors:
+            correction_context += "wazuh-logtest reported these errors:\n"
+            for err_line in logtest_errors:
+                correction_context += f"  {err_line}\n"
         if failed_logs:
-            correction_context = (
-                f"The previous decoder XML FAILED wazuh-logtest validation.\n"
-                f"Failed logs:\n"
-            )
+            correction_context += "Failed logs:\n"
             for fl in failed_logs[:3]:
                 correction_context += f"  Log: {fl['raw_log']}\n  Matched decoder: {fl.get('decoder_matched', 'none')}\n"
-            correction_context += "Fix the regex patterns to match these logs. Output corrected XML only."
-            
-            predecoded_program = analysis.get("wazuh_logtest_summary", {}).get("predecoded_program_name")
-            if predecoded_program and best_decoder_xml and "<prematch>" in best_decoder_xml:
-                correction_context += f"\n\nFATAL ERROR: You used <prematch> in the parent decoder, but Wazuh Phase 1 already extracted program_name '{predecoded_program}'. The syslog header was stripped! You MUST replace the parent decoder's <prematch> with <program_name>^{predecoded_program}$</program_name> or it will never match."
+                if fl.get("logtest_stderr"):
+                    correction_context += f"  wazuh-logtest stderr: {fl['logtest_stderr']}\n"
+        correction_context += "Fix the exact error(s) above — regex, XML syntax, or tag usage — so every sample log matches. Output corrected XML only."
 
+        predecoded_program = analysis.get("wazuh_logtest_summary", {}).get("predecoded_program_name")
+        if predecoded_program and best_decoder_xml and "<prematch>" in best_decoder_xml:
+            correction_context += f"\n\nFATAL ERROR: You used <prematch> in the parent decoder, but Wazuh Phase 1 already extracted program_name '{predecoded_program}'. The syslog header was stripped! You MUST replace the parent decoder's <prematch> with <program_name>^{predecoded_program}$</program_name> or it will never match."
+
+    working = bool(best_validation.get("validated"))
     return JSONResponse({
         "decoder_xml": _sanitize_decoder_xml_osregex(best_decoder_xml),
         "rule_xml": best_rule_xml,
         "validation": best_validation,
         "attempts": attempt + 1,
+        "working": working,
+        "warning": (
+            None if working or not request.validate_with_logtest else
+            f"Not confirmed working after {attempt + 1} attempt(s) against wazuh-logtest "
+            f"— reason: {best_validation.get('reason', 'unknown')}. Review before using."
+        ),
         "generation_mode": getattr(request, 'generation_mode', 'auto'),
     })
 

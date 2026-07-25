@@ -199,6 +199,13 @@ def _parse_feedback_jsonl(jsonl_path: Path) -> List[Dict[str, Any]]:
         if obj.get("approved") is False:
             continue
 
+        # Skip synthetic records mined from rejection notes (build_dataset.py
+        # load_rejection_records): these are free-text human corrections, not
+        # verified real decoders, and must never be surfaced to the LLM
+        # prompt as a "Retrieved Real Wazuh Decoder Example".
+        if obj.get("source") == "rejection_corrected":
+            continue
+
         log_line = obj.get("log", "")
         decoder = obj.get("decoder", {})
         if not decoder:
