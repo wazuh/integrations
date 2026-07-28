@@ -40,7 +40,7 @@ cp integrations/synology_nas/decoders/nas_synology_decoders.xml /var/ossec/etc/d
 
 #### Copy the Custom Rules
 
-The custom rules map the decoded fields to specific alerts, such as alerting on 2FA failures, SSH blocks, or degraded volumes. Copy the rules file to the Wazuh Manager:
+The custom rules map the decoded fields to specific alerts, such as alerting on login failures, automated IP blocks, or degraded volumes. Copy the rules file to the Wazuh Manager:
 
 ```bash
 cp integrations/synology_nas/rules/nas_synology_rules.xml /var/ossec/etc/rules/

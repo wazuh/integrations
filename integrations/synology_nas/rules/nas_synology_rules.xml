@@ -8,28 +8,28 @@
   <rule id="100401" level="5">
     <if_sid>100400</if_sid>
     <match>failed to log in</match>
-    <description>Synology NAS: Login FAILURE for user '$(synology_user)' from $(srcip) via $(synology_app).</description>
+    <description>Synology NAS: Login FAILURE for user '$(user)' from $(srcip) via $(synology_app).</description>
     <group>authentication_failed,</group>
   </rule>
 
   <rule id="100402" level="3">
     <if_sid>100400</if_sid>
     <match>successfully passed the first authentication of 2FA</match>
-    <description>Synology NAS: User '$(synology_user)' passed first 2FA step from $(srcip).</description>
+    <description>Synology NAS: User '$(user)' passed first 2FA step from $(srcip).</description>
     <group>authentication_success,</group>
   </rule>
 
   <rule id="100403" level="3">
     <if_sid>100400</if_sid>
     <match>signed in to</match>
-    <description>Synology NAS: User '$(synology_user)' successfully logged into $(synology_app) from $(srcip).</description>
+    <description>Synology NAS: User '$(user)' successfully logged into $(synology_app) from $(srcip).</description>
     <group>authentication_success,</group>
   </rule>
 
   <rule id="100404" level="2">
     <if_sid>100400</if_sid>
     <match>logged out</match>
-    <description>Synology NAS: User '$(synology_user)' logged out from $(synology_app).</description>
+    <description>Synology NAS: User '$(user)' logged out from $(synology_app).</description>
   </rule>
 
   <rule id="100405" level="7">
@@ -63,8 +63,15 @@
 
   <rule id="100409" level="10">
     <if_sid>100400</if_sid>
-    <match>was removed|was degraded</match>
-    <description>Synology NAS: CRITICAL STORAGE FAULT - Drive $(synology_drive) removed or Volume $(synology_volume) degraded.</description>
+    <match>was removed</match>
+    <description>Synology NAS: CRITICAL STORAGE FAULT - Drive $(synology_drive) was removed.</description>
+    <group>hardware_fault,data_loss_risk,</group>
+  </rule>
+
+  <rule id="100410" level="10">
+    <if_sid>100400</if_sid>
+    <match>was degraded</match>
+    <description>Synology NAS: CRITICAL STORAGE FAULT - Volume $(synology_volume) is degraded ($(synology_status)).</description>
     <group>hardware_fault,data_loss_risk,</group>
   </rule>
 
