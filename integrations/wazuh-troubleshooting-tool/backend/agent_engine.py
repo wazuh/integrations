@@ -21,6 +21,7 @@ import agent_brain
 from agent_tools import TOOLS, TOOLS_BY_NAME, to_openai_schema, to_anthropic_schema, list_tools_metadata
 from utils import session_store
 from utils.lgtm_utils import find_relevant_issues, format_lgtm_context
+from utils.wazuh_docs import format_doc_context
 from copilot_engine import collect_environment_context, format_environment_context
 from config import (
     WAZUH_API_URL, API_USERNAME, API_PASSWORD,
@@ -51,7 +52,16 @@ TOOLS_ANTHROPIC = to_anthropic_schema()
 RAG_SYSTEM_PROMPT = """You are the Wazuh Troubleshooting Assistant. Answer using the live \
 system data and known-issue context provided below when it's relevant to the question. \
 Be direct and specific. If the provided context doesn't cover the question, answer from \
-general Wazuh expertise instead of saying you don't know. Keep answers focused and short."""
+general Wazuh expertise instead of saying you don't know. Keep answers focused and short.
+
+Never invent a specific documentation URL, deep link, or exact file path unless it appears \
+verbatim in the context provided below - a plausible-looking but wrong URL is worse than no \
+URL at all. If you want to point someone to documentation and don't have a verified link, \
+say "check the official Wazuh documentation at documentation.wazuh.com" instead of \
+fabricating a specific page path. Likewise, flag install/package commands as something to \
+verify against the official docs for their exact OS/version rather than presenting them as \
+guaranteed-correct - package names, repo setup steps, and syntax vary and you may not have \
+the current, exact sequence memorized correctly."""
 
 
 def _build_rag_context(user_text):
@@ -60,6 +70,13 @@ def _build_rag_context(user_text):
     lgtm_context = format_lgtm_context(find_relevant_issues(user_text))
     if lgtm_context:
         parts.append(lgtm_context)
+
+    try:
+        doc_context = format_doc_context(user_text)
+        if doc_context:
+            parts.append(doc_context)
+    except Exception:
+        pass  # verified-doc fetch is best-effort - never block an answer on it
 
     try:
         env_ctx = collect_environment_context(
@@ -81,7 +98,15 @@ def _run_ollama_rag(session, user_text, model):
     if context:
         system_prompt += "\n\n" + context
 
-    step = agent_brain.step(session["turns"], system_prompt, [], [], brain="ollama", model=model)
+    # Only the last few turns go to Ollama, not the whole growing history -
+    # this is RAG-grounded (context is rebuilt fresh every message from the
+    # knowledge base + live env), not memory-dependent, and qwen3:1.7b's
+    # prompt-processing time on this CPU scales with input length. Sending
+    # the full history would make every later message in a conversation
+    # progressively slower for no real benefit.
+    recent_turns = session["turns"][-6:]
+
+    step = agent_brain.step(recent_turns, system_prompt, [], [], brain="ollama", model=model)
     session["turns"].append({"role": "assistant", "text": step["text"]})
     return {"status": "final", "message": step["text"], "trace": []}
 

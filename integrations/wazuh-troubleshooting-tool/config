@@ -1,3 +1,5 @@
+# Replace the placeholder credentials below according to your own environment.
+
 wazuh_api:
   host: "https://localhost:55000"
   username: "wazuh"

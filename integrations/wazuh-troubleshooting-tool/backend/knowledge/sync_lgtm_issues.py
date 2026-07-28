@@ -2,10 +2,15 @@
 Private sync script — run manually by a team member, NOT called by the
 public backend and NOT part of the running app.
 
-It fetches LGTM/resolved/resolved-without-feedback issues from a private/
-internal GitHub repo, embeds each one, and stores them in
-backend/knowledge/lgtm.db (SQLite, gitignored) for the copilot's semantic
-search to read locally.
+It fetches LGTM/resolved issues from a private/internal GitHub repo, embeds
+each one, and stores them in backend/knowledge/lgtm.db (SQLite, gitignored)
+for the copilot's semantic search to read locally.
+
+'resolved without feedback' is deliberately NOT fetched - it means the
+requester never confirmed the fix actually worked, which makes it the
+weakest of the three labels as ground truth, and it was by far the largest
+(4,665 issues, vs 150 for LGTM) - not a good trade for a knowledge base
+meant to be trustworthy.
 
 The GitHub token is never written to disk by this script and never
 hardcoded here — it must be set as an environment variable before running.
@@ -14,10 +19,12 @@ Requires Ollama running locally with the nomic-embed-text model pulled.
 Usage:
     export GITHUB_TOKEN="<your fine-grained PAT, Issues: Read-only>"
     export LGTM_REPO="wazuh/community"        # optional, this is the default
-    export LGTM_LABEL="LGTM"                                       # optional, this is the default
-    export RESOLVED_LABEL="resolved"                               # optional, this is the default
-    export RESOLVED_NO_FEEDBACK_LABEL="resolved without feedback"  # optional, this is the default
-    export LGTM_AUTHOR="some-github-username"                      # optional, filters by issue author
+    export LGTM_LABEL="LGTM"                  # optional, this is the default
+    export RESOLVED_LABEL="resolved"          # optional, this is the default
+    export LGTM_AUTHOR="some-github-username" # optional, filters by issue author
+    export ISSUES_MAX_AGE_YEARS="2"           # optional, this is the default - applies to LGTM
+    export RESOLVED_MAX_AGE_YEARS="1"         # optional, this is the default - applies to 'resolved' only
+    export DISCUSSIONS_MAX_AGE_YEARS="2"      # optional, this is the default
     python3 sync_lgtm_issues.py
 """
 import os
@@ -29,6 +36,7 @@ import requests
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from utils import lgtm_db
+from utils.github_discussions import fetch_answered_discussions, discussion_to_issue_dict
 
 # Matches links to the original community conversation that GitHub issues here
 # always reference. Reddit and Google Groups are publicly readable with no
@@ -44,10 +52,14 @@ LABEL = os.environ.get("LGTM_LABEL", "LGTM")
 # Issues closed out as resolved outside the LGTM review flow - same idea as
 # LGTM, just a different label for "this thread reached a real answer."
 RESOLVED_LABEL = os.environ.get("RESOLVED_LABEL", "resolved")
-# Resolved without the requester ever confirming the fix worked - still a
-# real answer from the responder's side, just missing that final feedback loop.
-RESOLVED_NO_FEEDBACK_LABEL = os.environ.get("RESOLVED_NO_FEEDBACK_LABEL", "resolved without feedback")
 AUTHOR = os.environ.get("LGTM_AUTHOR")
+# 'resolved' is applied at massive, near-constant volume (looks auto-applied
+# to nearly every closed community ticket) - even a 2-year window was still
+# 3,672 issues (~6 hours to sync), so it gets its own, tighter cutoff than
+# LGTM (which is small and deliberately curated, so a longer window is fine).
+ISSUES_MAX_AGE_YEARS = int(os.environ.get("ISSUES_MAX_AGE_YEARS", "2"))
+RESOLVED_MAX_AGE_YEARS = int(os.environ.get("RESOLVED_MAX_AGE_YEARS", "1"))
+DISCUSSIONS_MAX_AGE_YEARS = int(os.environ.get("DISCUSSIONS_MAX_AGE_YEARS", "2"))
 
 TOKEN = os.environ.get("GITHUB_TOKEN")
 if not TOKEN:
@@ -85,9 +97,13 @@ def check_connection():
 
 
 def _run_query(query):
-    """Fetch every page for a single query. Returns (issues, hit_1000_cap)."""
+    """Fetch every page for a single query. Returns (issues, hit_1000_cap, total_count).
+    total_count is GitHub's own claimed match count for the query (from the
+    first page's response) - the ground truth we compare our actual haul
+    against, so an under-fetch is a visible number, not a silent gap."""
     issues = []
     page = 1
+    total_count = None
     while True:
         resp = requests.get(
             "https://api.github.com/search/issues",
@@ -96,7 +112,7 @@ def _run_query(query):
             timeout=30,
         )
         if resp.status_code == 422:
-            return issues, True  # GitHub's hard 1000-result cap for this query
+            return issues, True, total_count  # GitHub's hard 1000-result cap for this query
         if resp.status_code == 403 and resp.headers.get("X-RateLimit-Remaining") == "0":
             reset_at = int(resp.headers.get("X-RateLimit-Reset", 0))
             wait_s = max(reset_at - time.time(), 0) + 5
@@ -109,7 +125,10 @@ def _run_query(query):
             continue  # retry this same page
         if resp.status_code != 200:
             sys.exit(f"GitHub API error {resp.status_code}: {resp.text[:300]}")
-        items = resp.json().get("items", [])
+        data = resp.json()
+        if total_count is None:
+            total_count = data.get("total_count")
+        items = data.get("items", [])
         if not items:
             break
         issues.extend(items)
@@ -118,7 +137,7 @@ def _run_query(query):
             break
         page += 1
         time.sleep(1)
-    return issues, False
+    return issues, False, total_count
 
 
 def fetch_all_issues():
@@ -128,34 +147,65 @@ def fetch_all_issues():
     each well under that ceiling, and if a label's own results still exceed
     1000, we fall back to splitting that label's query into ~quarterly date
     ranges going back in time until two consecutive ranges come back empty
-    (a reasonable signal we've covered the repo's full history).
+    (a reasonable signal we've covered the repo's history back to that
+    label's own cutoff) or we reach it, whichever comes first.
+
+    LGTM and 'resolved' get different cutoffs: LGTM is small and deliberately
+    curated, so ISSUES_MAX_AGE_YEARS (default 2y) is fine. 'resolved' is
+    applied at massive, near-constant volume (looks auto-applied to nearly
+    every closed ticket) - even 2 years was 3,672 issues, so it gets its own,
+    tighter RESOLVED_MAX_AGE_YEARS (default 1y).
+
+    GitHub's total_count on the first page of each label's query is the
+    ground truth for how many actually match within the window - we track it
+    and compare our final per-label haul against it, so an under-fetch shows
+    up as an explicit warning with real numbers instead of silently
+    disappearing.
     """
     seen = {}
-    for label in (LABEL, RESOLVED_LABEL, RESOLVED_NO_FEEDBACK_LABEL):
-        print(f"Searching GitHub for label '{label}' in {REPO}...", flush=True)
-        issues, hit_cap = _run_query(_base_query(label))
+    label_cutoffs = [
+        (LABEL, date.today() - timedelta(days=365 * ISSUES_MAX_AGE_YEARS)),
+        (RESOLVED_LABEL, date.today() - timedelta(days=365 * RESOLVED_MAX_AGE_YEARS)),
+    ]
+
+    for label, cutoff in label_cutoffs:
+        min_date_str = f">={cutoff.isoformat()}" if cutoff else None
+        window_desc = f" (created on/after {cutoff.isoformat()})" if cutoff else " (full history, no age limit)"
+        print(f"Searching GitHub for label '{label}' in {REPO}{window_desc}...", flush=True)
+        issues, hit_cap, total_count = _run_query(_base_query(label, min_date_str))
+        label_numbers = {it["number"] for it in issues}
         for it in issues:
             seen[it["number"]] = it
-        print(f"  '{label}': {len(issues)} found ({len(seen)} unique total so far)", flush=True)
+        print(f"  '{label}': GitHub reports {total_count} total match(es) in this window, fetched {len(issues)} ({len(seen)} unique overall so far)", flush=True)
 
         if not hit_cap:
+            if total_count is not None and len(issues) != total_count:
+                print(f"  WARNING: '{label}' - GitHub reports {total_count} but only {len(issues)} came back - re-run to check, this may be transient.", flush=True)
             continue
 
-        print(f"  hit GitHub's 1000-result cap for '{label}' - splitting by ~quarter...", flush=True)
+        print(f"  hit GitHub's 1000-result cap for '{label}' (GitHub reports {total_count} total) - splitting by ~quarter...", flush=True)
         quarter_end = date.today()
         empty_streak = 0
         max_quarters = 80  # ~20 years back - a sane backstop, not expected to ever hit this
         for _ in range(max_quarters):
-            if empty_streak >= 2:
+            if empty_streak >= 2 or (cutoff and quarter_end <= cutoff):
                 break
             quarter_start = quarter_end - timedelta(days=92)
+            if cutoff:
+                quarter_start = max(quarter_start, cutoff)
             print(f"    {label}: {quarter_start.isoformat()}..{quarter_end.isoformat()}...", flush=True)
             q_issues = _fetch_date_range(label, quarter_start, quarter_end)
             for it in q_issues:
                 seen[it["number"]] = it
+                label_numbers.add(it["number"])
             empty_streak = empty_streak + 1 if not q_issues else 0
             quarter_end = quarter_start
             time.sleep(1)
+
+        if total_count is not None and len(label_numbers) != total_count:
+            print(f"  WARNING: '{label}' - GitHub reports {total_count} total but we collected {len(label_numbers)} - some may still be missing.", flush=True)
+        else:
+            print(f"  '{label}': confirmed all {total_count} accounted for.", flush=True)
 
     return list(seen.values())
 
@@ -170,7 +220,7 @@ def _fetch_date_range(label, start, end):
     incomplete rather than looping forever.
     """
     date_range = f"{start.isoformat()}..{end.isoformat()}"
-    issues, hit_cap = _run_query(_base_query(label, date_range))
+    issues, hit_cap, _ = _run_query(_base_query(label, date_range))
     if not hit_cap:
         return issues
     if start >= end:
@@ -283,72 +333,6 @@ def fetch_external_community_content(body):
     return texts
 
 
-DISCUSSIONS_QUERY = """
-query($owner: String!, $name: String!, $after: String) {
-  repository(owner: $owner, name: $name) {
-    discussions(first: 50, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      pageInfo { hasNextPage endCursor }
-      nodes {
-        number
-        title
-        bodyText
-        url
-        isAnswered
-        answer { bodyText }
-        comments(first: 50) { nodes { bodyText } }
-      }
-    }
-  }
-}
-"""
-
-
-def fetch_discussions():
-    """
-    Discussions have no labels the way issues do, and no REST search endpoint
-    at all - only GraphQL, via the repository's own discussions connection
-    (not the Search API, so no 1000-result cap here, just normal cursor
-    pagination). isAnswered is used as the proxy for "resolved" since that's
-    the closest equivalent to LGTM/review-quality that Discussions has.
-    """
-    owner, name = REPO.split("/")
-    answered = []
-    after = None
-    page = 1
-    while True:
-        print(f"Fetching wazuh/community discussions (page {page})...", flush=True)
-        resp = None
-        for attempt in range(3):
-            try:
-                resp = requests.post(
-                    "https://api.github.com/graphql",
-                    headers={"Authorization": f"Bearer {TOKEN}"},
-                    json={"query": DISCUSSIONS_QUERY, "variables": {"owner": owner, "name": name, "after": after}},
-                    timeout=30,
-                )
-                break
-            except requests.exceptions.RequestException as e:
-                if attempt == 2:
-                    print(f"  WARNING: discussions fetch failed after 3 attempts ({e}) - stopping discussions fetch here", flush=True)
-                    return answered
-                time.sleep(2 * (attempt + 1))
-        if resp.status_code != 200:
-            print(f"  WARNING: GraphQL error {resp.status_code}: {resp.text[:200]} - stopping discussions fetch here", flush=True)
-            break
-        data = resp.json().get("data", {}).get("repository", {}).get("discussions", {})
-        nodes = data.get("nodes", [])
-        new_answered = [d for d in nodes if d.get("isAnswered")]
-        answered.extend(new_answered)
-        print(f"  {len(nodes)} discussions on this page, {len(new_answered)} answered ({len(answered)} answered so far)", flush=True)
-        page_info = data.get("pageInfo", {})
-        if not page_info.get("hasNextPage"):
-            break
-        after = page_info.get("endCursor")
-        page += 1
-        time.sleep(1)
-    return answered
-
-
 def main():
     check_connection()
     raw_issues = fetch_all_issues()
@@ -380,25 +364,14 @@ def main():
 
     print(f"Saved {ok}/{len(raw_issues)} issues. Total community issues in DB: {lgtm_db.count('community_issue')}")
 
-    discussions = fetch_discussions()
+    cutoff = (date.today() - timedelta(days=365 * DISCUSSIONS_MAX_AGE_YEARS)).isoformat()
+    discussions = fetch_answered_discussions(REPO, TOKEN, min_updated_at=cutoff)
     print(f"Embedding {len(discussions)} answered discussions...", flush=True)
     d_ok = 0
     for i, d in enumerate(discussions, 1):
-        comments = [c.get("bodyText", "") for c in d.get("comments", {}).get("nodes", [])]
-        answer = d.get("answer")
-        if answer and answer.get("bodyText"):
-            comments.insert(0, f"ACCEPTED ANSWER: {answer['bodyText']}")
         print(f"  [{i}/{len(discussions)}] discussion #{d['number']}: {d['title'][:60]}", flush=True)
         try:
-            cleaned = {
-                "number": d["number"],
-                "title": d["title"],
-                "body": d.get("bodyText") or "",
-                "comments": comments,
-                "external_community": [],
-                "url": d["url"],
-                "labels": [],
-            }
+            cleaned = discussion_to_issue_dict(d)
             if lgtm_db.upsert_issue(cleaned, source="community_discussion"):
                 d_ok += 1
             else:

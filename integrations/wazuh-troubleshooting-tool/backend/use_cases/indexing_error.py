@@ -1,6 +1,6 @@
 from executor import run_command
 import time
-from config import INDEXER_USERNAME, INDEXER_PASSWORD, INDEXER_URL
+from utils.api_utils import indexer_api_get
 
 def indexing_error_flow(user_choice=None, context=None):
     if context is None:
@@ -96,7 +96,7 @@ def indexing_error_flow(user_choice=None, context=None):
 
     if stage == "cluster_health_check":
         if user_choice and "yes" in user_choice.lower():
-            cluster_out = run_command(f"curl -k -s -u {INDEXER_USERNAME}:'{INDEXER_PASSWORD}' {INDEXER_URL}/_cluster/health") or ""
+            cluster_out = indexer_api_get("/_cluster/health") or ""
             response["display"] = f"Cluster Health Status:\n\n{cluster_out}\n\n"
             if "red" in cluster_out.lower():
                 response["display"] += "The cluster health status is RED. This indicates that some primary shards are unassigned."

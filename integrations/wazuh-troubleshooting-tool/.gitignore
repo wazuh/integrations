@@ -1,7 +1,4 @@
-config
 .env
-backend/knowledge/lgtm_issues.json
-backend/knowledge/lgtm.db
 backend/sessions/
 backend/wizard_history/
 backend/__pycache__/

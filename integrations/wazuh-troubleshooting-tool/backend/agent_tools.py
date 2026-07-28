@@ -41,7 +41,7 @@ from utils.cert_utils import regenerate_and_redeploy_certs as _regenerate_and_re
 from utils.default_route_utils import set_default_route
 from utils.lgtm_utils import find_relevant_issues
 from utils.public_repo_search import search_public_issues, search_public_discussions
-from copilot_engine import fetch_wazuh_cloud_trial_doc
+from utils.wazuh_docs import find_matching_doc, fetch_doc_content
 
 KNOWN_SERVICES = ["wazuh-indexer", "wazuh-manager", "wazuh-dashboard", "filebeat"]
 
@@ -113,6 +113,16 @@ def _search_public_wazuh_repo(query):
             for d in discussions
         ],
     }
+
+
+def _fetch_verified_wazuh_doc(query):
+    key, doc = find_matching_doc(query)
+    if not doc:
+        return {"found": False, "note": "No verified doc page matches this topic yet."}
+    content = fetch_doc_content(doc["url"])
+    if not content:
+        return {"found": False, "note": f"Matched topic '{key}' but the page fetch failed."}
+    return {"found": True, "url": doc["url"], "title": doc["title"], "content": content[:3000]}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -353,11 +363,20 @@ TOOLS = [
         "fn": lambda query: _search_public_wazuh_repo(query),
     },
     {
-        "name": "fetch_wazuh_cloud_trial_docs",
-        "description": "Fetch the official Wazuh Cloud trial sign-up documentation. Use when a user asks about Wazuh Cloud trial credentials, sign-up, or login.",
+        "name": "fetch_verified_wazuh_doc",
+        "description": (
+            "Fetch a real, human-verified official Wazuh documentation page matching the query "
+            "(e.g. agent installation, Wazuh Cloud trial sign-up). Always prefer this over reciting "
+            "a documentation URL from memory - a wrong-but-plausible-looking URL is worse than none, "
+            "and this only ever returns pages someone actually checked are real."
+        ),
         "mutating": False,
-        "parameters": {"type": "object", "properties": {}},
-        "fn": lambda: {"content": fetch_wazuh_cloud_trial_doc()},
+        "parameters": {
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "what the user is trying to do, e.g. 'install a linux agent'"}},
+            "required": ["query"],
+        },
+        "fn": lambda query: _fetch_verified_wazuh_doc(query),
     },
 
     # ── READ-ONLY: logs ───────────────────────────────────────────────────
@@ -585,7 +604,7 @@ OLLAMA_TOOL_NAMES = {
     "check_most_recent_alert_index", "check_alert_indices_today",
     "get_indexer_logs", "get_dashboard_logs",
     # knowledge base — always available regardless of brain
-    "search_lgtm_knowledge_base", "search_public_wazuh_issues", "fetch_wazuh_cloud_trial_docs",
+    "search_lgtm_knowledge_base", "search_public_wazuh_issues", "fetch_verified_wazuh_doc",
     # the handful of most common single-step fixes
     "restart_service", "fix_manager_log_alert_level", "fix_manager_jsonout_output", "restart_agent",
 }

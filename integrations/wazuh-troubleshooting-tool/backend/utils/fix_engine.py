@@ -1,4 +1,4 @@
-from executor import run_command
+from executor import run_command, run_command_argv, replace_in_file
 from config import KIBANA_USERNAME, INDEXER_URL
 from utils.cache_utils import cached
 from utils.archive_utils import extract_from_archive
@@ -7,6 +7,11 @@ from utils.service_utils import restart_service_and_wait, get_service_status
 import re
 import secrets
 import string
+
+import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class FixEngine:
@@ -217,11 +222,16 @@ class FixEngine:
     # -----------------------------------------
     @staticmethod
     def check_connectivity(password):
-        cmd = (
-            f"curl -XGET -k -u {KIBANA_USERNAME}:{password} "
-            f"{INDEXER_URL}/_cluster/health"
-        )
-        return run_command(cmd) or ""
+        try:
+            resp = requests.get(
+                f"{INDEXER_URL}/_cluster/health",
+                auth=(KIBANA_USERNAME, password),
+                verify=False,
+                timeout=10,
+            )
+            return resp.text
+        except requests.RequestException as e:
+            return str(e)
 
     # -----------------------------------------
     # GENERATE NEW PASSWORD
@@ -236,17 +246,18 @@ class FixEngine:
     # -----------------------------------------
     @staticmethod
     def apply_new_password(password):
-        cmd1 = (
-            "/usr/share/wazuh-indexer/plugins/opensearch-security/tools/"
-            f"wazuh-passwords-tool.sh -u kibanaserver -p '{password}'"
-        )
-        cmd2 = (
-            f"printf '%s' '{password}' | "
-            "/usr/share/wazuh-dashboard/bin/opensearch-dashboards-keystore "
-            "--allow-root add -f --stdin opensearch.password"
-        )
-        out1 = run_command(cmd1) or ""
-        out2 = run_command(cmd2) or ""
+        out1 = run_command_argv([
+            "/usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh",
+            "-u", "kibanaserver",
+            "-p", password,
+        ]) or ""
+        out2 = run_command_argv(
+            [
+                "/usr/share/wazuh-dashboard/bin/opensearch-dashboards-keystore",
+                "--allow-root", "add", "-f", "--stdin", "opensearch.password",
+            ],
+            input=password,
+        ) or ""
         return f"{out1}\n{out2}"
 
     # -----------------------------------------
@@ -254,11 +265,16 @@ class FixEngine:
     # -----------------------------------------
     @staticmethod
     def verify_password(password):
-        cmd = (
-            f"curl -s -k -u {KIBANA_USERNAME}:{password} "
-            f"{INDEXER_URL}"
-        )
-        return run_command(cmd) or ""
+        try:
+            resp = requests.get(
+                INDEXER_URL,
+                auth=(KIBANA_USERNAME, password),
+                verify=False,
+                timeout=10,
+            )
+            return resp.text
+        except requests.RequestException as e:
+            return str(e)
 
     # -----------------------------------------
     # HEAP FIX STEPS (manual instructions)
@@ -282,15 +298,11 @@ class FixEngine:
     @staticmethod
     def fix_jvm_heap(heap_gb):
 
-        run_command(
-            f"sed -i 's/^-Xms.*/-Xms{heap_gb}g/' "
-            "/etc/wazuh-indexer/jvm.options"
-        )
+        heap_gb = int(heap_gb)
+        jvm_options_path = "/etc/wazuh-indexer/jvm.options"
 
-        run_command(
-            f"sed -i 's/^-Xmx.*/-Xmx{heap_gb}g/' "
-            "/etc/wazuh-indexer/jvm.options"
-        )
+        replace_in_file(jvm_options_path, r"^-Xms.*", f"-Xms{heap_gb}g", flags=re.MULTILINE)
+        replace_in_file(jvm_options_path, r"^-Xmx.*", f"-Xmx{heap_gb}g", flags=re.MULTILINE)
 
         # Restart and actually wait for the service to come back up, the
         # same way fix_indexer_ip() and fix_indexer_cert_paths() do.
@@ -390,9 +402,11 @@ class FixEngine:
     # -----------------------------------------
     @staticmethod
     def fix_indexer_ip(c_ip):
-        run_command(
-            f"sed -i 's/^network.host:.*/network.host: {c_ip}/' "
-            "/etc/wazuh-indexer/opensearch.yml"
+        replace_in_file(
+            "/etc/wazuh-indexer/opensearch.yml",
+            r"^network\.host:.*",
+            f"network.host: {c_ip}",
+            flags=re.MULTILINE,
         )
         return FixEngine.restart_indexer_and_wait()
 
@@ -440,16 +454,10 @@ class FixEngine:
             return {"success": False}
 
         base = "/etc/wazuh-indexer/certs"
-        cmds = [
-            f"sed -i 's|pemcert_filepath:.*|pemcert_filepath: {base}/{cert}|g' "
-            "/etc/wazuh-indexer/opensearch.yml",
-            f"sed -i 's|pemkey_filepath:.*|pemkey_filepath: {base}/{key}|g' "
-            "/etc/wazuh-indexer/opensearch.yml",
-            f"sed -i 's|pemtrustedcas_filepath:.*|pemtrustedcas_filepath: {base}/{ca}|g' "
-            "/etc/wazuh-indexer/opensearch.yml",
-        ]
-        for cmd in cmds:
-            run_command(cmd)
+        opensearch_yml = "/etc/wazuh-indexer/opensearch.yml"
+        replace_in_file(opensearch_yml, r"pemcert_filepath:.*", f"pemcert_filepath: {base}/{cert}")
+        replace_in_file(opensearch_yml, r"pemkey_filepath:.*", f"pemkey_filepath: {base}/{key}")
+        replace_in_file(opensearch_yml, r"pemtrustedcas_filepath:.*", f"pemtrustedcas_filepath: {base}/{ca}")
 
         status = FixEngine.restart_indexer_and_wait()
 
@@ -499,9 +507,10 @@ class FixEngine:
     # -----------------------------------------
     @staticmethod
     def fix_dashboard_ip(c_ip):
-        run_command(
-            f"sed -i 's|https://.*:9200|https://{c_ip}:9200|' "
-            "/etc/wazuh-dashboard/opensearch_dashboards.yml"
+        replace_in_file(
+            "/etc/wazuh-dashboard/opensearch_dashboards.yml",
+            r"https://\S*:9200",
+            f"https://{c_ip}:9200",
         )
         return restart_service_and_wait("wazuh-dashboard")
 
@@ -553,17 +562,14 @@ class FixEngine:
             return {"success": False}
 
         base = "/etc/wazuh-dashboard/certs"
-        cmds = [
-            f"sed -i 's|server.ssl.certificate:.*|server.ssl.certificate: {base}/{cert}|g' "
-            "/etc/wazuh-dashboard/opensearch_dashboards.yml",
-            f"sed -i 's|server.ssl.key:.*|server.ssl.key: {base}/{key}|g' "
-            "/etc/wazuh-dashboard/opensearch_dashboards.yml",
-            "sed -i 's|opensearch.ssl.certificateAuthorities:.*"
-            f"|opensearch.ssl.certificateAuthorities: [\"{base}/{ca}\"]|g' "
-            "/etc/wazuh-dashboard/opensearch_dashboards.yml",
-        ]
-        for cmd in cmds:
-            run_command(cmd)
+        dashboard_yml = "/etc/wazuh-dashboard/opensearch_dashboards.yml"
+        replace_in_file(dashboard_yml, r"server\.ssl\.certificate:.*", f"server.ssl.certificate: {base}/{cert}")
+        replace_in_file(dashboard_yml, r"server\.ssl\.key:.*", f"server.ssl.key: {base}/{key}")
+        replace_in_file(
+            dashboard_yml,
+            r"opensearch\.ssl\.certificateAuthorities:.*",
+            f'opensearch.ssl.certificateAuthorities: ["{base}/{ca}"]',
+        )
 
         status = restart_service_and_wait("wazuh-dashboard")
 
