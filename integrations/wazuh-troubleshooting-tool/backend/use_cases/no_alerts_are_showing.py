@@ -44,6 +44,7 @@ from utils.ai_utils import ai_explain
 from utils.log_handler import LogHandler
 from utils.log_analyzer import LogAnalyzer
 from utils.fix_engine import FixEngine
+from utils.unresolved_help import conclude
 from config import INDEXER_URL
 from flows.filebeat_flow import (
     filebeat_flow, STAGES as FILEBEAT_STAGES, STEP4_ENTRY_STAGE,
@@ -141,10 +142,9 @@ SAMPLE_AGENT_STARTED_ALERT = (
 )
 
 
-def _stop(response, title, explanation, manual_fix):
+def _stop(response, context, title, explanation, manual_fix):
     response["display"] = f"[ROOT CAUSE FOUND] {title}\n\n{explanation}\n\nManual fix:\n{manual_fix}"
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic=f"wazuh alerts not showing {title}")
 
 
 def no_alerts_are_showing_flow(user_choice=None, context=None):
@@ -280,12 +280,9 @@ def no_alerts_are_showing_flow(user_choice=None, context=None):
                 "look correct, re-check the cluster health and Filebeat logs from the earlier "
                 "steps for anything that changed right before this started."
             )
-            response["done"] = True
-            return response
+            return conclude(False, response["display"], context, topic="wazuh alerts not showing pipeline checks out but alerts still missing")
 
-        response["display"] = "Good - the full pipeline checks out end to end."
-        response["done"] = True
-        return response
+        return conclude(True, "Good - the full pipeline checks out end to end.", context)
 
     if stage == "step6_particular_check":
         if "yes" in choice:
@@ -308,8 +305,7 @@ def no_alerts_are_showing_flow(user_choice=None, context=None):
             "jsonout_output) and check whether a rule is filtering it out, or whether the "
             "source log is reaching the manager at all."
         )
-        response["done"] = True
-        return response
+        return conclude(False, response["display"], context, topic="wazuh alert not reaching alerts.json rule filtering")
 
     if stage == "step6_mapping_fix":
         index_name = context.get("mapping_conflict_index", "wazuh-alerts-*")
@@ -328,18 +324,15 @@ def no_alerts_are_showing_flow(user_choice=None, context=None):
                     f"Stopped after '{aborted_after}' - nothing irreversible happened past "
                     f"that point. {detail}"
                 )
-            else:
-                response["display"] = f"Reindexed {index_name} - the mapping conflict should be resolved now."
-            response["done"] = True
-            return response
+                return conclude(False, response["display"], context, topic="wazuh reindex mapping conflict aborted " + aborted_after)
+            response["display"] = f"Reindexed {index_name} - the mapping conflict should be resolved now."
+            return conclude(True, response["display"], context)
 
         response["ask"] = ["Auto", "Manual"]
         return response
 
     if stage == "step6_mapping_fix_manual_wait":
-        response["display"] = "Done - the mapping conflict should be resolved now."
-        response["done"] = True
-        return response
+        return conclude(True, "Done - the mapping conflict should be resolved now.", context)
 
     if stage == "step1_method":
         if "manual" in choice:
@@ -385,7 +378,7 @@ def no_alerts_are_showing_flow(user_choice=None, context=None):
 
         if not active:
             return _stop(
-                response, "No active agents",
+                response, context, "No active agents",
                 "There are no active agents connected to this manager (agent 000, the "
                 "manager's own local agent, doesn't count), so there's nothing to "
                 "generate an event for this test.",
@@ -577,7 +570,7 @@ def _auto_check_step1(response, context, already_explained=False):
         status = restart_service_and_wait("wazuh-manager")
         if status != "active":
             return _stop(
-                response, "Wazuh Manager failed to start",
+                response, context, "Wazuh Manager failed to start",
                 "wazuh-manager did not come back up after a restart.",
                 "Check `journalctl -u wazuh-manager` and `/var/ossec/logs/ossec.log` for startup errors.",
             )
@@ -604,7 +597,7 @@ def _auto_check_step1(response, context, already_explained=False):
     explanation = ai_explain(MANAGER_LOG_SYSTEM_PROMPT, errors) if errors.strip() else \
         "No error/warning lines found in ossec.log to analyze further."
     return _stop(
-        response, "Manager configuration still not correct after auto-fix",
+        response, context, "Manager configuration still not correct after auto-fix",
         f"Something beyond the two known settings appears to be wrong.\n\n"
         f"AI analysis of recent ossec.log errors:\n{explanation}",
         "Review ossec.conf and ossec.log manually using the analysis above as a starting point.",
@@ -632,8 +625,7 @@ def _step2_no_alert_found(response, context):
         f"Manager disk usage:\n{disk}\n\nRecent ossec.log errors/warnings:\n"
         f"{errors if errors else '(none found)'}"
     )
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic="wazuh manager not receiving agent events alerts.json")
 
 
 # ---------------------------------------------------------------------------
@@ -808,8 +800,7 @@ def _diagnose_indexer_logs(response, context):
     else:
         response["display"] += "\n\nNo known issue pattern matched - manual review of the logs above is needed."
 
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic="wazuh indexer log issues " + " ".join(issues))
 
 
 def _check_cluster_and_shards(response, context):
@@ -832,7 +823,7 @@ def _check_cluster_and_shards(response, context):
 
     if status is None:
         return _stop(
-            response, "Wazuh Indexer API is unreachable",
+            response, context, "Wazuh Indexer API is unreachable",
             "Could not query /_cluster/health.",
             "Verify INDEXER_URL/credentials and that port 9200 is reachable.",
         )
@@ -1004,8 +995,7 @@ def _check_indices(response, context):
     response["display"] += ("\n" if response["display"] else "") + "Checking today's wazuh-alerts-* index..."
     if not index_has_todays_date():
         response["display"] += "\n[WARNING] No wazuh-alerts-* index for today was found - the pipeline may have stalled recently."
-        response["done"] = True
-        return response
+        return conclude(False, response["display"], context, topic="wazuh no alerts index for today pipeline stalled")
 
     response["display"] += (
         "\n[OK] Today's wazuh-alerts-* index exists, and everything earlier in the pipeline "

@@ -34,6 +34,7 @@ from utils.filebeat_utils import (
 )
 from utils.cert_utils import regenerate_and_redeploy_certs, manual_cert_redeploy_instructions
 from utils.ai_utils import ai_explain
+from utils.unresolved_help import conclude
 
 WAZUH_COMMUNITY_URL = "https://wazuh.com/community/"
 
@@ -137,8 +138,7 @@ def filebeat_error_flow(user_choice=None, context=None):
                 "Filebeat did not come up, so it can't ship alerts to the indexer at all.\n\n"
                 "Manual fix:\nCheck `journalctl -u filebeat` and /var/log/filebeat/filebeat for startup errors."
             )
-            response["done"] = True
-            return response
+            return conclude(False, response["display"], context, topic="wazuh filebeat service fails to start")
         return _run_test_and_branch(response, context, prefix="[OK] Filebeat is running.\n\n")
 
     if stage == "fix_version_choice":
@@ -204,11 +204,9 @@ def _check_logs_after_success(response, context, prefix=""):
     if not errors.strip():
         response["display"] += (
             "\n[OK] No error/warning lines found in the Filebeat log either - there's no "
-            "further automated diagnosis we can run from here. If you're still seeing an "
-            f"issue, please reach out to the official Wazuh community:\n{WAZUH_COMMUNITY_URL}"
+            "further automated diagnosis we can run from here."
         )
-        response["done"] = True
-        return response
+        return conclude(False, response["display"], context, topic="wazuh filebeat no errors found still an issue")
 
     if _looks_like_mapping_issue(errors):
         response["display"] += f"\n\nRecent Filebeat log errors:\n{errors}"
@@ -217,11 +215,9 @@ def _check_logs_after_success(response, context, prefix=""):
     explanation = ai_explain(UNKNOWN_FAILURE_SYSTEM_PROMPT, errors)
     response["display"] += (
         f"\n\n[WARNING] Found error/warning lines in the Filebeat log even though the "
-        f"connectivity test passed:\n{errors}\n\nAI analysis:\n{explanation}\n\n"
-        f"If this doesn't resolve it, please reach out to the official Wazuh community:\n{WAZUH_COMMUNITY_URL}"
+        f"connectivity test passed:\n{errors}\n\nAI analysis:\n{explanation}"
     )
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic="wazuh filebeat log errors after successful test")
 
 
 def _diagnose_failure(response, context, test_raw):
@@ -271,11 +267,9 @@ def _diagnose_failure(response, context, test_raw):
     response["display"] += (
         f"\n[WARNING] The output test failed with what looks like {label}.\n\n"
         f"Recent Filebeat log errors:\n{errors if errors else '(none found)'}\n\n"
-        f"AI analysis:\n{explanation}\n\n"
-        f"If this doesn't resolve it, please reach out to the official Wazuh community:\n{WAZUH_COMMUNITY_URL}"
+        f"AI analysis:\n{explanation}"
     )
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic=f"wazuh filebeat {label}")
 
 
 def _apply_fix(response, context, choice, auto_fn, manual_instructions, manual_wait_stage, issue_label):
@@ -301,5 +295,4 @@ def _apply_fix(response, context, choice, auto_fn, manual_instructions, manual_w
         f"{result.get('log', '')}\n\n"
         "Manual fix:\n" + manual_instructions
     )
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic=f"wazuh filebeat could not auto-fix {issue_label}")

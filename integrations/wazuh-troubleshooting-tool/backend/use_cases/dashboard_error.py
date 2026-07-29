@@ -2,6 +2,7 @@ from executor import run_command
 from utils.fix_engine import FixEngine
 from utils.log_handler import LogHandler
 from utils.log_analyzer import LogAnalyzer
+from utils.unresolved_help import conclude
 from flows.ip_cert_flow import ip_cert_flow, STAGES as IP_CERT_STAGES
 from flows.dashboard_ip_cert_flow import dashboard_ip_cert_flow, STAGES as DASH_IP_CERT_STAGES
 
@@ -191,9 +192,7 @@ def dashboard_error_flow(user_choice=None, context=None):
     if context.get("stage") == "manual_followup":
 
         if user_choice and "resolved" in user_choice.lower():
-            response["display"] = "Great! Glad the issue is resolved."
-            response["done"]    = True
-            return response
+            return conclude(True, "Great! Glad the issue is resolved.", context)
 
         response["display"] = (
             "Let's dig deeper.\n\n"
@@ -527,11 +526,7 @@ def dashboard_error_flow(user_choice=None, context=None):
     if context.get("stage") == "post_heap_check":
 
         if user_choice.lower().strip() == "fixed":
-
-            response["display"] = "Great! The issue is resolved."
-            response["done"]    = True
-
-            return response
+            return conclude(True, "Great! The issue is resolved.", context)
 
         elif user_choice.lower().strip() == "ongoing":
 
@@ -601,13 +596,9 @@ def dashboard_error_flow(user_choice=None, context=None):
 
             "--- Recent dashboard logs ---\n"
             f"{clean_dashboard}\n\n"
-
-            "If the issue still persists share the above on:\n"
-            "  https://wazuh.com/community/"
         )
 
-        response["done"] = True
-        return response
+        return conclude(False, response["display"], context, topic="wazuh dashboard not active cannot connect to indexer")
 
 
    # -------------------------------------------------------------------------
@@ -662,11 +653,7 @@ def dashboard_error_flow(user_choice=None, context=None):
         choice = (user_choice or "").lower().strip()
 
         if choice == "resolved":
-            response["display"] = "Glad to know the issue is resolved."
-            response["done"] = True
-            response["context"] = context
-
-            return response
+            return conclude(True, "Glad to know the issue is resolved.", context)
 
         if choice == "not resolved":
             logs = LogHandler.get_dashboard_logs(1)
@@ -771,12 +758,8 @@ def dashboard_error_flow(user_choice=None, context=None):
             response["ask"]  = ["Continue? (yes)"]
 
         else:
-            response["display"] += (
-                "\n\nThese issues need manual review.\n\n"
-                "If the issue still persists, please contact the Wazuh community:\n"
-                "https://wazuh.com/community/"
-            )
-            response["done"] = True
+            response["display"] += "\n\nThese issues need manual review."
+            return conclude(False, response["display"], context, topic="wazuh dashboard log issues " + " ".join(issues))
 
         response["context"] = context
         return response
@@ -873,13 +856,9 @@ def dashboard_error_flow(user_choice=None, context=None):
             "on port 9200.\n\n"
             "Please check: firewall rules on port 9200, the dashboard's "
             "opensearch.hosts IP, and network connectivity between dashboard "
-            "and indexer.\n\n"
-            "If everything looks correct and the issue still persists:\n"
-            "  https://wazuh.com/community/"
+            "and indexer."
         )
-        response["done"]    = True
-        response["context"] = context
-        return response
+        return conclude(False, response["display"], context, topic="wazuh dashboard cannot connect to indexer port 9200")
 
     # -------------------------------------------------------------------------
     # FINAL STATUS CHECK
@@ -888,10 +867,7 @@ def dashboard_error_flow(user_choice=None, context=None):
         choice = (user_choice or "").lower().strip()
 
         if choice == "resolved":
-
-            response["display"] = "Great! Glad the issue is resolved."
-            response["done"]    = True
-            return response
+            return conclude(True, "Great! Glad the issue is resolved.", context)
 
         # not resolved — fetch and analyse logs
         dashboard_logs  = LogHandler.get_dashboard_logs(1)
@@ -970,15 +946,7 @@ def dashboard_error_flow(user_choice=None, context=None):
     if context.get("stage") == "final_escalate":
 
         if user_choice and "resolved" in user_choice.lower():
+            return conclude(True, "Great! Glad the issue is resolved.", context)
 
-            response["display"] = "Great! Glad the issue is resolved."
-            response["done"]    = True
-            return response
-
-        response["display"] = (
-            "The issue needs further investigation.\n\n"
-            "Please reach out to the Wazuh community for deeper support:\n"
-            "  https://wazuh.com/community/"
-        )
-        response["done"] = True
-        return response
+        response["display"] = "The issue needs further investigation."
+        return conclude(False, response["display"], context, topic="wazuh dashboard error troubleshooting unresolved")

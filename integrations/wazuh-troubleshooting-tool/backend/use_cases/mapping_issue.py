@@ -28,6 +28,7 @@ from utils.api_utils import indexer_api_get, indexer_api_get_json, indexer_api_d
 from utils.index_utils import check_most_recent_index
 from utils.reindex_utils import reindex_for_mapping_conflict
 from utils.ai_utils import ai_explain
+from utils.unresolved_help import conclude
 
 WAZUH_TEMPLATE_URL = "https://raw.githubusercontent.com/wazuh/wazuh/v4.14.6/extensions/elasticsearch/7.x/wazuh-template.json"
 EXPECTED_INDEX_PATTERNS = {"wazuh-alerts-4.x-*", "wazuh-archives-4.x-*"}
@@ -129,9 +130,7 @@ def mapping_issue_flow(user_choice=None, context=None):
 
     if stage == "reindex_confirm":
         if "skip" in choice or "no" in choice:
-            response["display"] = "Skipping the reindex."
-            response["done"] = True
-            return response
+            return conclude(True, "Skipping the reindex. The template fix is already in place.", context)
         return _auto_reindex_one(response, context)
 
     response["display"] = "Invalid stage."
@@ -231,11 +230,9 @@ def _no_specific_field(response, context):
     ai_text = ai_explain(UNCLEAR_TEMPLATE_SYSTEM_PROMPT, context.get("cat_templates", "")[:4000])
     response["display"] += (
         f"\n\nNo specific field to check further - here's an AI read of what we've gathered "
-        f"so far:\n{ai_text}\n\n"
-        f"If this doesn't resolve it, please reach out to the official Wazuh community:\n{WAZUH_COMMUNITY_URL}"
+        f"so far:\n{ai_text}"
     )
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic="wazuh indexer mapping template field conflict")
 
 
 def _offer_template_fix(response, context, reason):
@@ -305,9 +302,7 @@ def _offer_reindex(response, context):
 
 def _handle_reindex_method(response, context, choice):
     if "skip" in choice:
-        response["display"] = "Skipping the reindex."
-        response["done"] = True
-        return response
+        return conclude(True, "Skipping the reindex. The template fix is already in place.", context)
 
     suggested = check_most_recent_index()
     hint = f" (e.g. {suggested['index']})" if suggested.get("index") else ""
@@ -338,7 +333,7 @@ def _auto_reindex_one(response, context):
             f"Stopped after '{aborted_after}' - nothing irreversible happened past that "
             f"point. {detail}"
         )
-    else:
-        response["display"] = f"Reindexed {index_name} - it should now use the corrected mapping."
-    response["done"] = True
-    return response
+        return conclude(False, response["display"], context, topic="wazuh reindex mapping conflict aborted " + aborted_after)
+
+    response["display"] = f"Reindexed {index_name} - it should now use the corrected mapping."
+    return conclude(True, response["display"], context)

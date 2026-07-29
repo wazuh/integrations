@@ -79,6 +79,7 @@ USAGE
 """
 
 from utils.response_utils import make_response
+from utils.unresolved_help import conclude
 
 
 def stage_names(prefix, steps):
@@ -220,7 +221,7 @@ def run_step_flow(prefix, steps, next_stage_after_ongoing, user_choice=None, con
         # -----------------------------------------------------------
         if stage == f"{prefix}_{key}_fix_result":
             if "fixed" in choice:
-                return make_response(display="Great! The issue is resolved.", done=True, context=context)
+                return conclude(resolved=True, display="Great! The issue is resolved.", context=context)
 
             # "ongoing" -> move to the next step
             return _advance(prefix, steps, key, "Understood, still ongoing.", context, next_stage_after_ongoing)

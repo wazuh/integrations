@@ -1,6 +1,7 @@
 from executor import run_command
 import time
 from utils.api_utils import indexer_api_get
+from utils.unresolved_help import conclude
 
 def indexing_error_flow(user_choice=None, context=None):
     if context is None:
@@ -50,8 +51,7 @@ def indexing_error_flow(user_choice=None, context=None):
                 return response
             else:
                 response["display"] += "\n\nFailed to restart indexer. Please check system logs for issues."
-                response["done"] = True
-                return response
+                return conclude(False, response["display"], context, topic="wazuh-indexer service fails to restart")
         else:
             response["display"] = "Skipped indexer restart. Checking disk space."
             response["ask"] = ["Check disk space? (auto / manual)"]
@@ -86,8 +86,7 @@ def indexing_error_flow(user_choice=None, context=None):
     if stage == "disk_check_manual":
         if user_choice and "no" in user_choice.lower():
             response["display"] = "Please free up disk space and try again."
-            response["done"] = True
-            return response
+            return conclude(False, response["display"], context, topic="wazuh-indexer disk watermark disk space full")
         else:
             response["display"] = "Disk space verified. Moving to cluster health check."
             response["ask"] = ["Run cluster health check? (yes / no)"]
@@ -100,16 +99,20 @@ def indexing_error_flow(user_choice=None, context=None):
             response["display"] = f"Cluster Health Status:\n\n{cluster_out}\n\n"
             if "red" in cluster_out.lower():
                 response["display"] += "The cluster health status is RED. This indicates that some primary shards are unassigned."
+                response["display"] += "\n\nTroubleshooting complete."
+                return conclude(False, response["display"], context, topic="wazuh indexer cluster health red unassigned shards")
             elif "yellow" in cluster_out.lower():
                 response["display"] += "The cluster health status is YELLOW. This indicates that replica shards are unassigned."
+                response["display"] += "\n\nTroubleshooting complete."
+                return conclude(False, response["display"], context, topic="wazuh indexer cluster health yellow unassigned shards")
             else:
                 response["display"] += "[OK] Cluster status is GREEN."
+                response["display"] += "\n\nTroubleshooting complete."
+                return conclude(True, response["display"], context)
         else:
             response["display"] = "Skipped cluster check."
-
-        response["display"] += "\n\nTroubleshooting complete."
-        response["done"] = True
-        return response
+            response["display"] += "\n\nTroubleshooting complete."
+            return conclude(False, response["display"], context, topic="wazuh indexer indexing errors")
 
     response["display"] = "Invalid stage."
     response["done"] = True

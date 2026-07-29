@@ -27,6 +27,7 @@ from utils.fix_engine import FixEngine
 from utils.log_handler import LogHandler
 from utils.log_analyzer import LogAnalyzer
 from utils.ai_utils import ai_explain
+from utils.unresolved_help import conclude
 from config import INDEXER_URL
 
 UNCLEAR_ALLOCATION_SYSTEM_PROMPT = (
@@ -38,10 +39,9 @@ UNCLEAR_ALLOCATION_SYSTEM_PROMPT = (
 )
 
 
-def _stop(response, title, explanation, fix_text):
+def _stop(response, context, title, explanation, fix_text):
     response["display"] += f"\n\n[ROOT CAUSE FOUND] {title}\n\n{explanation}\n\nRecommended fix:\n{fix_text}"
-    response["done"] = True
-    return response
+    return conclude(False, response["display"], context, topic=f"wazuh indexer cluster {title}")
 
 
 def cluster_issues_flow(user_choice=None, context=None):
@@ -80,8 +80,7 @@ def cluster_issues_flow(user_choice=None, context=None):
 
         if status == "green":
             response["display"] += "\n[OK] Cluster status is GREEN."
-            response["done"] = True
-            return response
+            return conclude(True, response["display"], context)
 
         response["display"] += f"\n[WARNING] Cluster status is {status.upper()}. Investigating the root cause..."
         return _diagnose(response, context)
@@ -99,8 +98,7 @@ def cluster_issues_flow(user_choice=None, context=None):
                 return response
         else:
             response["display"] = "Skipping service check."
-        response["done"] = True
-        return response
+        return conclude(False, response["display"], context, topic="wazuh indexer cluster health check failed")
 
     if stage == "restart_indexer":
         if "yes" in choice:
@@ -111,8 +109,7 @@ def cluster_issues_flow(user_choice=None, context=None):
             )
         else:
             response["display"] = "Cancelled."
-        response["done"] = True
-        return response
+        return conclude(False, response["display"], context, topic="wazuh indexer cluster health check failed")
 
     if stage == "fix_write_blocks":
         block_names = context.get("write_blocks", [])
@@ -150,9 +147,7 @@ def cluster_issues_flow(user_choice=None, context=None):
     if stage == "reindex_method":
         indices = context.get("unassigned_indices", [])
         if "skip" in choice:
-            response["display"] = "Skipping the reindex."
-            response["done"] = True
-            return response
+            return conclude(False, "Skipping the reindex.", context, topic="wazuh indexer unassigned shards reindex skipped")
         if "manual" in choice:
             response["display"] = _manual_reindex_instructions(indices)
             response["ask"] = ["Done", "Skip"]
@@ -165,9 +160,7 @@ def cluster_issues_flow(user_choice=None, context=None):
 
     if stage == "reindex_manual_wait":
         if "skip" in choice:
-            response["display"] = "Skipping verification."
-            response["done"] = True
-            return response
+            return conclude(False, "Skipping verification.", context, topic="wazuh indexer unassigned shards reindex verification skipped")
         return _verify_after_reindex(response, context)
 
     response["display"] = "Invalid stage."
@@ -184,8 +177,7 @@ def _diagnose(response, context):
     health, _ = get_cluster_health()
     if health and health.get("status") == "green":
         response["display"] += "\n\n[OK] Cluster status is now GREEN."
-        response["done"] = True
-        return response
+        return conclude(True, response["display"], context)
 
     # 1) Cluster-wide write/index-creation blocks - these silently prevent
     # allocation regardless of anything else, so rule them out first.
@@ -213,7 +205,7 @@ def _diagnose(response, context):
 
     if number_of_data_nodes < 1:
         return _stop(
-            response, "No data-holding indexer node online",
+            response, context, "No data-holding indexer node online",
             f"The cluster reports {number_of_nodes} total node(s) but 0 of them are eligible to "
             "hold data (node.roles missing 'data', or the data node(s) are down) - shards have "
             "nowhere to be allocated.",
@@ -227,7 +219,7 @@ def _diagnose(response, context):
     indexer_logs = LogHandler.get_indexer_logs(2)
     if "watermark" in LogAnalyzer.get_issues(indexer_logs):
         return _stop(
-            response, "Disk watermark exceeded",
+            response, context, "Disk watermark exceeded",
             f"The indexer log shows a disk watermark warning, which blocks shard allocation to "
             f"protect against running out of disk. Current disk usage:\n\n{disk_output}",
             "Free up disk space on the affected node (or temporarily raise "
@@ -241,7 +233,7 @@ def _diagnose(response, context):
         response["display"] += f"\nShard capacity in use: {capacity}%"
     if is_near_shard_limit():
         return _stop(
-            response, "Approaching cluster.max_shards_per_node limit",
+            response, context, "Approaching cluster.max_shards_per_node limit",
             f"The cluster is using {capacity}% of its total shard capacity across {node_count} "
             "node(s) - new/unassigned shards can't be allocated once this limit is hit.",
             "Reduce the shard count (lower number_of_replicas, delete or roll over old indices), "
@@ -257,8 +249,7 @@ def _diagnose(response, context):
             f"\n\n[WARNING] No unassigned shards and no known blocks/limits found, but cluster "
             f"status is not GREEN.\n\nAI analysis:\n{ai_text}"
         )
-        response["done"] = True
-        return response
+        return conclude(False, response["display"], context, topic="wazuh indexer cluster health not green no unassigned shards")
 
     context["unassigned_indices"] = sorted({s["index"] for s in unassigned})
     sample = "\n".join(f"  - {s['index']} shard {s['shard']} ({s['prirep']}) - {s['reason']}" for s in unassigned[:5])
@@ -294,7 +285,7 @@ def _diagnose(response, context):
     # different node than the one this tool runs on).
     if "disk" in allocation_explanation.lower():
         return _stop(
-            response, "Disk threshold blocking allocation",
+            response, context, "Disk threshold blocking allocation",
             f"The allocation explain output points to disk space as the blocker:\n  {allocation_explanation}\n\n"
             f"Current disk usage:\n{disk_output}",
             "Free up disk space (or delete/reindex old indices) so OpenSearch drops back below "
@@ -420,7 +411,6 @@ def _verify_after_reindex(response, context):
     unassigned = get_unassigned_shards()
     if unassigned:
         response["display"] += f"{sep}[WARNING] {len(unassigned)} shard(s) are still unassigned after reindexing."
-    else:
-        response["display"] += f"{sep}[OK] No unassigned shards remain."
-    response["done"] = True
-    return response
+        return conclude(False, response["display"], context, topic="wazuh indexer shards still unassigned after reindex")
+    response["display"] += f"{sep}[OK] No unassigned shards remain."
+    return conclude(True, response["display"], context)
