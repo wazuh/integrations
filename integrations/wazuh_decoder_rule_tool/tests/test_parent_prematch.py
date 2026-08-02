@@ -361,6 +361,77 @@ def test_default_boundary_does_not_cut_inside_a_clock():
     assert default_prematch_boundary(SYSLOG_ACCESSLOG).endswith("accesslog: ")
 
 
+# ── key:value records ────────────────────────────────────────────────────────
+
+SENSOR_KV = (
+    'DEV:TH-SENSOR-0442,SEQ:88213,T:2026-08-01T14:44:09Z,temp:23.4C,hum:61%,'
+    'batt:3.71V,rssi:-72dBm,evt:THRESHOLD_BREACH,thr:temp>22.0C,fw:1.4.2,crc:0x8A3F'
+)
+
+
+def test_kv_colon_record_prematch_pins_nothing():
+    """`key:value` hit none of the known boundaries, so the whole record --
+    device id, event name, firmware, crc -- ended up in the prematch."""
+    prematch = derive_parent_prematch(SENSOR_KV)
+    for value in ("TH-SENSOR-0442", "88213", "THRESHOLD_BREACH", "8A3F", "1.4.2"):
+        assert value not in prematch, f"prematch pinned {value!r}"
+    assert osregex_matches(prematch, SENSOR_KV)
+
+
+def test_kv_colon_record_matches_a_different_device_and_event():
+    prematch = derive_parent_prematch(SENSOR_KV)
+    assert osregex_matches(
+        prematch,
+        'DEV:TH-SENSOR-0001,SEQ:2,T:2027-01-09T02:00:00Z,temp:19.0C,'
+        'evt:HEARTBEAT,fw:2.0.0,crc:0x11BB',
+    )
+
+
+def test_a_clock_colon_is_not_a_field_boundary():
+    """Every timestamp has colons; treating them as kv separators would cut
+    the header mid-time. Keys must start with a letter."""
+    from app.main import _header_zone
+
+    assert _header_zone(SYSLOG_ACCESSLOG).startswith("<134>Aug  1 14:49:10")
+    assert _header_zone(PAREN_NODEEVT) == "2026-08-01 14:43:00; PRIORITY("
+
+
+def test_namespaced_colon_is_not_a_value_boundary():
+    """`LOGV3|f:ts=...` — `f:` introduces a namespace, not a value. The value
+    starts after `ts=`, so the header must reach that far and no further."""
+    prematch = derive_parent_prematch(LOGV3)
+    assert "ts" in prematch
+    assert "2026" not in prematch and "host" not in prematch
+
+
+def test_lone_colon_tag_does_not_trigger_the_kv_rule():
+    """A single `{SVC:name}` tag is a header, not a kv record — the rule needs
+    several pairs before a colon counts, so this keeps its earlier behaviour."""
+    prematch = derive_parent_prematch(BRACKET_BODY)
+    assert "SVC" in prematch
+    assert not osregex_matches(
+        prematch, '<2026.08.01 14:30> {SVC:payments-api} [REQ id=req-1]'
+    )
+
+
+# ── child captures on delimited records ──────────────────────────────────────
+
+def test_child_capture_is_bounded_by_the_record_delimiter():
+    """(\\S+) is non-space and so is a comma, so `temp:(\\S+)` swallowed the
+    whole rest of the record. OS_Regex backtracks when a literal follows the
+    group, so the delimiter bounds it."""
+    from app.main import build_split_regexes_from_fields
+
+    pairs = build_split_regexes_from_fields(
+        [SENSOR_KV], {"temp": "23.4C", "evt": "THRESHOLD_BREACH", "crc": "0x8A3F"}
+    )
+    by_field = {order[0]: regex for regex, order in pairs}
+    assert by_field["temp"].endswith(r"(\S+),")
+    assert by_field["evt"].endswith(r"(\S+),")
+    # crc is the final field of the record — nothing follows it to anchor on.
+    assert by_field["crc"].endswith(r"(\S+)")
+
+
 def test_derive_handles_empty_and_junk_input():
     assert derive_parent_prematch("") is None
     assert derive_parent_prematch("   ") is None

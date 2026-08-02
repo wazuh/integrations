@@ -597,6 +597,19 @@ def _generalize_prematch_prefix(prefix: str) -> str:
 # formats, and only a `(` bound to an identifier denotes a field value.
 _HEADER_ZONE_RE = re.compile(r"\[|[\w.\-]+=|[\w.\-]+\(")
 
+# `key:value` records ("DEV:x,SEQ:1,temp:23.4C"). A colon is far too common to
+# treat as a field boundary outright — every clock has two — so the key must
+# start with a letter and not continue a word, and the shape only counts as a
+# kv record when several such pairs are present. That keeps a lone `{SVC:name}`
+# header tag and a syslog `program:` marker out of it, since neither repeats.
+_KV_COLON_PAIR_RE = re.compile(r"(?<![\w.\-])[A-Za-z][\w.\-]*:")
+_KV_RECORD_MIN_PAIRS = 3
+
+# `LOGV3|f:ts=...` — the colon here introduces a namespace (`f:` = field),
+# and the value starts after `ts=`, not after `f:`. A key must start with a
+# letter so a timestamp tail ("2026-08-01T14:") is never mistaken for one.
+_NESTED_KEY_RE = re.compile(r"^[A-Za-z][\w.\-]*[=:(]")
+
 
 def _header_zone(text: str) -> str:
     """Truncate `text` at the first point where per-event data begins.
@@ -605,10 +618,17 @@ def _header_zone(text: str) -> str:
     header and pin a value — `type=EDR.ALERT` matching only ALERT events,
     `PRIORITY(CRIT)` matching only criticals, or a 4-token fallback reaching
     into `[REQ ...]`."""
-    match = _HEADER_ZONE_RE.search(text)
-    if not match:
+    candidates = [_HEADER_ZONE_RE.search(text)]
+    if len(_KV_COLON_PAIR_RE.findall(text)) >= _KV_RECORD_MIN_PAIRS:
+        colon = _KV_COLON_PAIR_RE.search(text)
+        # Only a colon that actually introduces a value bounds the header.
+        if colon and not _NESTED_KEY_RE.match(text[colon.end():]):
+            candidates.append(colon)
+    found = [m for m in candidates if m]
+    if not found:
         return text
-    if match.group().endswith(("=", "(")):
+    match = min(found, key=lambda m: m.start())
+    if match.group().endswith(("=", "(", ":")):
         # Keep the key and its delimiter; what follows is per-event data.
         return text[: match.end()]
     return text[: match.start()]
@@ -1007,6 +1027,18 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
         # [ ] { } are literal (NOT character classes/quantifiers)
         return re.sub(r'([$()\\|<])', r'\\\1', text)
 
+    def trailing_delimiter(end_idx: int) -> str:
+        """The record separator right after a captured value, if any.
+
+        `(\\S+)` is non-space, and a delimiter like `,` or `|` is non-space too,
+        so on a delimited log the capture runs to end of line — `temp:(\\S+)`
+        yields the whole rest of the record. OS_Regex backtracks when a literal
+        follows the group, so appending that delimiter bounds the capture. The
+        final field of a record has none, hence the empty-string default."""
+        if 0 <= end_idx < len(target_text) and target_text[end_idx] in ",|;":
+            return osregex_escape(target_text[end_idx])
+        return ""
+
     for key, value in fields.items():
         if key in ("_cef_field_map",) or key.startswith("_") or not value or not isinstance(value, str):
             continue
@@ -1045,7 +1077,8 @@ def build_split_regexes_from_fields(logs: List[str], fields: Dict[str, str]) -> 
                 elif value.isdigit():
                     capture_group = r"(\d+)"
             
-            results.append((f"{prefix_re}{prefix_escaped}{capture_group}{osregex_escape(quote_close)}", [key]))
+            suffix = osregex_escape(quote_close) or trailing_delimiter(match.end())
+            results.append((f"{prefix_re}{prefix_escaped}{capture_group}{suffix}", [key]))
             continue
 
         # 2.5 Handle hyphenated action/status fields (e.g., deny-smb -> capture deny)
