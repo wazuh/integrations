@@ -308,6 +308,59 @@ def test_overfit_guardrail_takes_the_shape_the_endpoint_actually_passes():
     assert detect_overfit_prematch(bad, None, sample_log=sample)
 
 
+# ── KEY(value) paren format ──────────────────────────────────────────────────
+
+PAREN_NODEEVT = (
+    '2026-08-01 14:43:00; PRIORITY(CRIT); COMPONENT(storage-node-3); '
+    'EVENT(disk.smart.fail); DETAIL(dev=/dev/sdb; reallocated=1284; pending=44; '
+    'temp=61C); ACTION(auto-evacuate started); TICKET(INC-99213)'
+)
+
+
+def test_paren_format_prematch_keeps_the_key_not_the_value():
+    """`PRIORITY(CRIT)` in the prematch matches criticals and nothing else.
+
+    The header zone knew `key=` and `[`, but this format uses `KEY(value)`, so
+    the first `=` it found was buried inside `DETAIL(dev=...)` — the prematch
+    ran through PRIORITY and COMPONENT, pinning both values."""
+    prematch = derive_parent_prematch(PAREN_NODEEVT)
+    assert "PRIORITY" in prematch, "the structural key should survive"
+    for value in ("CRIT", "storage", "node", "disk", "smart"):
+        assert value not in prematch, f"prematch pinned the value {value!r}"
+    assert osregex_matches(prematch, PAREN_NODEEVT)
+
+
+@pytest.mark.parametrize(
+    "sibling",
+    [
+        '2026-08-01 15:02:11; PRIORITY(WARN); COMPONENT(net-edge-11); EVENT(link.flap)',
+        '2027-01-09 02:00:00; PRIORITY(INFO); COMPONENT(api-7); EVENT(startup)',
+        '2030-12-25 23:59:59; PRIORITY(DEBUG); COMPONENT(x); EVENT(y)',
+    ],
+)
+def test_paren_format_matches_other_severities_and_components(sibling):
+    assert osregex_matches(derive_parent_prematch(PAREN_NODEEVT), sibling)
+
+
+def test_paren_format_prematch_still_discriminates():
+    """Trimming the prematch must not make it match anything with a date."""
+    prematch = derive_parent_prematch(PAREN_NODEEVT)
+    assert not osregex_matches(
+        prematch, '2026-08-01 14:43:00; SEVERITY(CRIT); COMPONENT(storage-node-3)'
+    )
+    assert not osregex_matches(prematch, 'MSG#1|type=EDR.ALERT|ts=1')
+
+
+def test_default_boundary_does_not_cut_inside_a_clock():
+    """`:\\s*` allowed the zero-width case, so "14:43:" satisfied the
+    "program:" marker and the header was cut mid-timestamp."""
+    from app.main import default_prematch_boundary
+
+    assert default_prematch_boundary(PAREN_NODEEVT) == "2026-08-01 14:43:00; PRIORITY("
+    # A genuine syslog program marker must still be honoured.
+    assert default_prematch_boundary(SYSLOG_ACCESSLOG).endswith("accesslog: ")
+
+
 def test_derive_handles_empty_and_junk_input():
     assert derive_parent_prematch("") is None
     assert derive_parent_prematch("   ") is None

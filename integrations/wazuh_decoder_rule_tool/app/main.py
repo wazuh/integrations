@@ -379,7 +379,10 @@ def default_prematch_boundary(text: str) -> str:
     m = re.match(r"^(.{0,120}?\[\d+\]:\s*)", text)
     if m:
         return m.group(1)
-    m = re.match(r"^(\S+(?:\s+\S+){0,5}:\s*)", text)
+    # `:\s+`, not `:\s*` — with `\s*` the zero-width case let a clock satisfy
+    # the "program:" marker, cutting the header mid-timestamp ("14:43:").
+    # derive_parent_prematch's equivalent already required the whitespace.
+    m = re.match(r"^(\S+(?:\s+\S+){0,5}:\s+)", text)
     if m:
         return m.group(1)
     tokens = text.split()
@@ -585,25 +588,28 @@ def _generalize_prematch_prefix(prefix: str) -> str:
     return collapsed
 
 
-# A prematch must describe the log's *envelope*, never one event's data. Two
+# A prematch must describe the log's *envelope*, never one event's data. Three
 # things reliably mark where the envelope stops and per-event data starts:
-# a `key=` (everything after the `=` is that event's value) and a `[`-delimited
-# body block (present on some events, absent on others). `{`/`(` are excluded
-# deliberately — a `{SVC:name}` style tag sits in the header on many formats.
-_HEADER_ZONE_RE = re.compile(r"\[|[\w.\-]+=")
+#   key=value     — everything after the `=` is that event's value
+#   KEY(value)    — same, in the paren style ("PRIORITY(CRIT); COMPONENT(...)")
+#   [ ... ]       — a body block, present on some events and absent on others
+# A bare `{` or `(` is NOT a stop: `{SVC:name}` sits in the header on many
+# formats, and only a `(` bound to an identifier denotes a field value.
+_HEADER_ZONE_RE = re.compile(r"\[|[\w.\-]+=|[\w.\-]+\(")
 
 
 def _header_zone(text: str) -> str:
     """Truncate `text` at the first point where per-event data begins.
 
     Bounds every downstream heuristic so none of them can wander out of the
-    header and pin a value — `type=EDR.ALERT` matching only ALERT events, or a
-    4-token fallback reaching into `[REQ ...]`."""
+    header and pin a value — `type=EDR.ALERT` matching only ALERT events,
+    `PRIORITY(CRIT)` matching only criticals, or a 4-token fallback reaching
+    into `[REQ ...]`."""
     match = _HEADER_ZONE_RE.search(text)
     if not match:
         return text
-    if match.group().endswith("="):
-        # Keep the key and its `=`; the value after it is per-event data.
+    if match.group().endswith(("=", "(")):
+        # Keep the key and its delimiter; what follows is per-event data.
         return text[: match.end()]
     return text[: match.start()]
 
