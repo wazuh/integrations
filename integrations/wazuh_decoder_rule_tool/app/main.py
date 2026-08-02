@@ -371,6 +371,11 @@ def default_prematch_boundary(text: str) -> str:
     """Bound a prematch candidate at the end of the syslog-style header
     (program[pid]: or program:) so we don't drag the entire log body into the
     prematch when no earlier candidate matched."""
+    # The token fallback below splits on whitespace, so a delimited log with no
+    # spaces ("MSG#1|type=X|ts=...") came back whole — the entire event, values
+    # and all, became the prematch. Bound it the same way derive_parent_prematch
+    # does before any of the syslog-shaped heuristics get a look.
+    text = _header_zone(text)
     m = re.match(r"^(.{0,120}?\[\d+\]:\s*)", text)
     if m:
         return m.group(1)
@@ -379,6 +384,34 @@ def default_prematch_boundary(text: str) -> str:
         return m.group(1)
     tokens = text.split()
     return " ".join(tokens[:6])
+
+
+# Matches a month abbreviation standing on its own, not letters inside a word
+# ("Mar" in "March-svc01" is part of a hostname, not a date).
+_STANDALONE_MONTH_RE = re.compile(
+    r"(?<![A-Za-z])(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?![A-Za-z])"
+)
+
+
+_MONTH_MARKER = "\x01"
+
+
+def _generalize_with_digit_runs_and_months(prefix: str) -> str:
+    """`_generalize_with_digit_runs`, but literal month names become \\w+ too.
+
+    The timestamp branches below strip the month when it leads the line, but a
+    syslog priority prefix ("<134>Aug  1 ...") pushes it off position 0 and the
+    generic fallback kept it literal — pinning the decoder to one month.
+
+    Months are marked before escaping, not after: escaping turns `>` into `\\p`,
+    so an already-escaped string reads as `\\pAug` and any letter-boundary check
+    sees the `p` and declines to substitute."""
+    marked = _STANDALONE_MONTH_RE.sub(_MONTH_MARKER, prefix)
+    generalized = _generalize_with_digit_runs(marked).replace(_MONTH_MARKER, r"\w+")
+    # Syslog space-pads single-digit days ("Aug  1" vs "Dec 25"), and each space
+    # escapes to its own \s+ — so a two-space sample would not match a two-digit
+    # day. Collapse runs, as _generalize_prematch_prefix already does.
+    return re.sub(r"(?:\\s\+){2,}", r"\\s+", generalized)
 
 
 def generalize_prefix_literal(prefix: str) -> str:
@@ -430,7 +463,7 @@ def generalize_prefix_literal(prefix: str) -> str:
         rest = m6.group(2)
         return ts_part + _generalize_with_digit_runs(rest)
 
-    return _generalize_with_digit_runs(prefix)
+    return _generalize_with_digit_runs_and_months(prefix)
 
 
 def prematch_osregex_from_current_logs(logs: List[str], *candidates: Optional[str]) -> Optional[str]:
@@ -552,6 +585,29 @@ def _generalize_prematch_prefix(prefix: str) -> str:
     return collapsed
 
 
+# A prematch must describe the log's *envelope*, never one event's data. Two
+# things reliably mark where the envelope stops and per-event data starts:
+# a `key=` (everything after the `=` is that event's value) and a `[`-delimited
+# body block (present on some events, absent on others). `{`/`(` are excluded
+# deliberately — a `{SVC:name}` style tag sits in the header on many formats.
+_HEADER_ZONE_RE = re.compile(r"\[|[\w.\-]+=")
+
+
+def _header_zone(text: str) -> str:
+    """Truncate `text` at the first point where per-event data begins.
+
+    Bounds every downstream heuristic so none of them can wander out of the
+    header and pin a value — `type=EDR.ALERT` matching only ALERT events, or a
+    4-token fallback reaching into `[REQ ...]`."""
+    match = _HEADER_ZONE_RE.search(text)
+    if not match:
+        return text
+    if match.group().endswith("="):
+        # Keep the key and its `=`; the value after it is per-event data.
+        return text[: match.end()]
+    return text[: match.start()]
+
+
 def derive_parent_prematch(visible_text: str) -> Optional[str]:
     """Build a parent <prematch> covering the stable header of `visible_text`.
 
@@ -561,9 +617,16 @@ def derive_parent_prematch(visible_text: str) -> Optional[str]:
 
     The header runs up to and including the first distinctive token: the
     vendor/product tag in a delimited format (`LOGV3|`, `|APPAUTH|`), or the
-    `program:` marker in a syslog-shaped line."""
-    text = (visible_text or "").strip()
-    if not text:
+    `program:` marker in a syslog-shaped line — and never past the first
+    field value (see `_header_zone`)."""
+    full_text = (visible_text or "").strip()
+    if not full_text:
+        return None
+
+    # Everything below reasons about the envelope only; the derived prematch is
+    # still verified against the whole line further down.
+    text = _header_zone(full_text)
+    if not text.strip():
         return None
 
     head = text[:160]
@@ -596,11 +659,11 @@ def derive_parent_prematch(visible_text: str) -> Optional[str]:
         return None
 
     candidate = f"^{generalized}"
-    if osregex_matches(candidate, text):
+    if osregex_matches(candidate, full_text):
         return candidate
     # Anchored form failed (an odd pre-decode cut, say); an unanchored prematch
     # still selects the right logs and is better than one that never matches.
-    if osregex_matches(generalized, text):
+    if osregex_matches(generalized, full_text):
         return generalized
     return None
 
@@ -5357,7 +5420,31 @@ def _validate_ai_decoder_with_logtest(
 _MONTH_ABBR_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b")
 
 
-def detect_overfit_prematch(decoder_xml: str, predecoded_timestamp: Optional[str]) -> Optional[str]:
+def _pinned_field_value(prematch_text: str, sample_log: str) -> Optional[Tuple[str, str]]:
+    """Return (key, value) when `prematch_text` carries a literal field value.
+
+    In OS_Regex `=` is written `\\p`, so `type=EDR.ALERT` reaches the prematch as
+    `type\\pEDR.ALERT`. Match key/value pairs from the sample against that shape:
+    the key is structural, anything after it is one event's data.
+    """
+    for key, value in re.findall(r"([\w.\-]+)=([^\s|\]}\"]+)", sample_log or ""):
+        if len(value) < 3:
+            # Too short to be a confident literal (`t=1`, `id=7`).
+            continue
+        pinned = re.search(
+            re.escape(key) + r"(?:=|\\p)" + re.escape(value),
+            prematch_text,
+        )
+        if pinned:
+            return key, value
+    return None
+
+
+def detect_overfit_prematch(
+    decoder_xml: str,
+    predecoded_timestamp: Optional[str],
+    sample_log: Optional[str] = None,
+) -> Optional[str]:
     """Catch a decoder that passed logtest only because it was tested against the
     exact log it was overfit to — e.g. <prematch>^Jul</prematch> hardcoding the
     one month/day/year seen in the sample instead of generalizing it. This slips
@@ -5366,7 +5453,17 @@ def detect_overfit_prematch(decoder_xml: str, predecoded_timestamp: Optional[str
     """
     if not decoder_xml:
         return None
-    for prematch_text in re.findall(r"<prematch>([^<]*)</prematch>", decoder_xml):
+    for prematch_text in re.findall(r"<prematch(?:\s[^>]*)?>([^<]*)</prematch>", decoder_xml):
+        pinned = _pinned_field_value(prematch_text, sample_log or "")
+        if pinned:
+            key, value = pinned
+            return (
+                f"FATAL ERROR: <prematch>{prematch_text}</prematch> hardcodes the VALUE of the "
+                f"'{key}' field ('{value}') from the sample log. A prematch selects the log FAMILY, "
+                f"so it must stop at '{key}=' and never include what follows — otherwise every event "
+                f"from this same source whose {key} differs will not match the decoder at all. "
+                f"Extract '{key}' in a child <decoder> instead."
+            )
         if predecoded_timestamp and predecoded_timestamp in prematch_text:
             return (
                 f"FATAL ERROR: <prematch>{prematch_text}</prematch> still contains the literal "
@@ -5441,7 +5538,11 @@ async def ai_generate_validated(request: AIGenerateRequest):
             best_validation = {"validated": False, "reason": "validation disabled by user"}
             break
 
-        overfit_reason = detect_overfit_prematch(decoder_xml, analysis.get("predecoded_timestamp"))
+        overfit_reason = detect_overfit_prematch(
+            decoder_xml,
+            analysis.get("predecoded_timestamp"),
+            sample_log=first_non_empty([s.raw_log for s in request.logs]),
+        )
         if overfit_reason:
             # Don't trust logtest pass/fail here — the training sample will still
             # match an overfit prematch, which is exactly what makes this bug
