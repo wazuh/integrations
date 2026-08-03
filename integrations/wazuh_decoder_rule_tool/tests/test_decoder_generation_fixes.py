@@ -414,3 +414,128 @@ def test_full_path_produces_a_matchable_decoder_set():
     assert decoder_xml.count("<parent>myapp</parent>") == 3
     assert decoder_xml.count("<order>") == 3
     assert not blank_line_inside_a_block(decoder_xml)
+
+
+# ── a log Wazuh already decodes must not get a redundant custom decoder ──────
+#
+# The AI endpoint computed `needs_custom_decoder` and then ignored it, so a log
+# the stock ruleset already handles (json, sshd, fortigate, ...) still got a
+# generated decoder. That decoder can never fire — the built-in wins Phase 2 —
+# yet validation reported success because it only checked that *some* decoder
+# matched. Emit a rule keyed to the built-in with <decoded_as> instead.
+
+def _builtin_analysis(needs_custom_rule):
+    return {
+        "app_name": "jsonapi",
+        "needs_custom_decoder": False,
+        "needs_custom_rule": needs_custom_rule,
+        "wazuh_logtest_summary": {"decoder_name": "json", "rule_id": 1002},
+    }
+
+
+def _run(coro):
+    import asyncio
+
+    return asyncio.run(coro)
+
+
+def _body(response):
+    import json
+
+    return json.loads(bytes(response.body).decode())
+
+
+def test_builtin_decoded_log_with_no_rule_requirement_generates_nothing():
+    request = main.AIGenerateRequest(
+        app_name="jsonapi",
+        logs=[main.LogSample(raw_log='{"level":"ERROR","service":"payments-api"}')],
+    )
+    body = _body(_run(main._rule_only_for_builtin_decoder(
+        request, _builtin_analysis(needs_custom_rule=False), "json"
+    )))
+
+    assert body["decoder_xml"] == "", "no decoder should be generated"
+    assert body["rule_xml"] == ""
+    assert body["decoder_skipped"] is True
+    assert body["builtin_decoder"] == "json"
+    assert body["builtin_rule_id"] == 1002
+    assert body["working"] is True
+    assert body["attempts"] == 0
+    assert "json" in body["validation"]["reason"]
+
+
+def test_generated_rule_ids_reads_every_rule():
+    assert main._generated_rule_ids(
+        '<rule id="100900" level="7"></rule>\n<rule id="100901" level="3"></rule>'
+    ) == [100900, 100901]
+    assert main._generated_rule_ids("") == []
+
+
+def test_rule_only_validation_requires_a_rule_id_to_check():
+    """Without an id there is nothing to assert fired, so it must not pass."""
+    result = main._validate_ai_rule_with_logtest(
+        "<rule level=\"7\"><decoded_as>json</decoded_as></rule>",
+        [main.LogSample(raw_log='{"level":"ERROR"}')],
+        "jsonapi",
+        "json",
+    )
+    assert result["validated"] is False
+    assert "no <rule id" in result["reason"]
+
+
+def test_rule_only_validation_rejects_empty_and_malformed_xml():
+    logs = [main.LogSample(raw_log='{"level":"ERROR"}')]
+    assert main._validate_ai_rule_with_logtest("", logs, "jsonapi", "json")["validated"] is False
+    bad = main._validate_ai_rule_with_logtest(
+        '<rule id="100900"><decoded_as>json</decoded_as>', logs, "jsonapi", "json"
+    )
+    assert bad["validated"] is False
+    assert "rule XML" in bad["reason"]
+
+
+# ── a decoded field named `id` must not be read back as the rule id ──────────
+#
+# Phase 2 prints decoded fields and Phase 3 prints rule properties using the
+# same names (`id`, `level`, `description`). `id` is one of Wazuh's documented
+# static field names, so an Aruba/firewall decoder extracting an event code put
+# `id: '501094'` in Phase 2 — and the unscoped search read that as the rule id,
+# reporting 501094 where rule 100912 had actually fired.
+
+LOGTEST_WITH_DECODED_ID = """**Phase 1: Completed pre-decoding.
+\ttimestamp: 'Jul 20 16:42:55'
+\thostname: '2026'
+
+**Phase 2: Completed decoding.
+\tname: 'arubactl'
+\tid: '501094'
+\tsrcip: '10.7.2.19'
+\tstatus: 'Client Match'
+
+**Phase 3: Completed filtering (rules).
+\tid: '100912'
+\tlevel: '7'
+\tdescription: 'Aruba: client association auth failure'
+"""
+
+
+def test_decoded_id_field_is_not_mistaken_for_the_rule_id():
+    parsed = main.parse_logtest_output(LOGTEST_WITH_DECODED_ID)
+
+    assert parsed["rule_id"] == 100912, "rule id must come from Phase 3"
+    assert parsed["rule_level"] == 7
+    assert parsed["rule_description"] == "Aruba: client association auth failure"
+    assert parsed["decoded_fields"]["id"] == "501094", "the decoded field keeps its own value"
+    assert parsed["decoder_name"] == "arubactl"
+    assert parsed["no_rule_match"] is False
+
+
+def test_no_rule_match_is_true_when_only_a_decoded_id_is_present():
+    """A Phase 2 `id:` must not make a ruleless event look like a rule fired."""
+    stdout = LOGTEST_WITH_DECODED_ID.split("**Phase 3")[0] + (
+        "**Phase 3: Completed filtering (rules).\n\tNo rule matched.\n"
+    )
+    parsed = main.parse_logtest_output(stdout)
+
+    assert parsed["rule_id"] is None
+    assert parsed["no_rule_match"] is True
+    assert parsed["decoded_fields"]["id"] == "501094"

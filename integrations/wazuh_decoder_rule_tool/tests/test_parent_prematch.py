@@ -60,6 +60,45 @@ def test_osregex_classes():
     assert not osregex_matches(r"\p", "a")
 
 
+@pytest.mark.parametrize("char", list("~@^_/\\`"))
+def test_osregex_punct_class_excludes_what_wazuh_excludes(char):
+    """Verified against wazuh-logtest 4.14: these are NOT in \\p, however much
+    they look like punctuation. Treating them as \\p let osregex_matches()
+    approve prematches that real Wazuh never fires."""
+    assert not osregex_matches(r"\p", char)
+
+
+@pytest.mark.parametrize("char", list("()*+,-.:;<=>?[]!\"'#$%&|{}"))
+def test_osregex_punct_class_covers_what_wazuh_covers(char):
+    assert osregex_matches(r"\p", char)
+
+
+def test_tilde_delimited_header_keeps_the_tilde_literal():
+    """`~PAYGW~` generalized to `\\p...\\p` verified clean and matched nothing in
+    production, because `~` is outside Wazuh's \\p. Keep it literal instead —
+    it is a fixed delimiter of the format, not per-event data."""
+    prematch = derive_parent_prematch(EPOCH_PAYGW)
+    assert "~PAYGW~" in prematch
+    assert osregex_matches(prematch, EPOCH_PAYGW)
+
+
+def test_tilde_marker_and_slash_date_stay_literal():
+    log = (
+        "~AUDIT~ 2026/08/01-14:36:14 usr=jane.doe@corp ~ obj=doc:finance/q3.xlsx ~ "
+        "action=PERMISSION_CHANGE ~ grantor=admin.bob"
+    )
+    prematch = derive_parent_prematch(log)
+    assert prematch.startswith("^~AUDIT~"), prematch
+    assert "/" in prematch, "the date separator is outside \\p, so it stays literal"
+    assert osregex_matches(prematch, log)
+    # A different day must still match — only the delimiters are literal.
+    assert osregex_matches(
+        prematch,
+        "~AUDIT~ 2026/12/25-23:44:18 usr=omar.said@corp ~ obj=doc:legal/nda.docx ~ "
+        "action=PERMISSION_CHANGE ~ grantor=admin.kim",
+    )
+
+
 def test_osregex_anchor_is_honoured():
     assert osregex_matches(r"^LOGV3", "LOGV3|f:ts=1")
     assert not osregex_matches(r"^LOGV3", "x|LOGV3")
@@ -177,6 +216,17 @@ BRACKET_BODY = (
     'route=/v2/checkout] [USR uid=88213 tier=gold] [RESP code=500 '
     'err="deadlock detected: txn 991 vs 882"]'
 )
+# Both open with `[`, which used to zero out the header zone.
+EPOCH_PAYGW = (
+    '[1754056222831] ~PAYGW~ >> merchant=MID99213 | card=****4821 | '
+    'amt=15000.50:USD | mcc=5411 | result=DECLINE(51) | risk_score=0.87 | '
+    'rules_fired=[VELOCITY,GEO_MISMATCH] | proc_ns=8823410'
+)
+APACHE_ERROR = (
+    '[Mon Aug 03 09:22:31.113456 2026] [authz_core:error] [pid 2211:tid 140234] '
+    '[client 203.0.113.77:52233] AH01630: client denied by server configuration: '
+    '/var/www/html/admin'
+)
 
 
 def test_prematch_stops_at_the_key_and_never_takes_the_value():
@@ -223,6 +273,65 @@ def test_header_zone_cuts_at_first_value_or_body_block():
     assert _header_zone("MSG#1|type=EDR.ALERT|ts=9") == "MSG#1|type="
     assert _header_zone("a b [REQ id=1]") == "a b "
     assert _header_zone("no values here") == "no values here"
+
+
+def test_header_zone_survives_a_log_that_opens_with_a_bracket():
+    """A `[` at position 0 collapsed the zone to "", so `derive_parent_prematch`
+    returned None and the parent shipped with no prematch at all. The opening
+    group is header — an epoch stamp, an apache date — not the body block the
+    `[` stop is for."""
+    from app.main import _header_zone
+
+    assert _header_zone(EPOCH_PAYGW) == "[1754056222831] ~PAYGW~ >> merchant="
+    assert _header_zone(APACHE_ERROR) == "[Mon Aug 03 09:22:31.113456 2026] "
+
+
+@pytest.mark.parametrize("log", [EPOCH_PAYGW, APACHE_ERROR])
+def test_bracket_opening_logs_still_get_a_parent_prematch(log):
+    prematch = derive_parent_prematch(log)
+    assert prematch, "a log opening with '[' must still yield a prematch"
+    assert osregex_matches(prematch, log)
+
+
+def test_epoch_bracket_prematch_covers_the_header_without_pinning_a_value():
+    """`[<epoch>] ~PAYGW~` is the envelope; the merchant id is one event's data."""
+    prematch = derive_parent_prematch(EPOCH_PAYGW)
+    assert "PAYGW" in prematch, "the product tag should survive"
+    assert "1754056222831" not in prematch, "the epoch is per-event"
+    assert "MID99213" not in prematch, "the merchant id is per-event"
+    assert osregex_matches(
+        prematch,
+        "[1754056301447] ~PAYGW~ >> merchant=MID41022 | card=****9930 | "
+        "amt=289.00:EUR | result=DECLINE(05)",
+    )
+
+
+def test_weekday_name_is_generalized_like_the_month():
+    """`[Mon Aug 03 ...]` kept `Mon` literal, so the decoder matched only
+    Mondays — a month-shaped overfit that the month rule did not cover."""
+    prematch = derive_parent_prematch(APACHE_ERROR)
+    assert "Mon" not in prematch
+    for other in (
+        "[Tue Sep 15 22:05:02.884211 2026] [authz_core:error] [client 10.0.0.3:41022] AH01630: denied",
+        "[Sun Dec 25 01:02:03.000001 2027] [authz_core:error] [client 10.0.0.1:1] AH01630: denied",
+    ):
+        assert osregex_matches(prematch, other)
+
+
+def test_weekday_generalization_leaves_words_that_merely_start_with_one_alone():
+    """"Monday-svc01" and "Sunfire-01" are hostnames, not dates."""
+    from app.main import _generalize_with_digit_runs_and_months
+
+    assert "Monday" in _generalize_with_digit_runs_and_months("Monday-svc01")
+    assert "Sunfire" in _generalize_with_digit_runs_and_months("Sunfire-01")
+
+
+def test_weekday_generalization_leaves_all_caps_product_tags_alone():
+    """A `MON` or `SUN` product tag is a tag; only title case is a weekday."""
+    from app.main import _generalize_prematch_prefix
+
+    generalized = _generalize_prematch_prefix("MON|SUN|")
+    assert "MON" in generalized and "SUN" in generalized
 
 
 # ── guardrail backstop for an LLM-authored prematch ──────────────────────────
@@ -430,6 +539,87 @@ def test_child_capture_is_bounded_by_the_record_delimiter():
     assert by_field["evt"].endswith(r"(\S+),")
     # crc is the final field of the record — nothing follows it to anchor on.
     assert by_field["crc"].endswith(r"(\S+)")
+
+
+# ── field-name matching must not collide on fragments ────────────────────────
+
+def test_single_letter_field_does_not_match_an_unrelated_wazuh_field():
+    """A log field named `T` matched `dstip`, because "t" is a substring of
+    "dstip". That scored an unrelated junos firewall template above zero, and
+    the tool emitted a <order>dstip</order> child for a log with no IP in it."""
+    from app.main import extract_relevant_fields, select_requested_fields
+
+    available = extract_relevant_fields(SENSOR_KV)
+    assert "T" in available, "sample no longer has the single-letter field"
+    selected, missing = select_requested_fields(available, ["dstip"])
+    assert selected == {}
+    assert missing == ["dstip"]
+
+
+@pytest.mark.parametrize(
+    "one,other,expected",
+    [
+        ("t", "dstip", False),      # the reported collision
+        ("a", "action", False),     # any single letter
+        ("ip", "srcip", True),      # suffix — what the fallback is for
+        ("temp", "temperature", True),   # prefix
+        ("user", "dstuser", True),
+        ("st", "dstip", False),     # mid-word fragment
+    ],
+)
+def test_affix_match_accepts_prefixes_and_suffixes_only(one, other, expected):
+    from app.main import _affix_match
+
+    assert _affix_match(one, other) is expected
+    assert _affix_match(other, one) is expected, "must be symmetric"
+
+
+def test_low_confidence_template_does_not_inject_its_fields():
+    """junos-rt-flow-reassemble-fail scored 0.19 against a sensor log and
+    contributed order=['dstip']. With the field no longer matching, the
+    template scores zero and is dropped."""
+    from app.main import score_ml_decoder_template, extract_relevant_fields
+
+    available = extract_relevant_fields(SENSOR_KV)
+    junos = {"name": "junos-rt-flow-reassemble-fail", "order": ["dstip"], "score": 0.1895}
+    assert score_ml_decoder_template(junos, available, ["temp", "hum"]) == 0.0
+
+
+# ── <order> spelling ─────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize(
+    "given,expected",
+    [
+        ("dstuser", "user"),
+        ("DstUser", "user"),
+        (" dstuser ", "user"),
+        ("srcuser", "srcuser"),   # only dstuser is aliased onto user
+        ("user", "user"),
+        ("dstip", "dstip"),
+        ("temp", "temp"),
+    ],
+)
+def test_order_field_name_prefers_user_over_dstuser(given, expected):
+    """Wazuh resolves <order>user</order> onto dstuser internally — logtest
+    emits `dstuser` for both spellings — so `user` is the clearer source form."""
+    from app.main import normalize_order_field_name
+
+    assert normalize_order_field_name(given) == expected
+
+
+def test_order_normalization_reaches_model_authored_xml():
+    """The deterministic renderers normalise their own output, but XML the
+    model wrote goes straight through — both paths must agree."""
+    from app.main import normalize_decoder_order_xml
+
+    xml = (
+        '<decoder name="a"><order>dstuser</order></decoder>'
+        '<decoder name="a"><order>srcip, dstuser</order></decoder>'
+    )
+    out = normalize_decoder_order_xml(xml)
+    assert "dstuser" not in out
+    assert "<order>user</order>" in out
+    assert "<order>srcip, user</order>" in out
 
 
 def test_derive_handles_empty_and_junk_input():

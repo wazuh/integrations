@@ -391,8 +391,14 @@ def default_prematch_boundary(text: str) -> str:
 
 # Matches a month abbreviation standing on its own, not letters inside a word
 # ("Mar" in "March-svc01" is part of a hostname, not a date).
+# Weekday names pin a date just as hard as month names — an apache error log
+# opens `[Mon Aug 03 ...]`, and a prematch keeping `Mon` literal matches only
+# Mondays. Title case only, so an all-caps product tag (`MON`, `SUN`) is safe.
+_WEEKDAY_ABBREVIATIONS = frozenset({"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"})
+
 _STANDALONE_MONTH_RE = re.compile(
-    r"(?<![A-Za-z])(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?![A-Za-z])"
+    r"(?<![A-Za-z])(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
+    r"|Mon|Tue|Wed|Thu|Fri|Sat|Sun)(?![A-Za-z])"
 )
 
 
@@ -498,9 +504,14 @@ def prematch_osregex_from_current_logs(logs: List[str], *candidates: Optional[st
     return prematch
 
 
-# OS_Regex \p — the punctuation class, per the set already used when walking
-# trailing punctuation in prematch_osregex_from_current_logs.
-_OSREGEX_PUNCT = "()*+,-.:;<=>?[]!\"'#$%&|{}/\\_~^@`"
+# OS_Regex \p — the punctuation class as wazuh-logtest actually implements it.
+# Verified character by character against wazuh-logtest 4.14: `~ @ ^ _ / \` and
+# a backtick are NOT in it, though every "punctuation" intuition says they are.
+# Treating them as \p made osregex_matches() approve prematches that real Wazuh
+# never fires — a `~PAYGW~` or `~AUDIT~` header generalized to \p verified
+# clean here and matched nothing in production. Keep this in sync with the
+# punctuation set in generalize_osregex_token.
+_OSREGEX_PUNCT = "()*+,-.:;<=>?[]!\"'#$%&|{}"
 
 _OSREGEX_CLASS_TO_PY = {
     "d": r"\d",
@@ -575,15 +586,21 @@ def _generalize_prematch_prefix(prefix: str) -> str:
     for token in re.findall(r"[A-Za-z0-9_.\-]+|\s+|[^\sA-Za-z0-9_.\-]", prefix):
         if token.isspace():
             out.append(r"\s+")
-        elif token in _MONTH_ABBREVIATIONS:
-            # A literal "Aug" would only ever match August's logs.
+        elif token in _MONTH_ABBREVIATIONS or token in _WEEKDAY_ABBREVIATIONS:
+            # A literal "Aug" would only ever match August's logs, and a
+            # literal "Mon" only Mondays'.
             out.append(r"\w+")
         elif _PRODUCT_TAG_RE.match(token):
             out.append("".join(escape_osregex_literal_char(c) for c in token))
         elif re.fullmatch(r"[A-Za-z0-9_.\-]+", token):
             out.append(_generalize_with_digit_runs(token))
-        else:
+        elif token in _OSREGEX_PUNCT:
             out.append(r"\p")
+        else:
+            # Outside Wazuh's \p set (`~`, `@`, `/`, ...) — \p here would be a
+            # prematch that never fires. The literal still generalizes fine:
+            # it is a fixed delimiter of the format, not per-event data.
+            out.append(escape_osregex_literal_char(token))
     collapsed = re.sub(r"(?:\\s\+){2,}", r"\\s+", "".join(out))
     return collapsed
 
@@ -610,6 +627,11 @@ _KV_RECORD_MIN_PAIRS = 3
 # letter so a timestamp tail ("2026-08-01T14:") is never mistaken for one.
 _NESTED_KEY_RE = re.compile(r"^[A-Za-z][\w.\-]*[=:(]")
 
+# A bracketed group opening the line — `[1754056222831] ~PAYGW~ ...`, an apache
+# `[Mon Aug 03 ...]` date, a log4j thread. It is header, not the body block the
+# `\[` stop is aimed at, so the zone has to start looking after it.
+_LEADING_BRACKET_GROUP_RE = re.compile(r"^\s*\[[^\]]*\]")
+
 
 def _header_zone(text: str) -> str:
     """Truncate `text` at the first point where per-event data begins.
@@ -618,9 +640,16 @@ def _header_zone(text: str) -> str:
     header and pin a value — `type=EDR.ALERT` matching only ALERT events,
     `PRIORITY(CRIT)` matching only criticals, or a 4-token fallback reaching
     into `[REQ ...]`."""
-    candidates = [_HEADER_ZONE_RE.search(text)]
-    if len(_KV_COLON_PAIR_RE.findall(text)) >= _KV_RECORD_MIN_PAIRS:
-        colon = _KV_COLON_PAIR_RE.search(text)
+    # Scanning from 0 would stop the zone dead at a leading `[`, returning ""
+    # and costing the parent its prematch entirely — every log that opens with
+    # a bracket lost one that way. The slice still starts at 0; only the search
+    # for where the body begins skips past the opening group.
+    lead = _LEADING_BRACKET_GROUP_RE.match(text)
+    start = lead.end() if lead else 0
+
+    candidates = [_HEADER_ZONE_RE.search(text, start)]
+    if len(_KV_COLON_PAIR_RE.findall(text, start)) >= _KV_RECORD_MIN_PAIRS:
+        colon = _KV_COLON_PAIR_RE.search(text, start)
         # Only a colon that actually introduces a value bounds the header.
         if colon and not _NESTED_KEY_RE.match(text[colon.end():]):
             candidates.append(colon)
@@ -1188,6 +1217,54 @@ def canonicalize_field_name(field_name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_]+", "", field_name.strip()).lower()
 
 
+# Wazuh resolves <order>user</order> onto dstuser internally — logtest emits
+# `dstuser: alice` for both spellings, so they are interchangeable in a
+# decoder. Prefer `user`: it is shorter and it is what the log field is
+# actually called, so the decoder reads like the log it parses.
+_ORDER_NAME_OVERRIDES = {"dstuser": "user"}
+
+
+def normalize_order_field_name(name: str) -> str:
+    """Canonical spelling for a single <order> entry."""
+    return _ORDER_NAME_OVERRIDES.get(canonicalize_field_name(name), name.strip())
+
+
+def normalize_order_names(order: List[str]) -> List[str]:
+    return [normalize_order_field_name(name) for name in order]
+
+
+def normalize_decoder_order_xml(decoder_xml: str) -> str:
+    """Apply the same <order> spelling to model-authored XML.
+
+    The deterministic renderers go through normalize_order_names, but a decoder
+    the model wrote reaches the output untouched, so `dstuser` would survive
+    there and the two paths would disagree."""
+    if not decoder_xml:
+        return decoder_xml
+
+    def rewrite(match: "re.Match[str]") -> str:
+        names = [part.strip() for part in match.group(2).split(",")]
+        joined = ", ".join(normalize_order_names(names))
+        return f"{match.group(1)}{joined}{match.group(3)}"
+
+    return re.sub(r"(<order>)([^<]*)(</order>)", rewrite, decoder_xml)
+
+
+def _affix_match(one: str, other: str) -> bool:
+    """True when one field name is a prefix or suffix of the other.
+
+    The looser "is a substring anywhere" test this replaces matched a log field
+    named `T` against `dstip` — `"t" in "dstip"` — which let an unrelated
+    firewall template win selection and emit a dstip child decoder for a log
+    with no IP in it. Any one-character key collided with dozens of field
+    names. Requiring an affix keeps the cases the fallback is for (`ip` ->
+    `srcip`, `temp` -> `temperature`) and drops mid-word coincidences."""
+    if len(one) < 2 or len(other) < 2:
+        return False
+    shorter, longer = sorted((one, other), key=len)
+    return longer.startswith(shorter) or longer.endswith(shorter)
+
+
 def select_requested_fields(
     available_fields: Dict[str, str],
     requested_fields: List[str],
@@ -1210,7 +1287,7 @@ def select_requested_fields(
                 break
         if not matched_key:
             for available_key in available_keys:
-                if canonical_name in available_key or available_key in canonical_name:
+                if _affix_match(canonical_name, available_key):
                     source_key = canonical_available.get(available_key)
                     if source_key and available_fields.get(source_key):
                         matched_key = source_key
@@ -2631,17 +2708,28 @@ def parse_logtest_output(stdout: str) -> Dict[str, Any]:
         "no_rule_match": False,
     }
 
-    def match_one(pattern: str) -> Optional[str]:
-        m = re.search(pattern, stdout, flags=re.IGNORECASE | re.MULTILINE)
+    def match_one(pattern: str, text: Optional[str] = None) -> Optional[str]:
+        m = re.search(
+            pattern,
+            stdout if text is None else text,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
         return m.group(1) if m else None
+
+    # `id`, `level` and `description` are rule properties, but Phase 2 prints
+    # decoded fields by the same names — and `id` is one of Wazuh's documented
+    # static field names, so a decoder extracting an event code makes the first
+    # `id:` in the output a decoded field, not the rule. Scope the rule lookups
+    # to the Phase 3 block so a decoded `id` is never read back as the rule id.
+    phase3_block = stdout.split("**Phase 3", 1)[1] if "**Phase 3" in stdout else ""
 
     result["predecoded_timestamp"] = match_one(r"^\s*timestamp:\s*'([^']*)'")
     result["predecoded_hostname"] = match_one(r"^\s*hostname:\s*'([^']*)'")
     result["program_name"] = match_one(r"^\s*program_name:\s*'([^']*)'")
     result["decoder_name"] = match_one(r"^\s*name:\s*'([^']*)'")
-    rule_id = match_one(r"^\s*id:\s*'([^']*)'")
-    rule_level = match_one(r"^\s*level:\s*'([^']*)'")
-    rule_description = match_one(r"^\s*description:\s*'([^']*)'")
+    rule_id = match_one(r"^\s*id:\s*'([^']*)'", phase3_block)
+    rule_level = match_one(r"^\s*level:\s*'([^']*)'", phase3_block)
+    rule_description = match_one(r"^\s*description:\s*'([^']*)'", phase3_block)
 
     if rule_id and rule_id.isdigit():
         result["rule_id"] = int(rule_id)
@@ -2667,7 +2755,11 @@ def parse_logtest_output(stdout: str) -> Dict[str, Any]:
 
     lower = stdout.lower()
     result["no_decoder_match"] = ("no decoder matched" in lower) or ("name:" not in lower and result["phase2_completed"])
-    result["no_rule_match"] = ("no rule matched" in lower) or ("id:" not in lower and result["phase3_completed"])
+    # Same scoping as the rule lookups above: a Phase 2 `id:` field would
+    # otherwise read as "a rule fired" even when none did.
+    result["no_rule_match"] = ("no rule matched" in lower) or (
+        "id:" not in phase3_block.lower() and result["phase3_completed"]
+    )
     return result
 
 
@@ -3210,7 +3302,7 @@ def build_decoder_xml(
         child_lines.extend(
             [
                 f"  <regex>{escape_xml(regex)}</regex>",
-                f"  <order>{escape_xml(','.join(order))}</order>",
+                f"  <order>{escape_xml(','.join(normalize_order_names(order)))}</order>",
                 "</decoder>",
             ]
         )
@@ -5247,7 +5339,7 @@ def _enforce_split_decoders(
 
                 split_blocks = []
                 for regex, order_list in regex_order_pairs:
-                    order_str = ",".join(order_list)
+                    order_str = ",".join(normalize_order_names(order_list))
                     lines = [name_tag]
                     if parent_tag:
                         lines.append(f'  {parent_tag}')
@@ -5317,6 +5409,7 @@ def _extract_xml_from_ai_response(
     # Last, so nothing downstream rewrites a prematch already verified against
     # the sample.
     decoder_xml = _inject_parent_prematch(decoder_xml, (analysis or {}).get("prematch"))
+    decoder_xml = normalize_decoder_order_xml(decoder_xml)
     return decoder_xml, rule_xml
 
 
@@ -5456,7 +5549,82 @@ def _validate_ai_decoder_with_logtest(
             remove_temp_content(WAZUH_RULES_DIR, rule_filename)
 
 
-_MONTH_ABBR_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b")
+def _generated_rule_ids(rule_xml: str) -> List[int]:
+    return [int(rid) for rid in re.findall(r'<rule\s+id="(\d+)"', rule_xml or "")]
+
+
+def _validate_ai_rule_with_logtest(
+    rule_xml: str,
+    logs: List[LogSample],
+    app_name: str,
+    builtin_decoder: str,
+) -> Dict[str, Any]:
+    """Validate a rule written against a built-in decoder — no decoder installed.
+
+    When Wazuh already decodes the log, the only thing worth proving is that
+    the generated rule actually fires. `_validate_ai_decoder_with_logtest`
+    cannot be reused: it requires decoder XML and grades on a decoder matching,
+    which the built-in would satisfy no matter what the rule does."""
+    if not rule_xml:
+        return {"validated": False, "reason": "no rule XML to validate"}
+    if not find_wazuh_logtest():
+        return {"validated": False, "reason": "wazuh-logtest unavailable"}
+
+    rule_xml_error = _xml_wellformed_error(rule_xml)
+    if rule_xml_error:
+        return {"validated": False, "reason": f"rule XML {rule_xml_error}", "logtest_errors": [rule_xml_error]}
+
+    expected_ids = set(_generated_rule_ids(rule_xml))
+    if not expected_ids:
+        return {"validated": False, "reason": "rule XML declares no <rule id=...>"}
+
+    stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    rule_filename = f"local_{sanitize_name(app_name)}_ai_validate_rule_{stamp}.xml"
+    wrapped = rule_xml.strip()
+    if not wrapped.startswith("<group"):
+        wrapped = f'<group name="temp_ai_validate">\n{wrapped}\n</group>'
+
+    ok, err = install_temp_content(WAZUH_RULES_DIR, rule_filename, wrapped)
+    if not ok:
+        return {"validated": False, "reason": f"rule install failed: {err}"}
+
+    try:
+        results = []
+        all_fired = True
+        logtest_errors: List[str] = []
+        for sample in logs:
+            output = run_wazuh_logtest(sample.raw_log)
+            parsed = parse_logtest_output(combined_logtest_output(output)) if output["available"] else {}
+            fired = parsed.get("rule_id") in expected_ids
+            if not fired:
+                all_fired = False
+                logtest_errors.extend(_extract_logtest_errors(output.get("stdout", ""), output.get("stderr", "")))
+            results.append({
+                "raw_log": sample.raw_log[:200],
+                "decoder_matched": parsed.get("decoder_name") or builtin_decoder,
+                "rule_id": parsed.get("rule_id"),
+                "fields": {k: v for k, v in parsed.items() if k not in ("decoder_name", "rule_id", "rule_level")},
+                "matched": fired,
+                "logtest_stderr": output.get("stderr", "")[:500],
+            })
+        return {
+            "validated": all_fired,
+            "results": results,
+            "logtest_errors": sorted(set(logtest_errors))[:5],
+            "reason": (
+                f"rule fires on every sample (decoding handled by built-in '{builtin_decoder}')"
+                if all_fired else
+                "the generated rule did not fire on every sample"
+            ),
+        }
+    finally:
+        remove_temp_content(WAZUH_RULES_DIR, rule_filename)
+
+
+_MONTH_ABBR_RE = re.compile(
+    r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
+    r"|Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b"
+)
 
 
 def _pinned_field_value(prematch_text: str, sample_log: str) -> Optional[Tuple[str, str]]:
@@ -5520,6 +5688,126 @@ def detect_overfit_prematch(
     return None
 
 
+async def _rule_only_for_builtin_decoder(
+    request: AIGenerateRequest,
+    analysis: Dict[str, Any],
+    builtin_decoder: str,
+) -> JSONResponse:
+    """Wazuh already decodes this log — emit a rule against it, not a decoder.
+
+    Returns the same response shape as the main endpoint so the UI needs no
+    special case; `decoder_xml` is simply empty and `decoder_skipped` explains
+    why."""
+    app_name = analysis["app_name"]
+    builtin_rule_id = (analysis.get("wazuh_logtest_summary") or {}).get("rule_id")
+    skipped = {
+        "decoder_skipped": True,
+        "builtin_decoder": builtin_decoder,
+        "builtin_rule_id": builtin_rule_id,
+        "generation_mode": "rule_only",
+    }
+
+    if not analysis["needs_custom_rule"]:
+        # No decoder needed and nothing was asked of the rules either.
+        return JSONResponse({
+            "decoder_xml": "",
+            "rule_xml": "",
+            "validation": {
+                "validated": True,
+                "reason": (
+                    f"Wazuh's built-in '{builtin_decoder}' decoder already decodes this log"
+                    + (f" (rule {builtin_rule_id} fires)" if builtin_rule_id else "")
+                    + " — no custom decoder is needed. Re-run with a rule requirement to "
+                    "generate a rule, or list the fields you need in extract_fields to force "
+                    "a custom decoder."
+                ),
+                "results": [],
+            },
+            "attempts": 0,
+            "working": True,
+            "warning": None,
+            **skipped,
+        })
+
+    # Key the rule to the built-in decoder and forbid decoder output entirely.
+    guidance = (
+        f"\n\nCRITICAL: Wazuh's built-in '{builtin_decoder}' decoder ALREADY decodes these logs"
+        + (f" (built-in rule {builtin_rule_id} currently fires)" if builtin_rule_id else "")
+        + ". Do NOT write a decoder — it would never fire, because the built-in one wins Phase 2. "
+        f"Output ONLY rule XML, and key it to the existing decoder with "
+        f"<decoded_as>{builtin_decoder}</decoded_as>. Use the field names the built-in decoder "
+        "already produces."
+    )
+    rule_request = request.model_copy(update={
+        "generation_mode": "rule_only",
+        "extra_context": (request.extra_context or "") + guidance,
+    })
+
+    best_rule_xml = ""
+    best_validation: Dict[str, Any] = {"validated": False, "reason": "not attempted"}
+    correction_context = ""
+    max_retries = 3
+
+    for attempt in range(max_retries):
+        prompt = _build_ai_prompt(rule_request, analysis)
+        if correction_context:
+            prompt += f"\n\n## CORRECTION (attempt {attempt + 1})\n{correction_context}"
+
+        try:
+            full_response = await _collect_ai_response(prompt, AI_DEFAULT_MODEL, request.temperature)
+            if full_response.strip().startswith("ERROR:"):
+                raise RuntimeError(full_response)
+        except Exception as e:
+            print(f"ERROR in /api/ai/generate-validated (rule-only, attempt {attempt+1}): {e}")
+            return JSONResponse(
+                {"error": f"Failed to connect to AI model (Ollama at {OLLAMA_BASE_URL}): {e}"},
+                status_code=503,
+            )
+
+        _, rule_xml = _extract_xml_from_ai_response(
+            full_response,
+            regex_order_pairs=analysis.get("regex_order_pairs"),
+            analysis=analysis,
+        )
+        rule_xml = _sanitize_rule_xml_static_fields(rule_xml)
+        best_rule_xml = rule_xml or best_rule_xml
+
+        if not request.validate_with_logtest:
+            best_validation = {"validated": False, "reason": "validation disabled by user"}
+            break
+
+        validation = await asyncio.to_thread(
+            _validate_ai_rule_with_logtest, rule_xml, request.logs, app_name, builtin_decoder
+        )
+        best_validation = validation
+        if validation.get("validated"):
+            break
+
+        correction_context = (
+            f"The previous rule XML FAILED wazuh-logtest validation "
+            f"(reason: {validation.get('reason', 'unknown')}).\n"
+            f"The rule must fire on every sample log. Keep <decoded_as>{builtin_decoder}</decoded_as> "
+            "and adjust the match conditions. Output corrected rule XML only."
+        )
+        for err_line in validation.get("logtest_errors") or []:
+            correction_context += f"\n  {err_line}"
+
+    working = bool(best_validation.get("validated"))
+    return JSONResponse({
+        "decoder_xml": "",
+        "rule_xml": best_rule_xml,
+        "validation": best_validation,
+        "attempts": attempt + 1,
+        "working": working,
+        "warning": (
+            None if working or not request.validate_with_logtest else
+            f"Rule not confirmed firing after {attempt + 1} attempt(s) — "
+            f"reason: {best_validation.get('reason', 'unknown')}. Review before using."
+        ),
+        **skipped,
+    })
+
+
 @app.post("/api/ai/generate-validated")
 async def ai_generate_validated(request: AIGenerateRequest):
     """Generate decoder/rule XML with AI, then validate with wazuh-logtest.
@@ -5540,6 +5828,15 @@ async def ai_generate_validated(request: AIGenerateRequest):
         return JSONResponse({"error": f"wazuh-logtest is not accessible: {e}"}, status_code=503)
 
     app_name = analysis["app_name"]
+
+    # Wazuh's own ruleset already decodes this log, and no extra fields were
+    # asked for (`needs_custom_decoder` folds extract_fields in). Generating a
+    # decoder here produces dead weight: the built-in wins Phase 2 regardless,
+    # so the custom one never fires while validation still reports success.
+    # Emit only a rule, keyed to the built-in with <decoded_as>.
+    builtin_decoder = (analysis.get("wazuh_logtest_summary") or {}).get("decoder_name")
+    if not analysis["needs_custom_decoder"] and builtin_decoder:
+        return await _rule_only_for_builtin_decoder(request, analysis, builtin_decoder)
 
     max_retries = 3
     best_decoder_xml = ""
