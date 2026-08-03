@@ -631,3 +631,64 @@ def test_derive_handles_empty_and_junk_input():
 def test_single_token_log_still_yields_a_matching_prematch():
     prematch = derive_parent_prematch("something-happened")
     assert prematch is None or osregex_matches(prematch, "something-happened")
+
+
+# ── the hostname wazuh-logtest does not print ────────────────────────────────
+#
+# On the ISO8601 path logtest emits no `hostname:` line, yet Wazuh still eats
+# the token after the timestamp as the hostname. Proven by giving a child
+# decoder `^(\S+)` against
+#   '2026-08-03T08:15:01.824+00:00 VPNGW01 event=authentication ...'
+# which captured 'event=authentication', not 'VPNGW01'. Trusting the absent
+# hostname left the tag in the remainder, so every derived prematch anchored a
+# token too early and the parent could never fire.
+
+ISO_KV_LOG = (
+    '2026-08-03T08:15:01.824+00:00 VPNGW01 event=authentication status=failed '
+    'username="john.doe" src_ip=192.168.10.25 risk_score=47'
+)
+
+
+def test_iso8601_remainder_drops_the_unreported_hostname_token():
+    remainder = postpredecode_remainder(ISO_KV_LOG, "2026-08-03T08:15:01.824+00:00", None)
+    assert remainder.startswith("event=authentication"), remainder
+    assert "VPNGW01" not in remainder
+
+
+@pytest.mark.parametrize("stamp", [
+    "2026-08-03T08:15:01.824+00:00",
+    "2026-08-03T08:15:01+00:00",
+    "2026-08-03T08:15:01.824000+00:00",
+    "2026-08-03T08:15:01.824Z",
+])
+def test_every_clean_iso8601_form_consumes_the_following_token(stamp):
+    log = f"{stamp} HOSTTAG key=value other=thing"
+    assert postpredecode_remainder(log, stamp, None) == "key=value other=thing"
+
+
+def test_a_mangled_timestamp_consumes_no_token():
+    """When the pre-decoder grabs a fixed 31 chars it slices into the next field
+    and the reported timestamp carries that debris — no token boundary there is
+    trustworthy, so nothing extra may be dropped."""
+    log = "2026-08-01T14:23:11.842Z|APPAUTH|sev=4|node=auth-svc-07"
+    remainder = postpredecode_remainder(log, "2026-08-01T14:23:11.842Z|APPAUT", None)
+    assert remainder == "H|sev=4|node=auth-svc-07"
+
+
+def test_a_reported_hostname_is_still_what_gets_stripped():
+    log = "Aug  3 09:14:22 gw01 something happened here"
+    assert postpredecode_remainder(log, "Aug  3 09:14:22", "gw01") == "something happened here"
+
+
+def test_no_timestamp_still_means_nothing_was_predecoded():
+    assert postpredecode_remainder("[1754056222831] ~PAYGW~ >> merchant=X", None, None) is None
+
+
+def test_iso_kv_prematch_anchors_on_the_first_key_not_the_tag():
+    """Consequence worth pinning: with the tag eaten, the prematch can only
+    anchor on the first key — which is why sources sharing a first key collide
+    and cannot be told apart by a decoder at all."""
+    remainder = postpredecode_remainder(ISO_KV_LOG, "2026-08-03T08:15:01.824+00:00", None)
+    prematch = derive_parent_prematch(remainder)
+    assert prematch.startswith("^event"), prematch
+    assert osregex_matches(prematch, remainder)

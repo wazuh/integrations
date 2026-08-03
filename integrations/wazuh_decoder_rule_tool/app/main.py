@@ -1931,6 +1931,14 @@ def parse_phase1_predecode(log_line: str) -> Dict[str, str]:
     return data
 
 
+# A fully-formed ISO8601 stamp and nothing else. Used to tell a clean
+# pre-decode from one where Wazuh grabbed a fixed 31 characters and sliced into
+# the following field — the reported timestamp then carries that debris.
+_CLEAN_ISO8601_TS_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$"
+)
+
+
 def postpredecode_remainder(
     raw_log: str,
     predecoded_timestamp: Optional[str],
@@ -1955,6 +1963,17 @@ def postpredecode_remainder(
         host_match = re.match(r"\s+" + re.escape(predecoded_hostname) + r"(?=\s|$)", raw_log[end:])
         if host_match:
             end += host_match.end()
+    elif _CLEAN_ISO8601_TS_RE.match(predecoded_timestamp):
+        # wazuh-logtest prints no `hostname:` line on the ISO8601 path, but
+        # Wazuh still consumes the token after the timestamp as the hostname —
+        # verified by giving a child decoder `^(\S+)`, which captured
+        # `event=authentication`, not the `VPNGW01` tag preceding it. Trusting
+        # the absent hostname anchored every prematch one token too early, so
+        # the parent could never fire. Only do this for a cleanly recognised
+        # ISO8601 stamp: when the pre-decoder mangles one (grabbing a fixed 31
+        # chars and slicing the next field) the reported timestamp carries that
+        # debris, and no token boundary can be trusted.
+        end += len(re.match(r"\s*\S*", raw_log[end:]).group())
     remainder = raw_log[end:].lstrip()
     return remainder or None
 
@@ -3520,14 +3539,26 @@ def build_candidate(request: CandidateRequest) -> Dict[str, Any]:
 
     parent_prematch = None
     if not parent_program_name:
-        token_source = analysis.get("token_source")
-        logs_to_use = [token_source] if token_source else [sample.raw_log for sample in request.logs]
-        parent_prematch = prematch_osregex_from_current_logs(
-            logs_to_use,
-            analysis.get("extracted_program_name"),
-            unique_after_predecoded,
-            prematch,
+        # analyze_logs_impl already derived this from the post-pre-decoding
+        # remainder and verified it matches. Re-deriving from the raw log —
+        # which still carries the header Wazuh strips before Phase 2 — produced
+        # a parent anchored on the timestamp itself (`^\d+\p\d+\p\d+T\d+...`),
+        # so the decoder could never fire for any log with a recognised
+        # timestamp. Only fall back when the verified one does not apply.
+        visible_text = analysis.get("postdecode_remainder") or first_non_empty(
+            [sample.raw_log for sample in request.logs]
         )
+        if prematch and osregex_matches(prematch, visible_text):
+            parent_prematch = prematch
+        else:
+            token_source = analysis.get("token_source")
+            logs_to_use = [token_source] if token_source else [sample.raw_log for sample in request.logs]
+            parent_prematch = prematch_osregex_from_current_logs(
+                logs_to_use,
+                analysis.get("extracted_program_name"),
+                unique_after_predecoded,
+                prematch,
+            )
 
     child_prematch = (
         unique_after_predecoded
