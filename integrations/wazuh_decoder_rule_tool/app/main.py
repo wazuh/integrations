@@ -525,12 +525,19 @@ _OSREGEX_CLASS_TO_PY = {
 }
 
 
-def osregex_to_python(pattern: str) -> str:
+def osregex_to_python(pattern: str, keep_groups: bool = False) -> str:
     """Translate an OS_Regex pattern to a Python one, for verification only.
 
     Wazuh's OS_Regex is not PCRE: `\\d` is a digit but `\\.` is *any char*, and
     `.` is a literal dot. Generated prematches are checked against the sample
-    with this so a pattern that cannot match is never shipped."""
+    with this so a pattern that cannot match is never shipped.
+
+    With keep_groups, bare `(`/`)` stay Python groups instead of becoming
+    literal parens, so a <regex> with captures can be run to see what it would
+    actually extract. Escaped `\\(` is still a literal paren either way, which
+    matches OS_Regex. Default stays off: prematches carry no groups, and
+    silently reinterpreting parens there would change what already-shipped
+    verification means."""
     out: List[str] = []
     i = 0
     while i < len(pattern):
@@ -545,6 +552,8 @@ def osregex_to_python(pattern: str) -> str:
             out.append(char)
         elif char == "^":
             out.append("^" if not out else re.escape(char))
+        elif keep_groups and char in "()":
+            out.append(char)
         else:
             out.append(re.escape(char))
         i += 1
@@ -559,6 +568,23 @@ def osregex_matches(pattern: str, text: str) -> bool:
         return re.search(osregex_to_python(pattern), text) is not None
     except re.error:
         return False
+
+
+def osregex_captures(pattern: str, text: str) -> Optional[Tuple[str, ...]]:
+    """What an OS_Regex <regex> would capture from text, or None if it misses.
+
+    Answers "would this decoder actually pull the value we think it would",
+    which osregex_matches cannot: it escapes parens, so every pattern with a
+    capture group reports no match."""
+    if not pattern or text is None:
+        return None
+    try:
+        match = re.search(osregex_to_python(pattern, keep_groups=True), text)
+    except re.error:
+        return None
+    if match is None:
+        return None
+    return tuple(group if group is not None else "" for group in match.groups())
 
 
 # A vendor/product tag: LOGV3, APPAUTH, CEF, THREAT. Digits inside these are
@@ -1210,6 +1236,15 @@ FIELD_ALIASES: Dict[str, Tuple[str, ...]] = {
     "destinationport": ("destinationport", "dstport", "dpt"),
     "dstport": ("destinationport", "dstport", "dpt", "port"),
     "dvchost": ("dvchost",),
+    # True synonyms that were previously resolved only by the fuzzy affix
+    # fallback. Named explicitly so strict resolution (used for retrieved
+    # <order> names) still finds them, while `timezone`->`time` and
+    # `dstname`->`dst`, which that fallback also matched, stay rejected.
+    "protocol": ("protocol", "proto"),
+    "proto": ("proto", "protocol"),
+    "action": ("action", "act"),
+    "act": ("act", "action"),
+    "username": ("username", "user"),
 }
 
 
@@ -1268,7 +1303,17 @@ def _affix_match(one: str, other: str) -> bool:
 def select_requested_fields(
     available_fields: Dict[str, str],
     requested_fields: List[str],
+    allow_affix: bool = True,
 ) -> tuple[Dict[str, str], List[str]]:
+    """Resolve requested field names against what the log actually offers.
+
+    allow_affix controls the last-resort fuzzy step. It is right for names a
+    *person* typed — `ip` should find `srcip` — but wrong for names that came
+    from a retrieved decoder, where it silently relabels values: a suggested
+    `timezone` affix-matched `time`, `dstname` matched `dst`, and `srcmac`
+    matched `src`, each emitting a decoder that captures a real value under a
+    field name the log never supported.
+    """
     selected: Dict[str, str] = {}
     missing: List[str] = []
     canonical_available = {canonicalize_field_name(name): name for name in available_fields}
@@ -1285,7 +1330,7 @@ def select_requested_fields(
             if source_key and available_fields.get(source_key):
                 matched_key = source_key
                 break
-        if not matched_key:
+        if not matched_key and allow_affix:
             for available_key in available_keys:
                 if _affix_match(canonical_name, available_key):
                     source_key = canonical_available.get(available_key)
@@ -1480,6 +1525,190 @@ def synthesize_requested_fields(
     return synthesized
 
 
+# Label spellings to look for in log text when a retrieved decoder names a
+# field the local extractor missed. Keyed by canonical Wazuh field name; the
+# field's own name and its FIELD_ALIASES are always tried too. Deliberately
+# separate from FIELD_ALIASES, which drives selection semantics elsewhere —
+# these are only ever used to *locate a value*, and every hit is verified
+# against the generated regex before it can reach a decoder.
+# Every label here must be a *noun that introduces its value*. Verbs and
+# generic words look like labels and are not: "login" pulled `denied` out of
+# `msg="Administrator login denied"` and offered it as srcuser. Words like
+# "value", "info", "state" and "request" fail the same way, so none of them
+# earn a place — a missed field costs nothing, a plausible wrong one ships.
+_FIELD_LABEL_HINTS: Dict[str, Tuple[str, ...]] = {
+    "srcuser": ("srcuser", "username", "user", "logname", "account"),
+    "dstuser": ("dstuser", "username", "user", "account"),
+    "user": ("user", "username", "account", "logname"),
+    "srcip": ("srcip", "sourceip", "src", "client", "rhost"),
+    "dstip": ("dstip", "destinationip", "dst"),
+    "srcport": ("srcport", "sport", "spt"),
+    "dstport": ("dstport", "dport", "dpt"),
+    "action": ("action", "act"),
+    "status": ("status", "result", "outcome"),
+    "protocol": ("protocol", "proto"),
+    "url": ("url", "uri"),
+    "id": ("id", "sessionid"),
+    "command": ("command", "cmd"),
+}
+
+# A located value must look like a field value, not the rest of the line.
+_MAX_LOCATED_VALUE_LEN = 120
+
+# Labels where a bare space introduces the value ("invalid user admin", "port
+# 54321"). Everywhere else a space is too weak to trust: "Unescaped URL path
+# matches" yielded url="path", and "dst outside:116.6.127.120" yielded a dstip
+# still carrying its interface prefix. Those need an explicit = or : separator.
+_SPACE_SEPARATED_LABELS = frozenset({
+    "user", "username", "account", "logname", "srcuser", "dstuser",
+    "port", "srcport", "dstport", "sport", "dport", "spt", "dpt",
+    "from", "client", "rhost",
+})
+
+
+def _label_candidates(field_name: str) -> List[str]:
+    canonical = canonicalize_field_name(field_name)
+    labels: List[str] = []
+    for label in (
+        (field_name,)
+        + FIELD_ALIASES.get(canonical, ())
+        + _FIELD_LABEL_HINTS.get(canonical, ())
+    ):
+        cleaned = (label or "").strip()
+        if cleaned and cleaned.lower() not in {existing.lower() for existing in labels}:
+            labels.append(cleaned)
+    # Longest first: `srcuser=` must win over the `user` substring inside it.
+    return sorted(labels, key=len, reverse=True)
+
+
+# Words that structure a log line rather than carry a value. Only rejected for
+# bare-space matches: `Failed password for user from 172.18.1.1` names no user
+# at all, and the space form happily offered `from` as the srcuser. After an
+# explicit `=` or `:` these are legitimate values (`status=unknown`).
+_STRUCTURAL_WORDS = frozenset({
+    "a", "an", "and", "as", "at", "by", "for", "from", "in", "is", "of", "on",
+    "or", "the", "to", "via", "was", "with", "using", "invalid", "unknown",
+    "none", "null", "na", "user", "username", "account", "port", "host",
+})
+
+
+def _plausible_located_value(value: str, space_separated: bool = False) -> bool:
+    value = value.strip().strip("\"'")
+    if not value or len(value) > _MAX_LOCATED_VALUE_LEN:
+        return False
+    # Punctuation-only, or something that is plainly the next key rather than a
+    # value ("user action=deny" must not yield "action=deny").
+    if not re.search(r"[A-Za-z0-9]", value):
+        return False
+    if "=" in value or value.endswith(":"):
+        return False
+    if space_separated and value.lower() in _STRUCTURAL_WORDS:
+        return False
+    return True
+
+
+def locate_field_value(log_line: str, field_name: str) -> Optional[str]:
+    """Find the value a named field would take in this log, by its label.
+
+    Used only for field names proposed by retrieval — the log itself decides
+    whether the field exists at all. Returns None when no label in the log
+    plausibly introduces a value, which is the common case and must stay cheap.
+    """
+    if not log_line or not field_name:
+        return None
+
+    for label in _label_candidates(field_name):
+        escaped = re.escape(label)
+        # Quoted forms first: `action:"Key Install"` must yield the whole value,
+        # not stop at the space and hand back "Key". Bare space is last and only
+        # for labels that conventionally use it.
+        templates = [
+            (rf'(?<![\w.]){escaped}\s*[=:]\s*"([^"]*)"', False),
+            (rf"(?<![\w.]){escaped}\s*[=:]\s*'([^']*)'", False),
+            (rf"(?<![\w.]){escaped}\s*=\s*([^\s,;]+)", False),
+            (rf"(?<![\w.]){escaped}\s*:\s*([^\s,;]+)", False),
+        ]
+        if label.lower() in _SPACE_SEPARATED_LABELS:
+            templates.append((rf"(?<![\w.]){escaped}\s+([^\s,;]+)", True))
+
+        for template, space_separated in templates:
+            match = re.search(template, log_line, re.IGNORECASE)
+            if not match:
+                continue
+            value = match.group(1).strip().strip("\"'")
+            if _plausible_located_value(value, space_separated=space_separated):
+                return value
+    return None
+
+
+def propose_ml_order_fields(
+    logs: List[str],
+    ml_order: Optional[List[str]],
+    common_fields: Dict[str, str],
+) -> Dict[str, str]:
+    """Fields a retrieved decoder names that the local extractor missed.
+
+    select_requested_fields() intersects ml_order against what the heuristics
+    already found, so a retrieved <order> could only ever reorder fields — it
+    could never contribute one. That silently dropped the field most worth
+    having: for an sshd failed-login the retrieved decoder says srcuser,srcip
+    and the extractor finds only srcip.
+
+    A proposal survives only if the regex the generator would actually emit for
+    it captures, in *every* sample log, exactly the value located in that log.
+    A pattern that only fits the first sample is overfitting, which is the
+    failure mode this whole path has to avoid, so it is rejected.
+    """
+    proposals: Dict[str, str] = {}
+    sample_logs = [log for log in (logs or []) if log and log.strip()]
+    if not ml_order or not sample_logs:
+        return proposals
+
+    for raw_name in ml_order:
+        field_name = (raw_name or "").strip()
+        if not field_name:
+            continue
+
+        canonical = canonicalize_field_name(field_name)
+        if not canonical:
+            continue
+        # Already available, or already proposed under an equivalent spelling.
+        # Fuzzy matching stays ON here on purpose: this is the "don't capture
+        # the same value twice" guard, so an over-eager match suppresses a
+        # redundant proposal rather than inventing a field.
+        if select_requested_fields(common_fields, [field_name])[0]:
+            continue
+        if canonical in {canonicalize_field_name(name) for name in proposals}:
+            continue
+
+        located = [locate_field_value(log, field_name) for log in sample_logs]
+        if not all(located):
+            continue
+
+        candidate_pairs = build_split_regexes_from_fields(
+            sample_logs, {field_name: located[0]}
+        )
+        if len(candidate_pairs) != 1:
+            continue
+        regex, order = candidate_pairs[0]
+        if not regex or len(order) != 1:
+            continue
+
+        verified = True
+        for log, expected in zip(sample_logs, located):
+            # Phase 2 sees the post-pre-decode body, which is what
+            # build_split_regexes_from_fields anchored against.
+            body = (parse_phase1_predecode(log).get("body") or log).strip()
+            captures = osregex_captures(regex, body)
+            if not captures or captures[0] != expected:
+                verified = False
+                break
+        if verified:
+            proposals[field_name] = located[0]
+
+    return proposals
+
+
 def choose_log_driven_fields(
     logs: List[str],
     requested_fields: List[str],
@@ -1503,8 +1732,16 @@ def choose_log_driven_fields(
             if value and key not in common_fields:
                 common_fields[key] = value
 
+    # Verified retrieval proposals join the pool, but deliberately NOT
+    # requested_fields: adding a name there flips the branch below to
+    # "requested only" and drops every heuristic fallback field, so proposing
+    # srcuser would have cost us srcip. They enter as candidates that ml_order
+    # can then select, exactly like a field the extractor had found itself.
+    for name, value in propose_ml_order_fields(logs, ml_order, common_fields).items():
+        common_fields.setdefault(name, value)
+
     selected_requested, missing_requested = select_requested_fields(common_fields, requested_fields)
-    ml_selected, _ = select_requested_fields(common_fields, ml_order or [])
+    ml_selected, _ = select_requested_fields(common_fields, ml_order or [], allow_affix=False)
     fallback_fields = fields_excluding_noise(common_fields)
 
     requested_canonical = {canonicalize_field_name(name) for name in (requested_fields or [])}
@@ -1854,7 +2091,12 @@ def score_ml_decoder_template(
     if not ml_order:
         return score
 
-    selected_ml_fields, _ = select_requested_fields(available_fields, ml_order)
+    # Strict, to match how these names are actually resolved during selection.
+    # Scoring them with affix matching credited a template for fields that
+    # selection would then refuse, so templates ranked on matches they never had.
+    selected_ml_fields, _ = select_requested_fields(
+        available_fields, ml_order, allow_affix=False
+    )
     if not selected_ml_fields:
         return 0.0
 
