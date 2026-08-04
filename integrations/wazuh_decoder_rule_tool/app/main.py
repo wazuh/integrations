@@ -749,6 +749,39 @@ def derive_parent_prematch(visible_text: str) -> Optional[str]:
     return None
 
 
+def derive_parent_prematch_multi(visible_texts: List[str]) -> Optional[str]:
+    """A prematch covering EVERY sample, not just the first one.
+
+    Deriving from one sample pinned whatever that sample happened to carry: two
+    logs from the same Aruba controller, `cli[6005]` and `stm[6041]`, yielded
+    `^\\d+\\p\\d+\\p\\d+\\p\\d+\\s+cli` — which matches sample 1 and fails
+    sample 2, even though both were supplied together. Where the samples agree
+    the token stays; where they differ it becomes \\S+."""
+    texts = [t for t in visible_texts if t and t.strip()]
+    if not texts:
+        return None
+    first = derive_parent_prematch(texts[0])
+    if not first or len(texts) == 1:
+        return first
+    if all(osregex_matches(first, t) for t in texts[1:]):
+        return first
+
+    token_lists = [_header_zone(t).split() for t in texts]
+    width = min((len(tl) for tl in token_lists), default=0)
+    if not width:
+        return first
+    parts = []
+    for index in range(width):
+        variants = {tl[index] for tl in token_lists}
+        parts.append(
+            _generalize_prematch_prefix(token_lists[0][index]) if len(variants) == 1 else r"\S+"
+        )
+    candidate = "^" + r"\s+".join(parts)
+    if all(osregex_matches(candidate, t) for t in texts):
+        return candidate
+    return first
+
+
 def normalize_regex_literal(text: str) -> str:
     return "".join(escape_osregex_literal_char(char) for char in text)
 
@@ -3414,15 +3447,31 @@ def analyze_logs_impl(request: AnalyzeRequest) -> Dict[str, Any]:
     prematch_seed = predecoded_program or extracted_program or ""
     prematch = choose_prematch(raw_logs, app_name, predecoded_program=predecoded_program)
 
-    # What a parent <prematch> is actually tested against.
+    # What a parent <prematch> is actually tested against — for every sample,
+    # not just the first. Deriving from one log pinned that log's own tokens
+    # (`cli` from a controller that also emits `stm`) and the prematch then
+    # failed the other samples supplied in the very same request.
+    prematch_targets: List[str] = []
+    for raw_log, entry in zip(raw_logs, parsed_entries):
+        if entry.get("program_name"):
+            continue
+        prematch_targets.append(
+            postpredecode_remainder(
+                raw_log, entry.get("predecoded_timestamp"), entry.get("predecoded_hostname")
+            )
+            or raw_log
+        )
     prematch_target = postdecode_remainder or first_non_empty(raw_logs)
+    if not prematch_targets:
+        prematch_targets = [prematch_target]
+
     prematch_warning: Optional[str] = None
     if not predecoded_program:
         # choose_prematch falls back to the app name, which is usually absent
         # from the log — a prematch that matches nothing. Only keep it if it
-        # really matches; otherwise derive one from the log's own header.
-        if not osregex_matches(prematch, prematch_target):
-            derived = derive_parent_prematch(prematch_target)
+        # really matches every sample; otherwise derive one from their headers.
+        if not all(osregex_matches(prematch, target) for target in prematch_targets):
+            derived = derive_parent_prematch_multi(prematch_targets)
             if derived:
                 prematch = derived
 
@@ -5683,7 +5732,30 @@ def _extract_xml_from_ai_response(
     # the sample.
     decoder_xml = _inject_parent_prematch(decoder_xml, (analysis or {}).get("prematch"))
     decoder_xml = normalize_decoder_order_xml(decoder_xml)
+    # A rule keyed to a child decoder never fires — logtest reports the parent.
+    rule_xml = _fix_decoded_as_parent(rule_xml, decoder_xml)
     return decoder_xml, rule_xml
+
+
+def _fix_osregex_angle_brackets(content: str) -> str:
+    """Replace `<` / `>` inside pattern content with `\\p`.
+
+    A log carrying `<341004> <WARN>` drew a regex containing `\\<`, which opens
+    an XML tag and made the whole decoder unparseable — three correction
+    attempts never recovered. `&lt;` is no answer either: Wazuh does not
+    entity-decode pattern content. `\\p` is the encoding that works, and both
+    characters are in its punctuation class."""
+    for form in ("&lt;", "&gt;", "&amp;lt;", "&amp;gt;", r"\<", r"\>", "<", ">"):
+        content = content.replace(form, r"\p")
+    return content
+
+
+def _fix_osregex_lazy_quantifier(content: str) -> str:
+    """Drop PCRE lazy quantifiers — OS_Regex has none.
+
+    `\\.+?` does not mean "as few as possible" here; the `?` is a literal, so
+    the pattern demands a `?` in the log and matches nothing."""
+    return re.sub(r"([+*])\?", r"\1", content)
 
 
 def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
@@ -5695,6 +5767,8 @@ def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
     def _fix_all(content: str) -> str:
         content = _fix_osregex_ip_dots(content)
         content = _fix_osregex_bare_dot_quantifier(content)
+        content = _fix_osregex_lazy_quantifier(content)
+        content = _fix_osregex_angle_brackets(content)
         return content
 
     sanitized = _re.sub(
@@ -5708,6 +5782,91 @@ def _sanitize_decoder_xml_osregex(decoder_xml: str) -> str:
         sanitized,
     )
     return sanitized
+
+
+def _osregex_group_count(regex: str) -> int:
+    """Capture groups in an OS_Regex pattern. `\\(` is a literal paren."""
+    return len(re.findall(r"(?<!\\)\(", regex or ""))
+
+
+_NAMED_DECODER_BLOCK_RE = re.compile(r"<decoder\s+name=\"([^\"]+)\"[^>]*>(.*?)</decoder>", re.DOTALL)
+
+
+def _decoder_arity_error(decoder_xml: str) -> Optional[str]:
+    """Report a child whose <order> does not name every capture group.
+
+    A WAF child captured five groups — including `(blocked)` and
+    `(SQL Injection)` pinned as constants — against three <order> names. Wazuh
+    silently assigned nothing, so the decoder matched and extracted no fields,
+    and validation that only asked "did a decoder match" called it working."""
+    for name, body in _NAMED_DECODER_BLOCK_RE.findall(decoder_xml or ""):
+        regexes = re.findall(r"<regex[^>]*>(.*?)</regex>", body, re.DOTALL)
+        orders = re.findall(r"<order[^>]*>(.*?)</order>", body, re.DOTALL)
+        if not regexes:
+            continue
+        groups = sum(_osregex_group_count(r) for r in regexes)
+        names = [n.strip() for o in orders for n in o.split(",") if n.strip()]
+        if groups != len(names):
+            return (
+                f"FATAL ERROR: decoder '{name}' captures {groups} group(s) but <order> names "
+                f"{len(names)} field(s) ({', '.join(names) or 'none'}). Every capture group must "
+                "have exactly one <order> name, in the same left-to-right order. Either name the "
+                "missing field(s) or stop capturing what you do not need — a constant such as "
+                "(blocked) should be matched literally, without parentheses, since capturing it "
+                "pins the decoder to that one value."
+            )
+    return None
+
+
+_HEX_OCTET_RE = re.compile(r"^[0-9A-Fa-f]{2}$")
+_MAC_RE = re.compile(r"(?:[0-9A-Fa-f]{2}:){2,}[0-9A-Fa-f]{2}")
+
+
+def _order_name_from_data_error(decoder_xml: str, sample_log: str) -> Optional[str]:
+    """Report an <order> name lifted out of a value instead of a field key.
+
+    An Aruba decoder emitted `<order>A8</order>` with `<regex>\\.+ A8:(\\S+)`,
+    taking the first octet of the AP's MAC (`A8:5B:F7:CC:FF:3C`) for a field
+    name — and pinning that octet as a literal, so it only matched APs whose MAC
+    starts A8. Deliberately narrow: a two-character hex token that is an octet
+    of a MAC in the sample. Formats whose keys really are short and upper-case
+    (`STN=`, `TAG=`, `ALM=`, `Q=` on a PLC record) are untouched, because none
+    of those are hex."""
+    octets = {octet for mac in _MAC_RE.findall(sample_log or "") for octet in mac.split(":")}
+    if not octets:
+        return None
+    for name, body in _NAMED_DECODER_BLOCK_RE.findall(decoder_xml or ""):
+        for order in re.findall(r"<order[^>]*>(.*?)</order>", body, re.DOTALL):
+            for field in (f.strip() for f in order.split(",")):
+                if field and _HEX_OCTET_RE.match(field) and field in octets:
+                    return (
+                        f"FATAL ERROR: decoder '{name}' names a field '{field}', which is one octet "
+                        f"of a MAC address in the sample, not a field key. The regex also pins "
+                        f"'{field}:' as a literal, so it matches only devices whose address starts "
+                        f"there. Capture the whole address with a MAC pattern "
+                        "(\\w+:\\w+:\\w+:\\w+:\\w+:\\w+) and name it srcmac or dstmac."
+                    )
+    return None
+
+
+def _fix_decoded_as_parent(rule_xml: str, decoder_xml: str) -> str:
+    """Point <decoded_as> at the parent decoder, never a child.
+
+    `<decoded_as>wafedge-event</decoded_as>` named the child; logtest reports
+    the parent, so the rule never fired."""
+    if not rule_xml or not decoder_xml:
+        return rule_xml
+    child_to_parent = {}
+    for name, body in _NAMED_DECODER_BLOCK_RE.findall(decoder_xml):
+        parent = re.search(r"<parent>\s*([^<\s]+)\s*</parent>", body)
+        if parent:
+            child_to_parent[name] = parent.group(1)
+
+    def rewrite(match):
+        named = match.group(2).strip()
+        return f"{match.group(1)}{child_to_parent.get(named, named)}{match.group(3)}"
+
+    return re.sub(r"(<decoded_as>)([^<]*)(</decoded_as>)", rewrite, rule_xml)
 
 
 def _sanitize_rule_xml_static_fields(rule_xml: str) -> str:
@@ -5773,6 +5932,17 @@ def _validate_ai_decoder_with_logtest(
     if rule_xml_error:
         return {"validated": False, "reason": f"rule XML {rule_xml_error}", "logtest_errors": [rule_xml_error]}
 
+    # Cheaper than an install+logtest round trip, and logtest cannot see it:
+    # a mismatched <order> still "matches", it just extracts nothing.
+    arity_error = _decoder_arity_error(decoder_xml)
+    if arity_error:
+        return {"validated": False, "reason": arity_error, "logtest_errors": [arity_error]}
+    data_name_error = _order_name_from_data_error(
+        decoder_xml, first_non_empty([sample.raw_log for sample in logs])
+    )
+    if data_name_error:
+        return {"validated": False, "reason": data_name_error, "logtest_errors": [data_name_error]}
+
     stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     safe_name = sanitize_name(app_name)
     decoder_filename = f"local_{safe_name}_ai_validate_decoder_{stamp}.xml"
@@ -5791,30 +5961,62 @@ def _validate_ai_decoder_with_logtest(
         if rule_ok:
             rule_installed = True
 
+    # What "working" has to mean. Grading on `decoder_name != "unknown"` passed
+    # a decoder whose child extracted nothing (5 capture groups against 3
+    # <order> names) and passed logs that a *built-in* decoder answered while
+    # the generated one never fired. Both shipped as validated.
+    our_names = set(re.findall(r'<decoder\s+name="([^"]+)"', decoder_xml))
+    expects_fields = "<order>" in decoder_xml
+    expected_rule_ids = set(_generated_rule_ids(rule_xml)) if rule_xml else set()
+
     try:
         results = []
-        all_matched = True
+        failures: List[str] = []
         logtest_errors: List[str] = []
         for sample in logs:
             output = run_wazuh_logtest(sample.raw_log)
             parsed = parse_logtest_output(combined_logtest_output(output)) if output["available"] else {}
-            decoder_name = parsed.get("decoder_name", "")
-            matched = bool(decoder_name and decoder_name != "unknown")
-            if not matched:
-                all_matched = False
+            decoder_name = parsed.get("decoder_name") or ""
+            decoded = parsed.get("decoded_fields") or {}
+            fields = {k: v for k, v in decoded.items() if k != "parent"}
+
+            problems = []
+            if not decoder_name or decoder_name == "unknown":
+                problems.append("no decoder matched")
                 logtest_errors.extend(_extract_logtest_errors(output.get("stdout", ""), output.get("stderr", "")))
+            elif decoder_name not in our_names and decoded.get("parent") not in our_names:
+                # A stock decoder answered. The generated one is dead weight.
+                problems.append(
+                    f"decoder '{decoder_name}' is Wazuh's, not the generated one "
+                    f"({', '.join(sorted(our_names))}) — it never fired"
+                )
+            if expects_fields and not fields:
+                problems.append("decoder matched but extracted no fields")
+            if expected_rule_ids and parsed.get("rule_id") not in expected_rule_ids:
+                problems.append(
+                    f"rule {parsed.get('rule_id')} fired, not the generated "
+                    f"{'/'.join(str(r) for r in sorted(expected_rule_ids))}"
+                )
+
+            failures.extend(problems)
             results.append({
                 "raw_log": sample.raw_log[:200],
                 "decoder_matched": decoder_name,
-                "fields": {k: v for k, v in parsed.items() if k not in ("decoder_name", "rule_id", "rule_level")},
-                "matched": matched,
+                "rule_id": parsed.get("rule_id"),
+                "fields": fields,
+                "matched": not problems,
+                "problems": problems,
                 "logtest_stderr": output.get("stderr", "")[:500],
             })
+        all_matched = not failures
         return {
             "validated": all_matched,
             "results": results,
             "logtest_errors": sorted(set(logtest_errors))[:5],
-            "reason": "all logs matched decoder" if all_matched else "some logs did not match decoder",
+            "reason": (
+                "every sample decoded with the generated decoder and fired its rule"
+                if all_matched else "; ".join(dict.fromkeys(failures))[:400]
+            ),
         }
     finally:
         remove_temp_content(WAZUH_DECODERS_DIR, decoder_filename)
@@ -5907,17 +6109,66 @@ def _pinned_field_value(prematch_text: str, sample_log: str) -> Optional[Tuple[s
     `type\\pEDR.ALERT`. Match key/value pairs from the sample against that shape:
     the key is structural, anything after it is one event's data.
     """
-    for key, value in re.findall(r"([\w.\-]+)=([^\s|\]}\"]+)", sample_log or ""):
+    # `key=value`, JSON `"key":"value"` and `key:value` records all pin a value;
+    # only the first shape was checked, so a JSON prematch embedding ERROR,
+    # payments-api, jdoe and a whole message passed clean.
+    pairs = (
+        re.findall(r"([\w.\-]+)=([^\s|\]}\"]+)", sample_log or "")
+        + re.findall(r"\"([\w.\-]+)\"\s*:\s*\"([^\"]+)\"", sample_log or "")
+        + re.findall(r"(?<![\w.\-])([A-Za-z][\w.\-]*):([^\s,|\]}\"]+)", sample_log or "")
+    )
+    for key, value in pairs:
         if len(value) < 3:
             # Too short to be a confident literal (`t=1`, `id=7`).
             continue
+        # In OS_Regex `=` and `:` both reach the prematch as `\p`, and a
+        # generalized value keeps no literal run to find — so look for the key
+        # followed by the value's own text.
         pinned = re.search(
-            re.escape(key) + r"(?:=|\\p)" + re.escape(value),
+            re.escape(key) + r"(?:=|:|\\p)+\s*" + re.escape(value[:24]),
             prematch_text,
         )
         if pinned:
             return key, value
     return None
+
+
+# A random per-event identifier: long, mixed case, and carrying a digit — a
+# Zeek connection uid (`CwXyZ1abcd2EfGh`), a trace id, a session token. A
+# product tag is short and normally all-caps, so it will not look like this.
+_OPAQUE_ID_RE = re.compile(r"(?=[\w]*[a-z])(?=[\w]*[A-Z])(?=[\w]*\d)[A-Za-z0-9]{10,}")
+
+
+def _pinned_opaque_token(prematch_text: str, sample_log: str) -> Optional[str]:
+    """An opaque per-event id copied into the prematch.
+
+    Positional formats have no `key=` to key off, so value pinning there was
+    invisible: a Zeek prematch carried the sample's connection uid and matched
+    that single connection for the rest of time. Digit runs are often
+    generalized while the letters survive (`CwXyZ1abcd2EfGh` ->
+    `CwXyZ\\d+abcd\\d+EfGh`), which is no less pinned — so check that form too."""
+    for token in _OPAQUE_ID_RE.findall(sample_log or ""):
+        if token in prematch_text:
+            return token
+        digits_generalized = re.sub(r"\d+", r"\\d+", token)
+        if digits_generalized != token and digits_generalized in prematch_text:
+            return token
+    return None
+
+
+# A prematch describes an envelope: a product tag, maybe a key name or two.
+# Carrying this many distinct literal words means it has walked into the
+# per-event body — a Palo Alto prematch generalized only the digits of a 40-field
+# CSV and kept `allow`, `inbound`, `ssl`, `untrust`, `deny` and the rest literal,
+# so it matched near-identical sessions only. Real envelopes stay well under it
+# (LEEF|Imperva|WAF is three, {SVC:orders-api} is three).
+_MAX_PREMATCH_LITERAL_WORDS = 6
+
+
+def _prematch_literal_words(prematch_text: str) -> List[str]:
+    """Literal alphabetic runs, ignoring OS_Regex class letters (\\d, \\s, ...)."""
+    without_classes = re.sub(r"\\[dwspSWD.]", " ", prematch_text or "")
+    return re.findall(r"[A-Za-z][A-Za-z_]{1,}", without_classes)
 
 
 def detect_overfit_prematch(
@@ -5957,6 +6208,33 @@ def detect_overfit_prematch(
                 "abbreviation instead of generalizing the date. This will only match logs from that "
                 "one month. Use \\S+ (or \\w+) for the month token, \\d+ for day/time/year digits — "
                 "never a literal calendar value."
+            )
+        opaque = _pinned_opaque_token(prematch_text, sample_log or "")
+        if opaque:
+            return (
+                f"FATAL ERROR: <prematch>{prematch_text}</prematch> contains '{opaque}', an "
+                "identifier unique to this one event. The decoder would match that single event and "
+                "nothing else. Replace it with \\S+ (or drop it — a prematch only has to identify "
+                "the log FAMILY) and extract it in a child <decoder> if you need the value."
+            )
+        # A 3+ digit literal is a date, a port, an id — never format structure.
+        # `^E0803` pinned a klog prematch to August 3rd, and no alphabetic-month
+        # rule could see it.
+        digit_run = re.search(r"(?<!\\[dwspSWD])(?<![\\dwsp])\d{3,}", prematch_text)
+        if digit_run:
+            return (
+                f"FATAL ERROR: <prematch>{prematch_text}</prematch> hardcodes the literal digits "
+                f"'{digit_run.group()}' from this one event (a date, port, pid or id). Use \\d+ so "
+                "the prematch matches the whole log family, not the single event it was built from."
+            )
+        words = _prematch_literal_words(prematch_text)
+        if len(words) >= _MAX_PREMATCH_LITERAL_WORDS:
+            return (
+                f"FATAL ERROR: <prematch>{prematch_text}</prematch> keeps {len(words)} literal words "
+                f"({', '.join(words[:8])}...) — it has run past the log's envelope and into one "
+                "event's data. A prematch only has to identify the log FAMILY: stop it after the "
+                "vendor/product tag (and at most its first field KEY), and extract everything else "
+                "in child <decoder> blocks."
             )
     return None
 

@@ -692,3 +692,131 @@ def test_iso_kv_prematch_anchors_on_the_first_key_not_the_tag():
     prematch = derive_parent_prematch(remainder)
     assert prematch.startswith("^event"), prematch
     assert osregex_matches(prematch, remainder)
+
+
+# ── overfit shapes the key=value scan could not see ──────────────────────────
+
+def test_overfit_detects_a_pinned_json_value():
+    """JSON has no `key=`, so a prematch embedding ERROR, payments-api, jdoe and
+    a whole message text passed the guardrail clean."""
+    from app.main import detect_overfit_prematch
+
+    sample = (
+        '{"timestamp":"2026-08-03T09:31:12Z","level":"ERROR","service":"payments-api",'
+        '"user":"jdoe","message":"payment authorization failed","status":502}'
+    )
+    bad = (
+        '<decoder name="jsonapi"><prematch>'
+        r'^\p\p\plevel\p\p\pERROR\p\p\pservice\p\p\ppayments\papi\p'
+        '</prematch></decoder>'
+    )
+    assert detect_overfit_prematch(bad, None, sample_log=sample)
+
+
+def test_overfit_detects_an_opaque_id_from_a_positional_format():
+    """Zeek is tab-separated: no key to scan, so the connection uid sat in the
+    prematch and matched that one connection for good."""
+    from app.main import detect_overfit_prematch
+
+    sample = "1754214122.441\tCwXyZ1abcd2EfGh\t203.0.113.9\t51221\t10.0.0.5\t22\ttcp\tssh"
+    bad = (
+        '<decoder name="zeek"><prematch>'
+        r'^\d+\p\d+\s+CwXyZ\d+abcd\d+EfGh\s+\d+\p\d+\p\d+\p\d+'
+        '</prematch></decoder>'
+    )
+    reason = detect_overfit_prematch(bad, None, sample_log=sample)
+    assert reason and "CwXyZ1abcd2EfGh" in reason, reason
+
+
+def test_overfit_detects_a_numeric_date_literal():
+    """`^E0803` is klog severity plus month 08 day 03 — a literal date no
+    alphabetic-month rule can see."""
+    from app.main import detect_overfit_prematch
+
+    sample = 'E0803 09:48:21.113455       1 authorization.go:74] Forbidden: verb="delete"'
+    bad = '<decoder name="kubeapi"><prematch>^E0803\\s+\\d+\\p\\d+</prematch></decoder>'
+    reason = detect_overfit_prematch(bad, None, sample_log=sample)
+    assert reason and "0803" in reason
+
+
+def test_overfit_detects_a_prematch_that_swallowed_the_whole_record():
+    """A Palo Alto prematch generalized only the digits of a 40-field CSV and
+    kept allow/inbound/ssl/untrust/deny literal — near-identical sessions only."""
+    from app.main import detect_overfit_prematch
+
+    sample = (
+        "1,2026/08/03 09:40:22,013201004215,TRAFFIC,end,2561,203.0.113.45,10.1.1.20,"
+        "allow-inbound,ssl,vsys1,untrust,trust,ethernet1/1,LogForward,tcp,deny"
+    )
+    bad = (
+        '<decoder name="paloalto"><prematch>'
+        r'^\d+\p\d+\pTRAFFIC\pend\p\d+\pallow\pinbound\pssl\pvsys\d+\puntrust\ptrust'
+        r'\pethernet\d+\pLogForward\ptcp\pdeny'
+        '</prematch></decoder>'
+    )
+    assert detect_overfit_prematch(bad, None, sample_log=sample)
+
+
+@pytest.mark.parametrize("prematch,sample", [
+    (r"^CEF\p\d+\p", "CEF:0|Trellix|EDR|4.2.1|MALWARE_FOUND|x|8|src=203.0.113.31"),
+    (r"^LEEF\p\d+\p\d+\pImperva\pWAF", "LEEF:2.0|Imperva|WAF|12.0|SQL_INJECTION|src=1.2.3.4"),
+    (r"^\pPLC\pSTN\p", "$PLC,STN=04,TS=20260801143201,TAG=PMP01.FLOW,VAL=142.7"),
+    (r"^\p\d+\p\s+~PAYGW~\s+\p\p\s+merchant\p",
+     "[1754056222831] ~PAYGW~ >> merchant=MID99213 | card=****4821"),
+    (r"^id\p", 'id=firewall sn=0017C58A1B2C time="2026-08-03 09:52:18" fw=10.0.0.1'),
+    (r"^\p\d+\p\d+\p\d+\s+\d+\p\d+\p\s+\pSVC\porders\papi\p",
+     "<2026.08.01 14:30> {SVC:orders-api} [REQ id=req-8821 method=POST]"),
+])
+def test_good_envelope_prematches_are_not_flagged(prematch, sample):
+    """The guardrail must not cry wolf on a correct envelope prematch."""
+    from app.main import detect_overfit_prematch
+
+    xml = f'<decoder name="x"><prematch>{prematch}</prematch></decoder>'
+    assert detect_overfit_prematch(xml, None, sample_log=sample) is None
+
+
+# ── one prematch has to cover every sample supplied ──────────────────────────
+
+ARUBA_CLI = (
+    "10.7.2.19 cli[6005]: <341004> <WARN> AP:HRD_GF-:cc:ff:3c_Master "
+    "<10.7.2.19 A8:5B:F7:CC:FF:3C>  AP 10.7.2.15: Client 5a:5a:84:2d:39:56 authenticate fail"
+)
+ARUBA_STM = (
+    "10.7.2.19 stm[6041]: <501094> <NOTI> AP:HRD_GF-:cc:ff:3c_Master "
+    "<10.7.2.19 A8:5B:F7:CC:FF:33>  Auth failure: d6:a5:17:db:81:42: AP 10.7.2.19-a8:5b:f7"
+)
+
+
+def test_multi_sample_prematch_covers_both_subsystems():
+    """Deriving from sample 1 alone produced `...\\s+cli`, which fails sample 2
+    even though both were supplied in the same request. An Aruba controller
+    emits cli, stm, authmgr, sapd..."""
+    from app.main import derive_parent_prematch_multi
+
+    prematch = derive_parent_prematch_multi([ARUBA_CLI, ARUBA_STM])
+    assert prematch
+    assert "cli" not in prematch and "stm" not in prematch
+    assert osregex_matches(prematch, ARUBA_CLI)
+    assert osregex_matches(prematch, ARUBA_STM)
+
+
+def test_single_sample_prematch_stays_specific():
+    """Generalizing only where the samples actually disagree — one sample means
+    nothing is known to vary, so the token stays."""
+    from app.main import derive_parent_prematch_multi
+
+    assert derive_parent_prematch_multi([ARUBA_CLI]) == derive_parent_prematch(ARUBA_CLI)
+
+
+def test_multi_sample_keeps_a_prematch_that_already_covers_everything():
+    from app.main import derive_parent_prematch_multi
+
+    both = [ARUBA_CLI, ARUBA_CLI.replace("10.7.2.15", "10.7.2.44")]
+    assert derive_parent_prematch_multi(both) == derive_parent_prematch(ARUBA_CLI)
+
+
+def test_multi_sample_handles_empty_input():
+    from app.main import derive_parent_prematch_multi
+
+    assert derive_parent_prematch_multi([]) is None
+    assert derive_parent_prematch_multi(["", "   "]) is None

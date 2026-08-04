@@ -539,3 +539,99 @@ def test_no_rule_match_is_true_when_only_a_decoded_id_is_present():
     assert parsed["rule_id"] is None
     assert parsed["no_rule_match"] is True
     assert parsed["decoded_fields"]["id"] == "501094"
+
+
+# ── OS_Regex forms the model gets wrong, repaired before validation ──────────
+
+def test_angle_brackets_in_a_regex_become_p_and_the_xml_parses():
+    """A log carrying `<341004> <WARN>` drew `\\<` into a regex, which opens an
+    XML tag. Three correction attempts never recovered because the malformed XML
+    short-circuited validation before any sanitizer ran."""
+    bad = (
+        '<decoder name="arubactl-event">\n'
+        '  <parent>arubactl</parent>\n'
+        '  <regex>\\.+AP:\\S+ \\<(\\d+.\\d+.\\d+.\\d+)</regex>\n'
+        '  <order>srcip</order>\n'
+        '</decoder>'
+    )
+    assert main._xml_wellformed_error(bad), "fixture should start out malformed"
+    fixed = main._sanitize_decoder_xml_osregex(bad)
+    assert main._xml_wellformed_error(fixed) is None
+    assert r"\p(\d+.\d+.\d+.\d+)" in fixed
+    assert "\\<" not in fixed
+
+
+@pytest.mark.parametrize("form", ["&lt;", "&gt;", "\\<", "\\>", "<", ">"])
+def test_every_angle_bracket_spelling_becomes_p(form):
+    """Wazuh does not entity-decode pattern content, so `&lt;` is no better
+    than a raw `<`. Only `\\p` works."""
+    out = main._fix_osregex_angle_brackets(f"a{form}b")
+    assert out == r"a\pb"
+
+
+def test_lazy_quantifiers_are_dropped():
+    """OS_Regex has none: the `?` in `\\.+?` is a literal, so the pattern
+    demands a '?' in the log and matches nothing."""
+    assert main._fix_osregex_lazy_quantifier(r"uri=\.+? id=(\d+)") == r"uri=\.+ id=(\d+)"
+    assert main._fix_osregex_lazy_quantifier(r"a\S*?b") == r"a\S*b"
+    # A genuine literal '?' that is not a quantifier modifier survives.
+    assert main._fix_osregex_lazy_quantifier(r"user=admin\?") == r"user=admin\?"
+
+
+# ── <order> must name every capture group ────────────────────────────────────
+
+def test_group_count_ignores_escaped_parens():
+    assert main._osregex_group_count(r"a\(b\) c=(\S+)") == 1
+    assert main._osregex_group_count(r"(a) (b) (c)") == 3
+    assert main._osregex_group_count("") == 0
+
+
+def test_arity_mismatch_is_reported():
+    """The WAF child: five groups — two of them constants pinned as
+    `(blocked)` and `(SQL Injection)` — against three <order> names. Wazuh
+    assigned nothing, so it matched and extracted no fields, and validation
+    that only asked "did a decoder match" called it working."""
+    xml = (
+        '<decoder name="wafedge-event">\n'
+        '  <parent>wafedge</parent>\n'
+        '  <regex>event=(blocked) attack="(SQL Injection)" src_ip=(\\d+.\\d+.\\d+.\\d+) '
+        'dst_ip=(\\d+.\\d+.\\d+.\\d+) signature_id=(\\d+)</regex>\n'
+        '  <order>srcip, dstip, signature_id</order>\n'
+        '</decoder>'
+    )
+    reason = main._decoder_arity_error(xml)
+    assert reason and "5 group" in reason and "3 field" in reason
+
+
+def test_matching_arity_is_accepted():
+    xml = (
+        '<decoder name="p"><prematch>^x</prematch></decoder>\n'
+        '<decoder name="c"><parent>p</parent><regex>a=(\\S+) b=(\\S+)</regex>'
+        '<order>one,two</order></decoder>'
+    )
+    assert main._decoder_arity_error(xml) is None
+
+
+def test_a_parent_with_no_regex_is_not_an_arity_error():
+    xml = '<decoder name="p"><prematch>^x</prematch></decoder>'
+    assert main._decoder_arity_error(xml) is None
+
+
+# ── <decoded_as> must name the parent ───────────────────────────────────────
+
+def test_decoded_as_pointing_at_a_child_is_repointed_to_the_parent():
+    """logtest reports the parent, so a rule keyed to the child never fires."""
+    decoder = (
+        '<decoder name="wafedge"><prematch>^policy\\p</prematch></decoder>\n'
+        '<decoder name="wafedge-event"><parent>wafedge</parent>'
+        '<regex>a=(\\S+)</regex><order>one</order></decoder>'
+    )
+    rule = '<rule id="100970" level="7">\n  <decoded_as>wafedge-event</decoded_as>\n</rule>'
+    out = main._fix_decoded_as_parent(rule, decoder)
+    assert "<decoded_as>wafedge</decoded_as>" in out
+
+
+def test_decoded_as_already_naming_the_parent_is_untouched():
+    decoder = '<decoder name="vpngw"><prematch>^event\\p</prematch></decoder>'
+    rule = '<rule id="1"><decoded_as>vpngw</decoded_as></rule>'
+    assert main._fix_decoded_as_parent(rule, decoder) == rule
