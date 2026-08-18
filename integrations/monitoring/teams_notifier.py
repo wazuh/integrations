@@ -1,6 +1,7 @@
+#!/var/ossec/framework/python/bin/python3
 # Slack notification sender
 # Wazuh Inc. 
-# Nicolás Curioni <nicolas.curioni@wazuh.com>
+# Nikhil Gurjar <nikhil.gurjar@wazuh.com>
 import json
 import requests
 import socket
