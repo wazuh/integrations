@@ -26,6 +26,7 @@ This integration provides an automated health monitoring solution for Wazuh envi
 * `filebeat` in PATH (required for output connectivity check)
 * A Slack webhook URL (for Slack notifications)
 * SMTP credentials (for email notifications)
+* A Teams webhook URL, as it supports the specific headers and card format required for Teams notifications.
 
 ---
 
@@ -38,6 +39,7 @@ The project is composed of the following files:
 ```
 monitoring/
 ├── monitoring.py           # Main health check script (15+ checks)
+├── teams_notifier.py       # Sends alerts on Microsoft Teams via PowerAutomate Webhook
 ├── slack_notifier.py       # Sends Slack alerts via webhook
 ├── email_notifier.py       # Sends HTML email alerts via SMTP
 ├── wrapper.sh              # Entry point — runs all three scripts in sequence
@@ -47,13 +49,14 @@ monitoring/
 **1. Copy scripts to the server:**
 
 ```bash
-cp monitoring.py slack_notifier.py email_notifier.py wrapper.sh /opt/scripts/
+cp monitoring.py  teams_notifier.py slack_notifier.py email_notifier.py wrapper.sh /opt/scripts/
 ```
 
 **2. Set execute permissions:**
 
 ```bash
 chmod +x /opt/scripts/monitoring.py
+chmod +x /opt/scripts/teams_notifier.py
 chmod +x /opt/scripts/slack_notifier.py
 chmod +x /opt/scripts/email_notifier.py
 chmod +x /opt/scripts/wrapper.sh
@@ -90,6 +93,12 @@ chown root:root /etc/health-checker.secrets
 
 **5. Configure notification settings:**
 
+*Microsoft Teams* — edit `teams_notifier.py` and set your webhook URL:
+
+```python
+TEAMS_WEBHOOK_URL = "https://default0d6be267.....api.powerplatform.com:443/powerautomate/automations/"
+```
+
 *Slack* — edit `slack_notifier.py` and set your webhook URL:
 
 ```python
@@ -113,6 +122,7 @@ DESTINATARIO = "recipient@example.com"
 1. **`monitoring.py`** connects to the Wazuh stack, runs all checks, and appends a JSON result to `/var/log/health-checker.json`.
 2. **`slack_notifier.py`** reads the last log entry and posts a Slack message for any check with `notify: true`.
 3. **`email_notifier.py`** reads the same log entry and sends an HTML email report with the flagged issues.
+4. **`teams_notifier.py`** reads the same log entry and sends a card format message with the flagged issues.
 
 **Run manually:**
 
@@ -224,7 +234,7 @@ python3 /opt/scripts/slack_notifier.py
 cat /var/log/health-checker-cron.log
 ```
 
-**4. Expected output** — a JSON entry in `/var/log/health-checker.json` per run, and a Slack/email message when any check returns `"status": "warning"`.
+**4. Expected output** — a JSON entry in `/var/log/health-checker.json` per run, and a Slack/Teams/email message when any check returns `"status": "warning"`.
 
 ---
 
