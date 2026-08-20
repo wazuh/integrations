@@ -1,0 +1,37 @@
+<!--
+  Rules for the silent agent monitoring integration.
+  The script writes plain JSON lines, so the built-in JSON decoder handles the
+  parsing and no custom decoder is needed.
+  Rule IDs 100120-100122 are examples: move them into a free range for your
+  environment if these are already taken.
+-->
+<group name="silent_agent_monitoring,">
+
+  <!-- Parent, level 0: classifies the record without alerting on it. -->
+  <rule id="100120" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^silent-agent-monitor$</field>
+    <description>Silent agent monitor event</description>
+  </rule>
+
+  <!-- Log ingestion from an agent of the monitored group has stopped. -->
+  <rule id="100121" level="12">
+    <if_sid>100120</if_sid>
+    <field name="event_status">^SILENT$</field>
+    <description>Server $(agent_name) (ID $(agent_id)) has sent no logs for $(no_logs_for)</description>
+    <options>alert_by_email</options>
+    <options>no_full_log</options>
+    <group>server_silent,service_availability,</group>
+  </rule>
+
+  <!-- Log ingestion resumed: single recovery notification. -->
+  <rule id="100122" level="5">
+    <if_sid>100120</if_sid>
+    <field name="event_status">^RESTORED$</field>
+    <description>Server $(agent_name) (ID $(agent_id)) resumed logging after $(silence_duration)</description>
+    <options>alert_by_email</options>
+    <options>no_full_log</options>
+    <group>server_restored,service_availability,</group>
+  </rule>
+
+</group>
