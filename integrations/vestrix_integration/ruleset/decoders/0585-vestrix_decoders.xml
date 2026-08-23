@@ -1,0 +1,9 @@
+<!-- Vestrix canonical alert JSON. Field extraction is performed only by JSON_Decoder. -->
+<decoder name="vestrix">
+  <parent>json</parent>
+  <prematch type="pcre2">"source"\s*:\s*"vestrix"</prematch>
+  <use_own_name>true</use_own_name>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+  <json_null_field>discard</json_null_field>
+  <json_array_structure>array</json_array_structure>
+</decoder>
