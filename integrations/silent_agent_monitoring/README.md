@@ -15,6 +15,7 @@
     * [Rules](#rules)
     * [Email Notifications](#email-notifications)
     * [Telegram Notifications](#telegram-notifications)
+    * [Routing Into an Existing Telegram Integration](#routing-into-an-existing-telegram-integration)
 * [Integration Steps](#integration-steps)
 * [Integration Testing](#integration-testing)
 * [Troubleshooting](#troubleshooting)
@@ -26,17 +27,7 @@
 
 ### Introduction
 
-Wazuh alerts natively when an agent stops connecting: `wazuh-monitord` marks the
-agent disconnected after `<agents_disconnection_time>` and rule 502 fires. That
-covers the agent that goes away. It does not cover the agent that stays
-connected, keeps answering keepalives, and quietly stops shipping logs, because
-a log collector died, a log path rotated away, a service stopped writing, or a
-permission changed. From the manager's point of view that agent is healthy.
-
-This integration closes that gap. On a schedule it reads, for every agent of a
-chosen group, the timestamp of the most recent event that reached the indexer.
-When that timestamp is older than the threshold it writes a `SILENT` record;
-when events start arriving again it writes one `RESTORED` record. The records
+On a schedule it reads, for every agent of a chosen group, the timestamp of the most recent event that reached the indexer. When that timestamp is older than the threshold it writes a SILENT record and when events start arriving again it writes one RESTORED record. The records
 are plain JSON lines that Wazuh ingests through a `<localfile>` block, so they
 become normal alerts and can be routed to email, Telegram, or anything else
 with the standard `<email_alerts>` and `<integration>` blocks.
@@ -304,11 +295,11 @@ the numeric chat ID of the channel, both taken from the Telegram block already
 in the configuration. The script produces exactly the requested layout:
 
 ```
-⚠ Server Logging Alert          ✅ Server Logging Restored
+⚠️ Server Logging Alert          ✅ Server Logging Restored
 Name: File2                      Name: File2
 Agent ID: 152                    Agent ID: 152
 Status: No logs received         Status: Logs received
-Last Log Received: ...           Logging Restored At: ...
+Last Log Received: ...           Restored At: ...
 No Logs For: 25h 40m             No Logs Duration: 25h 40m
 ```
 
@@ -317,24 +308,104 @@ so the script logs to `/var/ossec/logs/integrations.log`, which that user can
 already write. If `TELEGRAM_LOG` is pointed somewhere else, the new file has to
 be writable by `wazuh` or the notification is lost before it is sent.
 
-A separate script is used rather than a change to the existing `custom-telegram`
-so that the current Telegram alerting keeps working untouched. To format these
-two rules inside the existing script instead, add the branch before its normal
-message construction and skip this file:
+Use these two files only when there is no Telegram integration yet. When one is
+already configured, keep it and see the next section instead.
+
+#### Routing Into an Existing Telegram Integration
+
+Two changes, no new script.
+
+**1. Send the rules to the existing block.** In the
+`<!-- Telegram Alerts - Server Alerts -->` integration, extend whichever
+selector it already uses:
+
+```xml
+<rule_id>...existing ids...,100121,100122</rule_id>
+```
+
+or, if it selects by rule group:
+
+```xml
+<group>...existing groups...,silent_agent_monitoring</group>
+```
+
+**2. Add the two message layouts.** A script that dispatches on `rule.groups`
+needs no rule IDs at all: the rules already carry `server_silent` and
+`server_restored`. One declarative entry per event type, in the dispatch table:
 
 ```python
-if str(alert.get("rule", {}).get("id")) in ("100121", "100122"):
-    d = alert.get("data", {})
-    if d.get("event_status") == "SILENT":
-        msg = (f"⚠ <b>Server Logging Alert</b>\n<b>Name:</b> {d.get('agent_name')}\n"
-               f"<b>Agent ID:</b> {d.get('agent_id')}\n<b>Status:</b> No logs received\n"
-               f"<b>Last Log Received:</b> {d.get('last_log')}\n"
-               f"<b>No Logs For:</b> {d.get('no_logs_for')}")
-    else:
-        msg = (f"✅ <b>Server Logging Restored</b>\n<b>Name:</b> {d.get('agent_name')}\n"
-               f"<b>Agent ID:</b> {d.get('agent_id')}\n<b>Status:</b> Logs received\n"
-               f"<b>Logging Restored At:</b> {d.get('restored_at')}\n"
-               f"<b>No Logs Duration:</b> {d.get('silence_duration')}")
+{
+    "match": "server_silent",
+    "header": "⚠️ Server Logging Alert",
+    "label": "Server Logging Alert",
+    "fields": [
+        ("Name", "data.agent_name"),
+        ("Agent ID", "data.agent_id"),
+        ("Status", "data.status_text"),
+        ("Last Log Received", "data.last_log"),
+        ("No Logs For", "data.no_logs_for"),
+    ],
+},
+{
+    "match": "server_restored",
+    "header": "✅ Server Logging Restored",
+    "label": "Server Logging Restored",
+    "fields": [
+        ("Name", "data.agent_name"),
+        ("Agent ID", "data.agent_id"),
+        ("Status", "data.status_text"),
+        ("Restored At", "data.restored_at"),
+        ("No Logs Duration", "data.silence_duration"),
+    ],
+},
+```
+
+Put them above any broader entry that could also match. The `Status` line is a
+field, `data.status_text`, rather than a literal in the dispatcher, so the
+wording lives in one place and a script that only knows how to map paths to
+labels needs no code for it.
+
+If the dispatcher renders a fixed header, give it a per-entry override. On a
+formatter of the common shape that is two lines:
+
+```python
+def build_fields_message(alert, label, fields, header=None):
+    lines = [header or f"\U0001F6A8 Wazuh Alert - {label}", ""]
+```
+
+```python
+    return build_fields_message(alert, group_cfg.get("label", group_cfg["match"]),
+                                group_cfg["fields"], group_cfg.get("header"))
+```
+
+Entries without a `header` key keep the old heading, so every existing
+notification format is untouched.
+
+**Check the formatting without waiting for an alert.** Take a real record, or
+write one by hand, and run it through the script's own formatter:
+
+```bash
+grep '"id":"100121"' /var/ossec/logs/alerts/alerts.json | tail -1 > /tmp/sample_silent.json
+
+/var/ossec/framework/python/bin/python3 - <<'EOF'
+import json, importlib.util
+spec = importlib.util.spec_from_file_location("tg", "/var/ossec/integrations/custom-telegram.py")
+tg = importlib.util.module_from_spec(spec); spec.loader.exec_module(tg)
+print(tg.build_message(json.load(open("/tmp/sample_silent.json")))[0])
+EOF
+```
+
+Importing the file does not send anything: the send path only runs under
+`if __name__ == "__main__"`. Expected output:
+
+```
+⚠️ Server Logging Alert
+
+Name: File2
+Agent ID: 152
+Status: No logs received
+Last Log Received: 2026-08-25 10:30:00
+No Logs For: 24h
 ```
 
 ---

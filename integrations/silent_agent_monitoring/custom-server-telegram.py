@@ -55,7 +55,7 @@ def build_message(alert):
         return (f"⚠ <b>Server Logging Alert</b>\n"
                 f"<b>Name:</b> {data.get('agent_name', 'unknown')}\n"
                 f"<b>Agent ID:</b> {data.get('agent_id', 'unknown')}\n"
-                f"<b>Status:</b> No logs received\n"
+                f"<b>Status:</b> {data.get('status_text', 'No logs received')}\n"
                 f"<b>Last Log Received:</b> {data.get('last_log', 'unknown')}\n"
                 f"<b>No Logs For:</b> {data.get('no_logs_for', 'unknown')}")
 
@@ -63,8 +63,8 @@ def build_message(alert):
         return (f"✅ <b>Server Logging Restored</b>\n"
                 f"<b>Name:</b> {data.get('agent_name', 'unknown')}\n"
                 f"<b>Agent ID:</b> {data.get('agent_id', 'unknown')}\n"
-                f"<b>Status:</b> Logs received\n"
-                f"<b>Logging Restored At:</b> {data.get('restored_at', 'unknown')}\n"
+                f"<b>Status:</b> {data.get('status_text', 'Logs received')}\n"
+                f"<b>Restored At:</b> {data.get('restored_at', 'unknown')}\n"
                 f"<b>No Logs Duration:</b> {data.get('silence_duration', 'unknown')}")
 
     agent = alert.get("agent", {})

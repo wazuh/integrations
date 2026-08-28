@@ -171,6 +171,7 @@ def decide(agent, last_log, previous, now):
     if silent and not was_silent:
         gap = (now - last_log) if last_log else LOOKBACK
         event = dict(common, event_status="SILENT",
+                     status_text="No logs received",
                      last_log=local_time(last_log) if last_log else "unknown",
                      no_logs_for=format_duration(gap) if last_log
                      else f"more than {format_duration(LOOKBACK)}",
@@ -185,6 +186,7 @@ def decide(agent, last_log, previous, now):
         previous_log = previous.get("last_log")
         gap = (last_log - datetime.fromisoformat(previous_log)) if previous_log else None
         event = dict(common, event_status="RESTORED",
+                     status_text="Logs received",
                      restored_at=local_time(last_log),
                      silence_duration=format_duration(gap) if gap else "unknown",
                      silence_seconds=int(gap.total_seconds()) if gap else 0,
@@ -279,6 +281,7 @@ def selftest():
     stopped = now - timedelta(hours=25, minutes=40)
     event, state = decide(agent, stopped, {}, now)
     assert event["event_status"] == "SILENT", event
+    assert event["status_text"] == "No logs received", event
     assert event["no_logs_for"] == "25h 40m", event
     assert event["agent_id"] == "152" and event["agent_name"] == "File2"
     assert state["status"] == "SILENT"
@@ -288,6 +291,7 @@ def selftest():
     resumed = stopped + timedelta(hours=25, minutes=40)
     event, ok_state = decide(agent, resumed, state, now)
     assert event["event_status"] == "RESTORED", event
+    assert event["status_text"] == "Logs received", event
     assert event["silence_duration"] == "25h 40m", event
     assert ok_state["status"] == "OK"
     assert decide(agent, resumed, ok_state, now)[0] is None, "repeat recovery not suppressed"
