@@ -10,9 +10,10 @@
 # once, not once per run. Standard library only.
 #
 # Run modes:
-#   silent_agent_monitor.py             normal check (scheduled by a wodle)
-#   silent_agent_monitor.py --selftest  offline assertions on the decision logic
+#   silent_agent_monitor.py --group Server  normal check (scheduled by a wodle)
+#   silent_agent_monitor.py --selftest      offline assertions on the logic
 
+import argparse
 import base64
 import json
 import logging
@@ -34,6 +35,7 @@ INDEXER_PASSWORD = os.environ.get("SAM_INDEXER_PASSWORD", "CHANGE_ME")
 
 INDEX_PATTERN = os.environ.get("SAM_INDEX_PATTERN", "wazuh-alerts-*")
 
+# Overridden by --group, so the wodle in ossec.conf owns the group name.
 TARGET_GROUP = os.environ.get("SAM_GROUP", "Server")
 SILENCE_THRESHOLD = timedelta(hours=float(os.environ.get("SAM_THRESHOLD_HOURS", "24")))
 LOOKBACK = timedelta(days=float(os.environ.get("SAM_LOOKBACK_DAYS", "7")))
@@ -276,7 +278,15 @@ def selftest():
 
 
 if __name__ == "__main__":
-    if "--selftest" in sys.argv:
+    parser = argparse.ArgumentParser(description="Detect Wazuh agents that stopped sending logs.")
+    parser.add_argument("--group", default=TARGET_GROUP,
+                        help=f"agent group to monitor (default: {TARGET_GROUP})")
+    parser.add_argument("--selftest", action="store_true",
+                        help="run offline assertions on the decision logic and exit")
+    args = parser.parse_args()
+
+    if args.selftest:
         selftest()
     else:
+        TARGET_GROUP = args.group
         main()

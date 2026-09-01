@@ -51,7 +51,7 @@ Edit the `CONFIGURATION` block at the top of `silent_agent_monitor.py`, or set t
 | Indexer URL | `SAM_INDEXER_URL` | `https://127.0.0.1:9200` |
 | Indexer user / password | `SAM_INDEXER_USER`, `SAM_INDEXER_PASSWORD` | `admin` / `CHANGE_ME` |
 | Index pattern | `SAM_INDEX_PATTERN` | `wazuh-alerts-*` |
-| Agent group | `SAM_GROUP` | `Server` |
+| Agent group | `--group`, `SAM_GROUP` | `Server` |
 | Silence threshold, hours | `SAM_THRESHOLD_HOURS` | `24` |
 | Lookback window, days | `SAM_LOOKBACK_DAYS` | `7` |
 | State file | `SAM_STATE_FILE` | `/var/ossec/var/silent_agents_state.json` |
@@ -59,7 +59,7 @@ Edit the `CONFIGURATION` block at the top of `silent_agent_monitor.py`, or set t
 | Script log | `SAM_SCRIPT_LOG` | `/var/ossec/logs/silent_agent_monitor.log` |
 | Verify TLS certificates | `SAM_VERIFY_SSL` | `no` |
 
-The file holds credentials, so keep it root-owned and `chmod 750`. `SAM_LOOKBACK_DAYS` must stay larger than the threshold: it bounds the indexer query, and an agent with nothing inside it is reported as silent for "more than" that window.
+The group is normally passed with `--group` from the wodle, so `ossec.conf` owns it and the script needs no edit to change it. The file holds credentials, so keep it root-owned and `chmod 750`. `SAM_LOOKBACK_DAYS` must stay larger than the threshold: it bounds the indexer query, and an agent with nothing inside it is reported as silent for "more than" that window.
 
 The index pattern decides what counts as a log. `wazuh-alerts-*` is available everywhere but only sees alerts, so an agent that ships logs normally while producing no alert for a full day is reported as silent. `wazuh-archives-*` is the exact answer to "no logs received" but needs `<logall_json>` enabled and the archives indexed. Use archives when they are available; otherwise confirm that every agent in the group normally produces alerts within the threshold.
 
@@ -70,7 +70,7 @@ Add to `/var/ossec/etc/ossec.conf`:
 <wodle name="command">
   <disabled>no</disabled>
   <tag>silent-agent-monitor</tag>
-  <command>/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py</command>
+  <command>/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py --group Server</command>
   <interval>1h</interval>
   <run_on_start>yes</run_on_start>
   <timeout>300</timeout>
@@ -82,6 +82,8 @@ Add to `/var/ossec/etc/ossec.conf`:
   <location>/var/ossec/logs/silent_agents.json</location>
 </localfile>
 ```
+To monitor several groups, add one `<wodle>` per group, each with its own `--group` and its own `SAM_STATE_FILE` and `SAM_OUTPUT_LOG`; sharing a state file between groups makes each run overwrite the other's entries.
+
 One run per hour bounds detection lag and recovery lag to an hour each, at one indexer query per hour whatever the number of agents. With `run_on_start`, the first run after a restart can reach the API before it finishes starting and log `HTTP Error 500`; nothing is lost, because a failed run never writes state.
 
 ### Add custom rules
@@ -144,13 +146,14 @@ Offline assertions on the decision logic, no API or indexer needed:
 
 Run the check by hand against the live environment:
 ```bash
-/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py
+/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py --group Server
 # Checked 12 agent(s) in 'Server': 0 silent, 0 event(s) written to /var/ossec/logs/silent_agents.json.
 ```
 
 To force a notification without waiting, drop the threshold for one run:
 ```bash
-SAM_THRESHOLD_HOURS=0.05 /var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py
+SAM_THRESHOLD_HOURS=0.05 /var/ossec/framework/python/bin/python3 \
+  /var/ossec/wodles/silent_agent_monitor.py --group Server
 tail -1 /var/ossec/logs/silent_agents.json
 tail -f /var/ossec/logs/alerts/alerts.log | grep -A5 100121
 ```
