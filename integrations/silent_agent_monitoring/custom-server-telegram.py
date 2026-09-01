@@ -1,19 +1,15 @@
 #!/var/ossec/framework/python/bin/python3
-# Wazuh Telegram integration for the silent agent monitoring rules.
-# Adapted from the Wazuh custom integration examples.
+# Copyright (C) 2015, Wazuh Inc.
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of GPLv2.
-"""
-Formats rules 100121 (no logs received) and 100122 (logging restored) into the
-message layout the notification template asks for, and posts them to the
-existing Telegram channel. Any other rule routed here falls back to a generic
-message, so a wrong <rule_id> in ossec.conf produces a readable alert rather
-than a crash.
-
-wazuh-integratord calls this as:
-    custom-server-telegram <alert_file> <api_key> <hook_url>
-so <api_key> carries the chat ID and <hook_url> the bot sendMessage URL.
-"""
+#
+# custom-server-telegram.py
+# Wazuh Telegram integration for the silent agent monitoring rules. Formats
+# rules 100121 (no logs received) and 100122 (logging restored) and posts them
+# to a Telegram chat. Any other rule routed here falls back to a generic
+# message. wazuh-integratord calls this as:
+#   custom-server-telegram <alert_file> <api_key> <hook_url>
+# so <api_key> carries the chat ID and <hook_url> the bot sendMessage URL.
 
 import json
 import logging
@@ -23,11 +19,9 @@ import ssl
 import urllib.request
 
 # === CONFIGURATION ===
-# Defaults used only when ossec.conf passes nothing, or for a manual test run.
+# Used only when ossec.conf passes nothing, or for a manual test run.
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 HOOK_URL = os.environ.get("TELEGRAM_HOOK_URL", "")
-# integratord runs this as the wazuh user, so the log has to be somewhere that
-# user can already write. integrations.log is the standard place for it.
 LOG_PATH = os.environ.get("TELEGRAM_LOG", "/var/ossec/logs/integrations.log")
 VERIFY_SSL = os.environ.get("TELEGRAM_VERIFY_SSL", "yes").lower() in ("yes", "true", "1")
 TIMEOUT = 15
@@ -40,13 +34,10 @@ _LOG_ARGS = {"format": "%(asctime)s custom-server-telegram %(levelname)s %(messa
 try:
     logging.basicConfig(filename=LOG_PATH, filemode="a", **_LOG_ARGS)
 except OSError:
-    # An unwritable log must not cost us the notification. stderr is captured
-    # by integratord and ends up in ossec.log.
     logging.basicConfig(stream=sys.stderr, **_LOG_ARGS)
 
 
 def build_message(alert):
-    """Return the HTML message body for one alert."""
     data = alert.get("data", {})
     rule = alert.get("rule", {})
     rule_id = str(rule.get("id", ""))
@@ -75,19 +66,14 @@ def build_message(alert):
 
 
 def ssl_context():
-    """Verifying context that also works on the Wazuh embedded interpreter.
-
-    That interpreter's OpenSSL looks for roots in /usr/local/ssl/certs, which
-    does not exist, so a default context trusts nothing and every HTTPS call to
-    Telegram fails with CERTIFICATE_VERIFY_FAILED. certifi ships with it and
-    carries the real roots; on a system interpreter without certifi the normal
-    default store is already correct.
-    """
     if not VERIFY_SSL:
         context = ssl.create_default_context()
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         return context
+    # The Wazuh embedded interpreter's OpenSSL looks for roots in a path that
+    # does not exist, so a default context trusts nothing. certifi ships with
+    # it; a system interpreter without certifi already has a working store.
     try:
         import certifi
         return ssl.create_default_context(cafile=certifi.where())

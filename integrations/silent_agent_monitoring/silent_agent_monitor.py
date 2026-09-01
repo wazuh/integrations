@@ -1,16 +1,13 @@
 #!/var/ossec/framework/python/bin/python3
 #
 # silent_agent_monitor.py
-# Detects Wazuh agents that are still registered (and often still "active")
-# but have stopped shipping logs. For every agent in a target group it reads
-# the timestamp of the most recent indexed event and, when that timestamp is
-# older than the threshold, appends a SILENT record to a local JSON log that
-# Wazuh ingests through a <localfile> block. When events start arriving again
-# it appends a matching RESTORED record.
-#
-# State is kept locally so a condition that stays unchanged is reported once,
-# not once per run. Standard library only: it runs on the Wazuh embedded
-# interpreter with no pip install.
+# Detects Wazuh agents that are still registered but have stopped shipping
+# logs. For every agent in a target group it reads the timestamp of the most
+# recent indexed event and, when that timestamp is older than the threshold,
+# appends a SILENT record to a local JSON log that Wazuh ingests through a
+# <localfile> block. When events start arriving again it appends a matching
+# RESTORED record. State is kept locally so an unchanged condition is reported
+# once, not once per run. Standard library only.
 #
 # Run modes:
 #   silent_agent_monitor.py             normal check (scheduled by a wodle)
@@ -27,8 +24,6 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 # === CONFIGURATION ===
-# Every value can be overridden with an environment variable, so the same file
-# can be pointed at a test environment without being edited.
 API_URL = os.environ.get("SAM_API_URL", "https://127.0.0.1:55000")
 API_USER = os.environ.get("SAM_API_USER", "wazuh-wui")
 API_PASSWORD = os.environ.get("SAM_API_PASSWORD", "CHANGE_ME")
@@ -37,16 +32,10 @@ INDEXER_URL = os.environ.get("SAM_INDEXER_URL", "https://127.0.0.1:9200")
 INDEXER_USER = os.environ.get("SAM_INDEXER_USER", "admin")
 INDEXER_PASSWORD = os.environ.get("SAM_INDEXER_PASSWORD", "CHANGE_ME")
 
-# Index pattern holding the events used as proof of life. See the README:
-# wazuh-alerts-* only contains alerts, wazuh-archives-* contains every event
-# and is the accurate source when archives are enabled and indexed.
 INDEX_PATTERN = os.environ.get("SAM_INDEX_PATTERN", "wazuh-alerts-*")
 
 TARGET_GROUP = os.environ.get("SAM_GROUP", "Server")
 SILENCE_THRESHOLD = timedelta(hours=float(os.environ.get("SAM_THRESHOLD_HOURS", "24")))
-
-# How far back the aggregation looks. Must exceed the threshold: an agent with
-# no events inside this window is reported as silent for "more than" it.
 LOOKBACK = timedelta(days=float(os.environ.get("SAM_LOOKBACK_DAYS", "7")))
 
 STATE_FILE = os.environ.get("SAM_STATE_FILE", "/var/ossec/var/silent_agents_state.json")
@@ -57,14 +46,11 @@ VERIFY_SSL = os.environ.get("SAM_VERIFY_SSL", "no").lower() in ("yes", "true", "
 PAGE_SIZE = 500
 HTTP_TIMEOUT = 30
 
-# === LOGGING ===
 _LOG_ARGS = {"format": "%(asctime)s %(levelname)s %(message)s",
              "datefmt": "%Y-%m-%dT%H:%M:%S", "level": logging.INFO}
 try:
     logging.basicConfig(filename=SCRIPT_LOG, filemode="a", **_LOG_ARGS)
 except OSError:
-    # Running as a user that cannot write the log file is not a reason to skip
-    # the check. stderr is picked up by whatever scheduled the run.
     logging.basicConfig(stream=sys.stderr, **_LOG_ARGS)
 
 SSL_CONTEXT = ssl.create_default_context()
@@ -74,7 +60,6 @@ if not VERIFY_SSL:
 
 
 def http_json(url, method="GET", body=None, token=None, basic=None):
-    """One JSON request. Raises on any transport or HTTP error."""
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Content-Type", "application/json")
@@ -88,14 +73,11 @@ def http_json(url, method="GET", body=None, token=None, basic=None):
 
 
 def get_token():
-    """Authenticate against the Wazuh API and return a JWT token."""
     url = f"{API_URL}/security/user/authenticate"
     return http_json(url, method="POST", basic=(API_USER, API_PASSWORD))["data"]["token"]
 
 
 def fetch_group_agents(token):
-    """Return every agent of TARGET_GROUP, excluding the manager and agents
-    that have never connected (those have no logs by definition)."""
     agents, offset = [], 0
     while True:
         url = (f"{API_URL}/agents?group={TARGET_GROUP}&limit={PAGE_SIZE}&offset={offset}"
@@ -110,8 +92,7 @@ def fetch_group_agents(token):
 
 
 def fetch_last_event_times(agent_ids):
-    """One aggregation for every agent: newest event timestamp per agent.id.
-    Returns {agent_id: datetime}. Agents with no event in LOOKBACK are absent."""
+    """{agent_id: datetime}. Agents with no event inside LOOKBACK are absent."""
     query = {
         "size": 0,
         "query": {"bool": {"filter": [
@@ -126,38 +107,29 @@ def fetch_last_event_times(agent_ids):
     url = f"{INDEXER_URL}/{INDEX_PATTERN}/_search"
     result = http_json(url, method="POST", body=query,
                        basic=(INDEXER_USER, INDEXER_PASSWORD))
-    # Missing aggregations means the query never matched an index. Return no
-    # buckets and let the caller's safety stop report it as a lookup problem.
     buckets = result.get("aggregations", {}).get("per_agent", {}).get("buckets", [])
     return {b["key"]: datetime.fromtimestamp(b["last_event"]["value"] / 1000, timezone.utc)
             for b in buckets if b["last_event"]["value"]}
 
 
 def format_duration(delta):
-    """'25h 40m', or '25h' on a whole hour. Matches the notification template."""
     minutes = int(delta.total_seconds() // 60)
     hours, minutes = divmod(minutes, 60)
     return f"{hours}h {minutes}m" if minutes else f"{hours}h"
 
 
 def local_time(dt):
-    """Render a UTC datetime in the manager's local timezone, tz name included."""
     return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 def decide(agent, last_log, previous, now):
-    """Pure decision for one agent. Returns (event or None, new state entry).
-
-    last_log is the newest indexed event time, or None when the agent produced
-    nothing inside LOOKBACK, which is the deepest form of silence.
-    previous is the state entry from the last run, or {}.
-    """
+    """Pure decision for one agent. Returns (event or None, new state entry)."""
     agent_id, name = agent["id"], agent.get("name", "unknown")
     silent = last_log is None or (now - last_log) >= SILENCE_THRESHOLD
     was_silent = previous.get("status") == "SILENT"
 
-    # The state key is named event_status, not status: "status" is one of the
-    # Wazuh static field names, and a rule cannot match it with <field name>.
+    # event_status, not status: "status" is a static Wazuh field name and a
+    # rule cannot match it with <field name>.
     common = {
         "integration": "silent-agent-monitor",
         "group": TARGET_GROUP,
@@ -182,7 +154,7 @@ def decide(agent, last_log, previous, now):
 
     if not silent and was_silent:
         # Measured from the last log before the gap to the first log after it,
-        # not from the moment this script noticed, so the duration is real.
+        # not from the moment this script noticed.
         previous_log = previous.get("last_log")
         gap = (last_log - datetime.fromisoformat(previous_log)) if previous_log else None
         event = dict(common, event_status="RESTORED",
@@ -203,13 +175,11 @@ def load_state():
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as err:
-        # A corrupt state file must not stop the check. Worst case one repeat.
         logging.error("Could not read state file '%s': %s. Starting empty.", STATE_FILE, err)
         return {}
 
 
 def save_state(state):
-    """Atomic replace, so a kill mid-write cannot leave a truncated state."""
     tmp = f"{STATE_FILE}.tmp"
     with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
@@ -244,9 +214,8 @@ def main():
         sys.exit(1)
 
     if not last_events and len(agents) > 1:
-        # Every single agent silent at once is far more likely to be a wrong
-        # index pattern or wrong credentials than a real outage. Refuse to
-        # generate the storm and make the operator look.
+        # Every agent silent at once is far more likely a wrong index pattern
+        # or wrong credentials than a real outage. Refuse to send the storm.
         logging.error("No events found for any of the %d agents in '%s' over the last %s. "
                       "Check SAM_INDEX_PATTERN and the indexer credentials. No alerts sent.",
                       len(agents), TARGET_GROUP, format_duration(LOOKBACK))
@@ -273,17 +242,14 @@ def main():
 
 
 def selftest():
-    """Offline assertions on the decision logic. No API, no indexer."""
-    # The assertions below are written against the shipped defaults, so pin
-    # them here: an environment that overrides the threshold must not turn a
-    # logic check into a false failure.
+    # Written against the shipped defaults, so pin them: an install that
+    # overrides the threshold must not turn a logic check into a false failure.
     global SILENCE_THRESHOLD, LOOKBACK
     SILENCE_THRESHOLD, LOOKBACK = timedelta(hours=24), timedelta(days=7)
 
     now = datetime(2026, 8, 19, 10, 20, 0, tzinfo=timezone.utc)
     agent = {"id": "152", "name": "File2", "status": "active"}
 
-    # Quiet for 25h40m: reported once, then suppressed while unchanged.
     stopped = now - timedelta(hours=25, minutes=40)
     event, state = decide(agent, stopped, {}, now)
     assert event["event_status"] == "SILENT", event
@@ -293,7 +259,6 @@ def selftest():
     assert state["status"] == "SILENT"
     assert decide(agent, stopped, state, now)[0] is None, "repeat alert not suppressed"
 
-    # Logs resume: one recovery, measured from the last log before the gap.
     resumed = stopped + timedelta(hours=25, minutes=40)
     event, ok_state = decide(agent, resumed, state, now)
     assert event["event_status"] == "RESTORED", event
@@ -302,10 +267,8 @@ def selftest():
     assert ok_state["status"] == "OK"
     assert decide(agent, resumed, ok_state, now)[0] is None, "repeat recovery not suppressed"
 
-    # A healthy agent inside the threshold never reports.
     assert decide(agent, now - timedelta(hours=23), {}, now)[0] is None
 
-    # No events at all inside the lookback window is silence, not a skip.
     event, _ = decide(agent, None, {}, now)
     assert event["event_status"] == "SILENT" and event["last_log"] == "unknown", event
 
