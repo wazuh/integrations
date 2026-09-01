@@ -10,8 +10,8 @@
 # once, not once per run. Standard library only.
 #
 # Run modes:
-#   silent_agent_monitor.py --group Server  normal check (scheduled by a wodle)
-#   silent_agent_monitor.py --selftest      offline assertions on the logic
+#   silent_agent_monitor.py --group Server,Windows   normal check (wodle)
+#   silent_agent_monitor.py --selftest               offline logic assertions
 
 import argparse
 import base64
@@ -35,8 +35,9 @@ INDEXER_PASSWORD = os.environ.get("SAM_INDEXER_PASSWORD", "CHANGE_ME")
 
 INDEX_PATTERN = os.environ.get("SAM_INDEX_PATTERN", "wazuh-alerts-*")
 
-# Overridden by --group, so the wodle in ossec.conf owns the group name.
-TARGET_GROUP = os.environ.get("SAM_GROUP", "Server")
+# Comma-separated. Overridden by --group, so the wodle owns the group names.
+TARGET_GROUPS = [g.strip() for g in os.environ.get("SAM_GROUP", "Server").split(",")
+                 if g.strip()]
 SILENCE_THRESHOLD = timedelta(hours=float(os.environ.get("SAM_THRESHOLD_HOURS", "24")))
 LOOKBACK = timedelta(days=float(os.environ.get("SAM_LOOKBACK_DAYS", "7")))
 
@@ -79,10 +80,10 @@ def get_token():
     return http_json(url, method="POST", basic=(API_USER, API_PASSWORD))["data"]["token"]
 
 
-def fetch_group_agents(token):
+def fetch_group_agents(token, group):
     agents, offset = [], 0
     while True:
-        url = (f"{API_URL}/agents?group={TARGET_GROUP}&limit={PAGE_SIZE}&offset={offset}"
+        url = (f"{API_URL}/agents?group={group}&limit={PAGE_SIZE}&offset={offset}"
                f"&sort=%2Bid&select=id,name,status,lastKeepAlive")
         data = http_json(url, token=token).get("data", {})
         agents.extend(a for a in data.get("affected_items", [])
@@ -134,7 +135,7 @@ def decide(agent, last_log, previous, now):
     # rule cannot match it with <field name>.
     common = {
         "integration": "silent-agent-monitor",
-        "group": TARGET_GROUP,
+        "group": ",".join(agent.get("groups", [])),
         "agent_id": agent_id,
         "agent_name": name,
         "agent_status": agent.get("status", "unknown"),
@@ -196,14 +197,21 @@ def append_events(events):
 
 def main():
     now = datetime.now(timezone.utc)
+    groups = ",".join(TARGET_GROUPS)
+    # An agent in two target groups is checked once and reports both names.
+    found = {}
     try:
-        agents = fetch_group_agents(get_token())
+        token = get_token()
+        for group in TARGET_GROUPS:
+            for agent in fetch_group_agents(token, group):
+                found.setdefault(agent["id"], dict(agent, groups=[]))["groups"].append(group)
     except (urllib.error.URLError, OSError, KeyError, ValueError) as err:
         logging.error("Wazuh API query failed: %s", err)
         sys.exit(1)
 
+    agents = list(found.values())
     if not agents:
-        logging.info("No agents in group '%s'. Nothing to do.", TARGET_GROUP)
+        logging.info("No agents in group(s) '%s'. Nothing to do.", groups)
         return
 
     agent_ids = [a["id"] for a in agents]
@@ -220,7 +228,7 @@ def main():
         # or wrong credentials than a real outage. Refuse to send the storm.
         logging.error("No events found for any of the %d agents in '%s' over the last %s. "
                       "Check SAM_INDEX_PATTERN and the indexer credentials. No alerts sent.",
-                      len(agents), TARGET_GROUP, format_duration(LOOKBACK))
+                      len(agents), groups, format_duration(LOOKBACK))
         sys.exit(1)
 
     state = load_state()
@@ -238,8 +246,8 @@ def main():
 
     silent = sum(1 for e in new_state.values() if e["status"] == "SILENT")
     logging.info("Checked %d agent(s) in '%s': %d silent, %d new event(s) written.",
-                 len(agents), TARGET_GROUP, silent, len(events))
-    print(f"Checked {len(agents)} agent(s) in '{TARGET_GROUP}': "
+                 len(agents), groups, silent, len(events))
+    print(f"Checked {len(agents)} agent(s) in '{groups}': "
           f"{silent} silent, {len(events)} event(s) written to {OUTPUT_LOG}.")
 
 
@@ -250,7 +258,7 @@ def selftest():
     SILENCE_THRESHOLD, LOOKBACK = timedelta(hours=24), timedelta(days=7)
 
     now = datetime(2026, 8, 19, 10, 20, 0, tzinfo=timezone.utc)
-    agent = {"id": "152", "name": "File2", "status": "active"}
+    agent = {"id": "152", "name": "File2", "status": "active", "groups": ["Server"]}
 
     stopped = now - timedelta(hours=25, minutes=40)
     event, state = decide(agent, stopped, {}, now)
@@ -258,6 +266,7 @@ def selftest():
     assert event["status_text"] == "No logs received", event
     assert event["no_logs_for"] == "25h 40m", event
     assert event["agent_id"] == "152" and event["agent_name"] == "File2"
+    assert event["group"] == "Server", event
     assert state["status"] == "SILENT"
     assert decide(agent, stopped, state, now)[0] is None, "repeat alert not suppressed"
 
@@ -274,13 +283,17 @@ def selftest():
     event, _ = decide(agent, None, {}, now)
     assert event["event_status"] == "SILENT" and event["last_log"] == "unknown", event
 
+    both = dict(agent, groups=["Server", "Windows"])
+    assert decide(both, stopped, {}, now)[0]["group"] == "Server,Windows"
+
     print("selftest OK")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detect Wazuh agents that stopped sending logs.")
-    parser.add_argument("--group", default=TARGET_GROUP,
-                        help=f"agent group to monitor (default: {TARGET_GROUP})")
+    parser.add_argument("--group", default=",".join(TARGET_GROUPS),
+                        help="comma-separated agent groups to monitor "
+                             f"(default: {','.join(TARGET_GROUPS)})")
     parser.add_argument("--selftest", action="store_true",
                         help="run offline assertions on the decision logic and exit")
     args = parser.parse_args()
@@ -288,5 +301,5 @@ if __name__ == "__main__":
     if args.selftest:
         selftest()
     else:
-        TARGET_GROUP = args.group
+        TARGET_GROUPS = [g.strip() for g in args.group.split(",") if g.strip()]
         main()

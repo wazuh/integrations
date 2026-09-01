@@ -51,7 +51,7 @@ Edit the `CONFIGURATION` block at the top of `silent_agent_monitor.py`, or set t
 | Indexer URL | `SAM_INDEXER_URL` | `https://127.0.0.1:9200` |
 | Indexer user / password | `SAM_INDEXER_USER`, `SAM_INDEXER_PASSWORD` | `admin` / `CHANGE_ME` |
 | Index pattern | `SAM_INDEX_PATTERN` | `wazuh-alerts-*` |
-| Agent group | `--group`, `SAM_GROUP` | `Server` |
+| Agent groups | `--group`, `SAM_GROUP` | `Server` |
 | Silence threshold, hours | `SAM_THRESHOLD_HOURS` | `24` |
 | Lookback window, days | `SAM_LOOKBACK_DAYS` | `7` |
 | State file | `SAM_STATE_FILE` | `/var/ossec/var/silent_agents_state.json` |
@@ -59,7 +59,7 @@ Edit the `CONFIGURATION` block at the top of `silent_agent_monitor.py`, or set t
 | Script log | `SAM_SCRIPT_LOG` | `/var/ossec/logs/silent_agent_monitor.log` |
 | Verify TLS certificates | `SAM_VERIFY_SSL` | `no` |
 
-The group is normally passed with `--group` from the wodle, so `ossec.conf` owns it and the script needs no edit to change it. The file holds credentials, so keep it root-owned and `chmod 750`. `SAM_LOOKBACK_DAYS` must stay larger than the threshold: it bounds the indexer query, and an agent with nothing inside it is reported as silent for "more than" that window.
+The groups are normally passed with `--group` from the wodle, so `ossec.conf` owns them and the script needs no edit to change them. The file holds credentials, so keep it root-owned and `chmod 750`. `SAM_LOOKBACK_DAYS` must stay larger than the threshold: it bounds the indexer query, and an agent with nothing inside it is reported as silent for "more than" that window.
 
 The index pattern decides what counts as a log. `wazuh-alerts-*` is available everywhere but only sees alerts, so an agent that ships logs normally while producing no alert for a full day is reported as silent. `wazuh-archives-*` is the exact answer to "no logs received" but needs `<logall_json>` enabled and the archives indexed. Use archives when they are available; otherwise confirm that every agent in the group normally produces alerts within the threshold.
 
@@ -82,7 +82,7 @@ Add to `/var/ossec/etc/ossec.conf`:
   <location>/var/ossec/logs/silent_agents.json</location>
 </localfile>
 ```
-To monitor several groups, add one `<wodle>` per group, each with its own `--group` and its own `SAM_STATE_FILE` and `SAM_OUTPUT_LOG`; sharing a state file between groups makes each run overwrite the other's entries.
+`--group` takes a comma-separated list, so one wodle covers several groups: `--group Server,Windows,DMZ`. Agents are deduplicated across them, so an agent in two of the listed groups is checked once and its record names both. A separate wodle per group also works, but each one then needs its own `SAM_STATE_FILE` and `SAM_OUTPUT_LOG`, because a run rewrites the whole state file.
 
 One run per hour bounds detection lag and recovery lag to an hour each, at one indexer query per hour whatever the number of agents. With `run_on_start`, the first run after a restart can reach the API before it finishes starting and log `HTTP Error 500`; nothing is lost, because a failed run never writes state.
 
@@ -170,6 +170,7 @@ echo '{"integration":"silent-agent-monitor","event_status":"SILENT","agent_id":"
 | --- | --- |
 | `No events found for any of the N agents` and no alerts | Deliberate safety stop: every agent silent at once is almost always a wrong index pattern or wrong indexer credentials. Check `SAM_INDEX_PATTERN` and the indexer user. |
 | `Indexer query failed` or `Wazuh API query failed` | The run exits without touching the state, so nothing is reported as silent or recovered on a failed query. Check connectivity and credentials. |
+| `No agents in group(s) 'X'` | The group does not exist or is empty. Check with `/var/ossec/bin/agent_groups -l`. |
 | Records in `silent_agents.json` but no alerts | The `<localfile>` block is missing, points elsewhere, or sits on a node that is not running the script. |
 | Alerts fire but no email | Global email is not enabled, or the rules lost `<options>alert_by_email</options>`. Check `/var/ossec/logs/ossec.log` for `wazuh-maild`. |
 | Alerts fire but no Telegram message | Check `/var/ossec/logs/integrations.log`. A missing chat ID or hook URL, or an HTTP error from the bot API, is logged with the rule ID. |
