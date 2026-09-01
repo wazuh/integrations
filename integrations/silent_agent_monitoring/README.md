@@ -70,7 +70,7 @@ Add to `/var/ossec/etc/ossec.conf`:
 <wodle name="command">
   <disabled>no</disabled>
   <tag>silent-agent-monitor</tag>
-  <command>/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py --group Server</command>
+  <command>/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py --group Server,Windows</command>
   <interval>1h</interval>
   <run_on_start>yes</run_on_start>
   <timeout>300</timeout>
@@ -119,6 +119,15 @@ Use the bundled script only when there is no Telegram integration yet:
   <rule_id>100121,100122</rule_id>
   <hook_url>https://api.telegram.org/bot&lt;BOT_TOKEN&gt;/sendMessage</hook_url>
   <api_key>&lt;CHAT_ID&gt;</api_key>
+  <alert_format>json</alert_format>
+</integration>
+
+<!-- Filled in, as a sample -->
+<integration>
+  <name>custom-server-telegram</name>
+  <rule_id>100121,100122</rule_id>
+  <hook_url>https://api.telegram.org/bot8454124324:niwefn76t5safuef8s76tg/sendMessage</hook_url>
+  <api_key>123123123123</api_key>
   <alert_format>json</alert_format>
 </integration>
 ```
