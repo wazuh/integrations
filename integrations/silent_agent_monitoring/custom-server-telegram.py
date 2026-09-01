@@ -74,16 +74,33 @@ def build_message(alert):
             f"<b>Agent:</b> {agent.get('name', 'manager')} ({agent.get('id', '000')})")
 
 
+def ssl_context():
+    """Verifying context that also works on the Wazuh embedded interpreter.
+
+    That interpreter's OpenSSL looks for roots in /usr/local/ssl/certs, which
+    does not exist, so a default context trusts nothing and every HTTPS call to
+    Telegram fails with CERTIFICATE_VERIFY_FAILED. certifi ships with it and
+    carries the real roots; on a system interpreter without certifi the normal
+    default store is already correct.
+    """
+    if not VERIFY_SSL:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        return context
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
 def send(hook_url, chat_id, message):
     payload = json.dumps({"chat_id": chat_id, "text": message,
                           "parse_mode": "HTML"}).encode()
     req = urllib.request.Request(hook_url, data=payload, method="POST")
     req.add_header("Content-Type", "application/json")
-    context = ssl.create_default_context()
-    if not VERIFY_SSL:
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-    with urllib.request.urlopen(req, timeout=TIMEOUT, context=context) as resp:
+    with urllib.request.urlopen(req, timeout=TIMEOUT, context=ssl_context()) as resp:
         return resp.status
 
 

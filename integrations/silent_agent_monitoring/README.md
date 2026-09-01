@@ -1,162 +1,48 @@
-# Silent Agent Monitoring - Wazuh Integration
+# Silent Agent Monitoring
 
 ## Table of Contents
-
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
-* [How It Works](#how-it-works)
-    * [What Counts as a Log](#what-counts-as-a-log)
-    * [Alert and Recovery Logic](#alert-and-recovery-logic)
-* [Installation and Configuration](#installation-and-configuration)
-    * [Using the Integration Files](#using-the-integration-files)
-    * [Script Configuration](#script-configuration)
-    * [Scheduling the Check](#scheduling-the-check)
-    * [Ingesting the Records](#ingesting-the-records)
-    * [Rules](#rules)
-    * [Email Notifications](#email-notifications)
-    * [Telegram Notifications](#telegram-notifications)
-    * [Routing Into an Existing Telegram Integration](#routing-into-an-existing-telegram-integration)
 * [Integration Steps](#integration-steps)
-* [Integration Testing](#integration-testing)
+    * [Add the integration files](#add-the-integration-files)
+    * [Script configuration](#script-configuration)
+    * [Wazuh manager configuration](#wazuh-manager-configuration)
+    * [Add custom rules](#add-custom-rules)
+    * [Email notifications](#email-notifications)
+    * [Telegram notifications](#telegram-notifications)
+* [Testing](#testing)
 * [Troubleshooting](#troubleshooting)
-* [Verification](#verification)
-* [Design Notes](#design-notes)
 * [Sources](#sources)
 
----
+## Introduction
+This script runs on the Wazuh manager and detects agents that are still registered, and often still active, while log ingestion from them has stopped.
 
-### Introduction
+For every agent of a target group it reads the timestamp of the most recent indexed event. When that timestamp is older than the threshold it appends a `SILENT` record to a local JSON log, and when events start arriving again it appends a `RESTORED` record. State is kept locally so an unchanged condition is reported once, not once per run.
 
-On a schedule it reads, for every agent of a chosen group, the timestamp of the most recent event that reached the indexer. When that timestamp is older than the threshold it writes a SILENT record and when events start arriving again it writes one RESTORED record. The records
-are plain JSON lines that Wazuh ingests through a `<localfile>` block, so they
-become normal alerts and can be routed to email, Telegram, or anything else
-with the standard `<email_alerts>` and `<integration>` blocks.
+The records are plain JSON lines ingested through a `<localfile>` block, so the built-in JSON decoder handles them and no custom decoder is needed. They trigger rules 100121 and 100122, which are routed to email and to Telegram.
 
-The answer to "can this be done from the group and the last event timestamp, or
-is a custom script needed": the group and the timestamp are exactly the right
-inputs, and a script is needed to join them, because no built-in module tracks
-per-agent event recency. Everything downstream of the script (decoding, rules,
-alerting, routing) is stock Wazuh.
+## Prerequisites
+- Wazuh manager 4.4 or later, with an API user that can read `/agents`.
+- Wazuh indexer reachable from the manager, with a user that can search the alerts (or archives) indices.
+- An agent group to monitor.
+- The scripts use only the standard library, so the Wazuh embedded interpreter at `/var/ossec/framework/python/bin/python3` is enough and there is no `pip install` step.
 
----
+In a cluster, install on the master node only: running the script on several nodes duplicates every notification and splits the state.
 
-### Prerequisites
+## Integration Steps
 
-- Wazuh manager 4.4 or later, with the Wazuh API reachable and an API user that
-  can read `/agents`.
-- Wazuh indexer reachable from the manager, with a user that can search the
-  alerts (or archives) indices.
-- An agent group to monitor. The examples use `Server`.
-- Python 3.6 or later. The scripts use only the standard library, so there is no
-  `pip install` step; the Wazuh embedded interpreter at
-  `/var/ossec/framework/python/bin/python3` satisfies this.
-- Filesystem access to the manager to place the files.
-
-**Wazuh Cloud:** managed environments do not give shell access to the manager,
-so the two scripts cannot be copied in by the user. Rules, `ossec.conf` blocks,
-and the group can be managed from the dashboard, but the script placement and
-its execute permissions have to be done by the Wazuh Cloud team through a
-support request. Send them this folder and the target paths listed below. In a
-cluster, the script, its state file, and the `<localfile>` block must be placed
-on one node only (the master); running it on several nodes duplicates every
-notification and splits the state.
-
----
-
-### How It Works
-
+### Add the integration files
 ```
-                 Wazuh API /agents?group=Server        Wazuh indexer
-                            |                                |
-                            | agent id, name, status         | max(@timestamp) per agent.id
-                            v                                v
-                   +--------------------------------------------------+
-   command wodle ->|            silent_agent_monitor.py               |
-      (hourly)     |  compares each agent against the threshold and   |
-                   |  against the previous run's state                |
-                   +--------------------------------------------------+
-                            |
-                            | one JSON line per state change only
-                            v
-                   /var/ossec/logs/silent_agents.json
-                            |
-                            | <localfile> json
-                            v
-                   rules 100121 / 100122  ->  email + Telegram
-```
-
-#### What Counts as a Log
-
-The script measures recency against an index pattern, `SAM_INDEX_PATTERN`:
-
-| Pattern | Meaning | Trade-off |
-| --- | --- | --- |
-| `wazuh-alerts-*` (default) | The newest **alert** produced by the agent. | Available everywhere. An agent that ships logs normally but produces no alert for a full day is reported as silent. |
-| `wazuh-archives-*` | The newest **event** received from the agent, whether or not it alerted. | Exact answer to "no logs received", but needs `<logall_json>` enabled and the archives indexed, which costs storage. |
-
-Use archives when they are enabled. On alerts, confirm first that every agent in
-the group normally produces at least some alerts within the threshold; a quiet
-Windows file server under a tight ruleset sometimes does not. Widening the
-threshold or moving to archives both remove that false positive.
-
-#### Alert and Recovery Logic
-
-State is kept in a small local JSON file, so a condition that has not changed is
-reported once rather than once per run:
-
-| Previous state | Current reading | Action |
-| --- | --- | --- |
-| OK (or unknown) | Last event older than the threshold, or no event at all in the lookback window | Write one `SILENT` record, remember the last log timestamp. |
-| SILENT | Still older than the threshold | Nothing. No repeated notification. |
-| SILENT | Recent events again | Write one `RESTORED` record, clear the state. |
-| OK | Recent events | Nothing. |
-
-Durations are measured against real log timestamps, not against the moment the
-script noticed. `No Logs For` is the gap between the last received log and now.
-`No Logs Duration` on recovery is the gap between the last log before the
-silence and the first log after it, which is what the operator actually wants to
-read in the incident.
-
-An agent that has never connected is skipped: it has no logs by definition, and
-`never_connected` is already visible in the dashboard. Agent `000` (the manager)
-is skipped too.
-
----
-
-### Installation and Configuration
-
-#### Using the Integration Files
-
-```
-silent_agent_monitoring/
-  silent_agent_monitor.py         # The check. Runs on a schedule from a wodle.
-  silent_agent_monitor-rules.xml  # Rules 100120-100122.
-  custom-server-telegram          # Integration wrapper (selects the Wazuh interpreter).
-  custom-server-telegram.py       # Formats and posts the Telegram message.
-```
-
-Target paths on the manager:
-
-```bash
 cp silent_agent_monitor.py /var/ossec/wodles/
-chmod 750 /var/ossec/wodles/silent_agent_monitor.py
-chown root:wazuh /var/ossec/wodles/silent_agent_monitor.py
-
 cp custom-server-telegram custom-server-telegram.py /var/ossec/integrations/
-chmod 750 /var/ossec/integrations/custom-server-telegram*
-chown root:wazuh /var/ossec/integrations/custom-server-telegram*
 
-cat silent_agent_monitor-rules.xml >> /var/ossec/etc/rules/local_rules.xml
+chown root:wazuh /var/ossec/wodles/silent_agent_monitor.py /var/ossec/integrations/custom-server-telegram*
+chmod 750 /var/ossec/wodles/silent_agent_monitor.py /var/ossec/integrations/custom-server-telegram*
 ```
+A manager upgrade can replace the contents of `/var/ossec/wodles`, so keep a copy of the configured script outside `/var/ossec`.
 
-A manager upgrade can replace the contents of `/var/ossec/wodles`, so keep a
-copy of the configured script outside `/var/ossec` and re-apply it after an
-upgrade.
-
-#### Script Configuration
-
-Edit the `CONFIGURATION` block at the top of `silent_agent_monitor.py`, or set
-the matching environment variables and leave the file untouched:
+### Script configuration
+Edit the `CONFIGURATION` block at the top of `silent_agent_monitor.py`, or set the matching environment variables and leave the file untouched:
 
 | Setting | Variable | Default |
 | --- | --- | --- |
@@ -173,60 +59,33 @@ the matching environment variables and leave the file untouched:
 | Script log | `SAM_SCRIPT_LOG` | `/var/ossec/logs/silent_agent_monitor.log` |
 | Verify TLS certificates | `SAM_VERIFY_SSL` | `no` |
 
-The file holds credentials, so keep it `chmod 750` and root-owned. On Wazuh
-Cloud, use the environment endpoints and credentials supplied with the
-environment rather than the loopback defaults.
+The file holds credentials, so keep it root-owned and `chmod 750`. `SAM_LOOKBACK_DAYS` must stay larger than the threshold: it bounds the indexer query, and an agent with nothing inside it is reported as silent for "more than" that window.
 
-`SAM_LOOKBACK_DAYS` must stay larger than the threshold. It bounds the indexer
-query, and an agent with nothing inside it is reported as silent for "more than"
-that window.
+The index pattern decides what counts as a log. `wazuh-alerts-*` is available everywhere but only sees alerts, so an agent that ships logs normally while producing no alert for a full day is reported as silent. `wazuh-archives-*` is the exact answer to "no logs received" but needs `<logall_json>` enabled and the archives indexed. Use archives when they are available; otherwise confirm that every agent in the group normally produces alerts within the threshold.
 
-#### Scheduling the Check
-
-`/var/ossec/etc/ossec.conf`, on the master node only:
+### Wazuh manager configuration
+Add to `/var/ossec/etc/ossec.conf`:
 
 ```xml
-<ossec_config>
-  <wodle name="command">
-    <disabled>no</disabled>
-    <tag>silent-agent-monitor</tag>
-    <command>/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py</command>
-    <interval>1h</interval>
-    <run_on_start>yes</run_on_start>
-    <timeout>300</timeout>
-    <ignore_output>yes</ignore_output>
-  </wodle>
-</ossec_config>
+<wodle name="command">
+  <disabled>no</disabled>
+  <tag>silent-agent-monitor</tag>
+  <command>/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py</command>
+  <interval>1h</interval>
+  <run_on_start>yes</run_on_start>
+  <timeout>300</timeout>
+  <ignore_output>yes</ignore_output>
+</wodle>
+
+<localfile>
+  <log_format>json</log_format>
+  <location>/var/ossec/logs/silent_agents.json</location>
+</localfile>
 ```
+One run per hour bounds detection lag and recovery lag to an hour each, at one indexer query per hour whatever the number of agents. With `run_on_start`, the first run after a restart can reach the API before it finishes starting and log `HTTP Error 500`; nothing is lost, because a failed run never writes state.
 
-With `run_on_start`, the very first run after a manager restart can reach the
-Wazuh API before it finishes starting and log `HTTP Error 500`. That run exits
-non-zero, `wazuh-modulesd` records a warning, and the next scheduled run
-succeeds. Nothing is lost, because a failed run never writes state.
-
-One run per hour is enough for a 24 hour threshold: it bounds detection lag and
-recovery lag to an hour each while keeping the indexer load at one aggregation
-query per hour, whatever the number of agents. Shorten the interval if the
-recovery notification needs to arrive sooner.
-
-#### Ingesting the Records
-
-The script writes plain JSON objects, one per line, so the built-in JSON decoder
-parses them and **no custom decoder is required**:
-
-```xml
-<ossec_config>
-  <localfile>
-    <log_format>json</log_format>
-    <location>/var/ossec/logs/silent_agents.json</location>
-  </localfile>
-</ossec_config>
-```
-
-#### Rules
-
-`silent_agent_monitor-rules.xml` defines a level 0 parent that matches the
-`integration` field and two children that alert:
+### Add custom rules
+In the Wazuh dashboard go to Server Management > Rules > Add new rules file, name it `silent_agent_monitor-rules.xml`, add the content of `silent_agent_monitor-rules.xml` and save. Then restart the manager.
 
 | Rule | Level | Fires when |
 | --- | --- | --- |
@@ -234,65 +93,34 @@ parses them and **no custom decoder is required**:
 | 100121 | 12 | `event_status` is `SILENT`. |
 | 100122 | 5 | `event_status` is `RESTORED`. |
 
-The matched field is `event_status`, not `status`: `status` is one of the Wazuh
-static field names, and a rule that tries to match it with `<field name="status">`
-fails to load with `Field 'status' is static`.
+The matched field is `event_status`, not `status`: `status` is a static Wazuh field name and a rule matching it fails to load. Both children carry `<options>alert_by_email</options>`, which forces the email regardless of the global `<email_alert_level>`; without it the level 5 recovery alert is dropped by the default threshold of 12. Move the IDs into a free range if 100120-100122 are already used.
 
-Both children carry `<options>alert_by_email</options>`, which forces the email
-regardless of the global `<email_alert_level>`. Without it the level 5 recovery
-alert would be dropped by the default threshold of 12 and only the silence
-notification would arrive.
-
-Move the IDs into a free range if 100120-100122 are already used; the repository
-`detect_new_agents` integration, for example, also ships a rule 100110.
-
-#### Email Notifications
-
-Global email must already be configured (`<global>` with
-`<email_notification>yes</email_notification>`, `<smtp_server>`, `<email_from>`,
-`<email_to>`). Then route these two rules:
+### Email notifications
+Global email must already be configured. Then route the two rules:
 
 ```xml
-<ossec_config>
-  <email_alerts>
-    <email_to>soc-team@example.com</email_to>
-    <rule_id>100121,100122</rule_id>
-    <do_not_delay />
-    <format>full</format>
-  </email_alerts>
-</ossec_config>
+<email_alerts>
+  <email_to>soc-team@example.com</email_to>
+  <rule_id>100121,100122</rule_id>
+  <do_not_delay />
+  <format>full</format>
+</email_alerts>
 ```
+The `full` format prints the record's fields one per line, so the email already carries the agent name, the agent ID, the last log timestamp and the duration.
 
-`<do_not_delay />` sends immediately instead of waiting for the next email
-grouping interval.
-
-The `full` format prints the record's fields one per line, so the email already
-carries the agent name, the agent ID, the last log timestamp and the duration.
-Only if the email has to look like the Telegram message, with the same heading
-and emoji, is a `custom-email` integration script needed in place of
-`<email_alerts>`.
-
-#### Telegram Notifications
-
-Add the integration next to the existing Telegram block, reusing the bot token
-and chat ID of the Server channel:
+### Telegram notifications
+Use the bundled script only when there is no Telegram integration yet:
 
 ```xml
-<ossec_config>
-  <!-- Telegram Alerts - Server Alerts -->
-  <integration>
-    <name>custom-server-telegram</name>
-    <rule_id>100121,100122</rule_id>
-    <hook_url>https://api.telegram.org/bot&lt;BOT_TOKEN&gt;/sendMessage</hook_url>
-    <api_key>&lt;CHAT_ID&gt;</api_key>
-    <alert_format>json</alert_format>
-  </integration>
-</ossec_config>
+<integration>
+  <name>custom-server-telegram</name>
+  <rule_id>100121,100122</rule_id>
+  <hook_url>https://api.telegram.org/bot&lt;BOT_TOKEN&gt;/sendMessage</hook_url>
+  <api_key>&lt;CHAT_ID&gt;</api_key>
+  <alert_format>json</alert_format>
+</integration>
 ```
-
-`<hook_url>` is the full `sendMessage` endpoint of the bot and `<api_key>` is
-the numeric chat ID of the channel, both taken from the Telegram block already
-in the configuration. The script produces exactly the requested layout:
+`<hook_url>` is the full `sendMessage` endpoint of the bot and `<api_key>` is the numeric chat ID. Both are passed to the script as arguments and override its defaults. The messages it produces:
 
 ```
 ⚠️ Server Logging Alert          ✅ Server Logging Restored
@@ -303,227 +131,50 @@ Last Log Received: ...           Restored At: ...
 No Logs For: 25h 40m             No Logs Duration: 25h 40m
 ```
 
-`wazuh-integratord` runs integration scripts as the `wazuh` user, not as root,
-so the script logs to `/var/ossec/logs/integrations.log`, which that user can
-already write. If `TELEGRAM_LOG` is pointed somewhere else, the new file has to
-be writable by `wazuh` or the notification is lost before it is sent.
+When a Telegram integration already exists, keep it and add `100121,100122` to its `<rule_id>` (or `silent_agent_monitoring` to its `<group>`). A dispatcher that maps dotted paths to labels needs one entry per event type, matching on the `server_silent` and `server_restored` rule groups, with the fields listed above; the `Status` line is `data.status_text`, so no literal is needed in the dispatcher.
 
-Use these two files only when there is no Telegram integration yet. When one is
-already configured, keep it and see the next section instead.
+`wazuh-integratord` runs integration scripts as the `wazuh` user, so any path the script writes, including a custom `TELEGRAM_LOG`, must be writable by it.
 
-#### Routing Into an Existing Telegram Integration
-
-Two changes, no new script.
-
-**1. Send the rules to the existing block.** In the
-`<!-- Telegram Alerts - Server Alerts -->` integration, extend whichever
-selector it already uses:
-
-```xml
-<rule_id>...existing ids...,100121,100122</rule_id>
-```
-
-or, if it selects by rule group:
-
-```xml
-<group>...existing groups...,silent_agent_monitoring</group>
-```
-
-**2. Add the two message layouts.** A script that dispatches on `rule.groups`
-needs no rule IDs at all: the rules already carry `server_silent` and
-`server_restored`. One declarative entry per event type, in the dispatch table:
-
-```python
-{
-    "match": "server_silent",
-    "header": "⚠️ Server Logging Alert",
-    "label": "Server Logging Alert",
-    "fields": [
-        ("Name", "data.agent_name"),
-        ("Agent ID", "data.agent_id"),
-        ("Status", "data.status_text"),
-        ("Last Log Received", "data.last_log"),
-        ("No Logs For", "data.no_logs_for"),
-    ],
-},
-{
-    "match": "server_restored",
-    "header": "✅ Server Logging Restored",
-    "label": "Server Logging Restored",
-    "fields": [
-        ("Name", "data.agent_name"),
-        ("Agent ID", "data.agent_id"),
-        ("Status", "data.status_text"),
-        ("Restored At", "data.restored_at"),
-        ("No Logs Duration", "data.silence_duration"),
-    ],
-},
-```
-
-Put them above any broader entry that could also match. The `Status` line is a
-field, `data.status_text`, rather than a literal in the dispatcher, so the
-wording lives in one place and a script that only knows how to map paths to
-labels needs no code for it.
-
-If the dispatcher renders a fixed header, give it a per-entry override. On a
-formatter of the common shape that is two lines:
-
-```python
-def build_fields_message(alert, label, fields, header=None):
-    lines = [header or f"\U0001F6A8 Wazuh Alert - {label}", ""]
-```
-
-```python
-    return build_fields_message(alert, group_cfg.get("label", group_cfg["match"]),
-                                group_cfg["fields"], group_cfg.get("header"))
-```
-
-Entries without a `header` key keep the old heading, so every existing
-notification format is untouched.
-
-**Check the formatting without waiting for an alert.** Take a real record, or
-write one by hand, and run it through the script's own formatter:
-
-```bash
-grep '"id":"100121"' /var/ossec/logs/alerts/alerts.json | tail -1 > /tmp/sample_silent.json
-
-/var/ossec/framework/python/bin/python3 - <<'EOF'
-import json, importlib.util
-spec = importlib.util.spec_from_file_location("tg", "/var/ossec/integrations/custom-telegram.py")
-tg = importlib.util.module_from_spec(spec); spec.loader.exec_module(tg)
-print(tg.build_message(json.load(open("/tmp/sample_silent.json")))[0])
-EOF
-```
-
-Importing the file does not send anything: the send path only runs under
-`if __name__ == "__main__"`. Expected output:
-
-```
-⚠️ Server Logging Alert
-
-Name: File2
-Agent ID: 152
-Status: No logs received
-Last Log Received: 2026-08-25 10:30:00
-No Logs For: 24h
-```
-
----
-
-### Integration Steps
-
-1. Confirm the agents to monitor are in the group: `/var/ossec/bin/agent_groups -s -g Server`.
-2. Copy the four files to the paths above and set ownership and permissions.
-3. Fill in the API and indexer credentials, the group name, and the threshold.
-4. Append the rules to `/var/ossec/etc/rules/local_rules.xml`.
-5. Add the `<wodle>`, `<localfile>`, `<email_alerts>`, and `<integration>` blocks
-   to `/var/ossec/etc/ossec.conf` on the master node.
-6. Validate the configuration and restart: `/var/ossec/bin/wazuh-control restart`.
-7. Watch `/var/ossec/logs/silent_agent_monitor.log` after the first run.
-
----
-
-### Integration Testing
-
-**Decision logic, offline.** No API, indexer, or manager needed:
-
+## Testing
+Offline assertions on the decision logic, no API or indexer needed:
 ```bash
 /var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py --selftest
 # selftest OK
 ```
 
-It asserts that a 25h40m gap reports once and only once, that recovery reports
-once with the duration measured from the last log before the gap, that an agent
-inside the threshold stays quiet, and that an agent with no events at all is
-treated as silent rather than skipped.
-
-**End to end, against the live environment.** Run the check by hand:
-
+Run the check by hand against the live environment:
 ```bash
 /var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py
 # Checked 12 agent(s) in 'Server': 0 silent, 0 event(s) written to /var/ossec/logs/silent_agents.json.
 ```
 
-To force a notification without waiting a day, drop the threshold for one run
-and watch the whole chain fire:
-
+To force a notification without waiting, drop the threshold for one run:
 ```bash
-SAM_THRESHOLD_HOURS=0.05 /var/ossec/framework/python/bin/python3 \
-  /var/ossec/wodles/silent_agent_monitor.py
+SAM_THRESHOLD_HOURS=0.05 /var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py
 tail -1 /var/ossec/logs/silent_agents.json
 tail -f /var/ossec/logs/alerts/alerts.log | grep -A5 100121
 ```
+Running with the real threshold again produces the `RESTORED` notification, which confirms the recovery path and the message formatting in one go. Delete `/var/ossec/var/silent_agents_state.json` afterwards so the test does not leave agents marked silent.
 
-Delete `/var/ossec/var/silent_agents_state.json` afterwards so the test does not
-leave agents marked silent. Running with the real threshold again produces the
-`RESTORED` notification, which is a useful way to confirm the recovery path and
-the Telegram formatting in one go.
-
-**Rules only**, without running the script:
-
+The rules can be checked without running the script:
 ```bash
 echo '{"integration":"silent-agent-monitor","event_status":"SILENT","agent_id":"152","agent_name":"File2","last_log":"2026-08-18 08:35:12 CEST","no_logs_for":"25h 40m"}' \
   | /var/ossec/bin/wazuh-logtest
 ```
 
----
-
-### Troubleshooting
-
+## Troubleshooting
 | Symptom | Cause and fix |
 | --- | --- |
-| `No events found for any of the N agents` in the script log, and no alerts | Deliberate safety stop. Every agent silent at once is almost always a wrong index pattern or wrong indexer credentials, not a real outage, so the script refuses to send the storm. Check `SAM_INDEX_PATTERN` and the indexer user. |
-| `Indexer query failed` or `Wazuh API query failed` | The run exits without touching the state, so nothing is reported as silent or as recovered on the strength of a failed query. Check connectivity and credentials. |
-| Records in `silent_agents.json` but no alerts | The `<localfile>` block is missing, points elsewhere, or sits on a node that is not running the script. Confirm with `grep silent_agents /var/ossec/logs/ossec.log`. |
+| `No events found for any of the N agents` and no alerts | Deliberate safety stop: every agent silent at once is almost always a wrong index pattern or wrong indexer credentials. Check `SAM_INDEX_PATTERN` and the indexer user. |
+| `Indexer query failed` or `Wazuh API query failed` | The run exits without touching the state, so nothing is reported as silent or recovered on a failed query. Check connectivity and credentials. |
+| Records in `silent_agents.json` but no alerts | The `<localfile>` block is missing, points elsewhere, or sits on a node that is not running the script. |
 | Alerts fire but no email | Global email is not enabled, or the rules lost `<options>alert_by_email</options>`. Check `/var/ossec/logs/ossec.log` for `wazuh-maild`. |
-| Alerts fire but no Telegram message | Check `/var/ossec/logs/integrations.log` for a line from `custom-server-telegram`, then `grep integrator /var/ossec/logs/ossec.log`. A missing chat ID or hook URL, or an HTTP error from the bot API, is logged with the rule ID. |
-| `Permission denied` from integratord | The integration runs as the `wazuh` user. Any path the script writes, including a custom `TELEGRAM_LOG`, must be writable by it. |
-| `Failure to read rule 100121. Field 'status' is static` | The rule was edited to match `status` instead of `event_status`. `status` is a reserved Wazuh field name. |
-| A healthy agent is reported silent | It produced no *alerts* within the threshold. Point `SAM_INDEX_PATTERN` at `wazuh-archives-*`, or raise the threshold. |
-| Every agent reported again after a manager rebuild | The state file was lost, so the first run after it re-reports the conditions that are still true. One repeat, then quiet again. |
+| Alerts fire but no Telegram message | Check `/var/ossec/logs/integrations.log`. A missing chat ID or hook URL, or an HTTP error from the bot API, is logged with the rule ID. |
+| `Field 'status' is static` | The rule was edited to match `status` instead of `event_status`. |
+| A healthy agent is reported silent | It produced no alerts within the threshold. Point `SAM_INDEX_PATTERN` at `wazuh-archives-*`, or raise the threshold. |
+| Every agent reported again after a manager rebuild | The state file was lost, so the first run re-reports the conditions that are still true. One repeat, then quiet again. |
 
----
-
-### Verification
-
-Run end to end on a Wazuh 4.14.6 single-node server (manager, indexer and
-dashboard on one host) with three agents in a `Server` group:
-
-| Check | Result |
-| --- | --- |
-| `--selftest` on the embedded interpreter | Passes: single alert, single recovery, correct durations, silence on missing data. |
-| Group lookup | The `never_connected` agent and agent `000` are excluded; the two real agents are checked. |
-| Silence detection | An agent whose newest indexed event was 30 hours old produced one `SILENT` record reading `30h`. |
-| Repeat suppression | Three further runs with the condition unchanged produced no further records. |
-| Recovery | A fresh event produced one `RESTORED` record reading `30h`, measured from the last log before the gap. |
-| Ingestion and rules | The record reached `alerts.json` through the `<localfile>` block as rule 100121, level 12, `mail: true`, with the description fully interpolated. |
-| Telegram | `wazuh-integratord` invoked the integration and delivered both formatted messages, captured against a local HTTP endpoint standing in for the bot API. |
-| Email | Both rules produced a real email through a local Postfix relay, accepted by the upstream server (`dsn=2.0.0, status=sent`). The stock `full` format carries every field of the record, decoded one per line, under the subject `Wazuh notification - <manager> - Alert level 12`. |
-| Wrong index pattern | The safety stop fired: exit code 1, no state written, no alerts sent, and a log line naming the setting to check. |
-| Wodle schedule | `wazuh-modulesd` ran the command on its interval, one run per interval, with the output ignored. |
-
----
-
-### Design Notes
-
-- **One indexer query per run, not one per agent.** A single `terms`
-  aggregation on `agent.id` with a `max` on `@timestamp` returns the last event
-  time for every agent at once, so the cost does not grow with the fleet.
-- **No custom decoder.** JSON lines plus `<log_format>json</log_format>` gives
-  fully decoded fields for free, which also removes the dependency on a working
-  local syslog daemon that a `logger`-based approach carries.
-- **Standard library only.** `urllib.request` instead of `requests`, so the
-  script runs on the embedded interpreter and on the system Python with no
-  packaging step.
-- **Missing data is silence, not a skip.** An agent with no events at all in the
-  lookback window is the worst case, not a case to ignore.
-- **The state file is written atomically** with a temporary file and a rename,
-  so an interrupted run cannot leave the state truncated.
-
----
-
-### Sources
-
+## Sources
 - [Wazuh - command wodle](https://documentation.wazuh.com/current/user-manual/reference/ossec-conf/wodle-command.html)
 - [Wazuh - localfile configuration](https://documentation.wazuh.com/current/user-manual/reference/ossec-conf/localfile.html)
 - [Wazuh - integration configuration](https://documentation.wazuh.com/current/user-manual/reference/ossec-conf/integration.html)

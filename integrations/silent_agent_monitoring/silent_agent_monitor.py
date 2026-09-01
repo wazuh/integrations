@@ -188,8 +188,8 @@ def decide(agent, last_log, previous, now):
         event = dict(common, event_status="RESTORED",
                      status_text="Logs received",
                      restored_at=local_time(last_log),
-                     silence_duration=format_duration(gap) if gap else "unknown",
-                     silence_seconds=int(gap.total_seconds()) if gap else 0,
+                     silence_duration=format_duration(gap) if gap is not None else "unknown",
+                     silence_seconds=int(gap.total_seconds()) if gap is not None else 0,
                      message=f"Agent {name} (ID {agent_id}) has resumed sending logs.")
         return event, state
 
@@ -274,6 +274,12 @@ def main():
 
 def selftest():
     """Offline assertions on the decision logic. No API, no indexer."""
+    # The assertions below are written against the shipped defaults, so pin
+    # them here: an environment that overrides the threshold must not turn a
+    # logic check into a false failure.
+    global SILENCE_THRESHOLD, LOOKBACK
+    SILENCE_THRESHOLD, LOOKBACK = timedelta(hours=24), timedelta(days=7)
+
     now = datetime(2026, 8, 19, 10, 20, 0, tzinfo=timezone.utc)
     agent = {"id": "152", "name": "File2", "status": "active"}
 
