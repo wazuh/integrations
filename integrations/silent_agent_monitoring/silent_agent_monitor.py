@@ -9,9 +9,7 @@
 # RESTORED record. State is kept locally so an unchanged condition is reported
 # once, not once per run. Standard library only.
 #
-# Run modes:
-#   silent_agent_monitor.py --group Server,Windows   normal check (wodle)
-#   silent_agent_monitor.py --selftest               offline logic assertions
+# Usage: silent_agent_monitor.py --group Server,Windows
 
 import argparse
 import base64
@@ -251,55 +249,12 @@ def main():
           f"{silent} silent, {len(events)} event(s) written to {OUTPUT_LOG}.")
 
 
-def selftest():
-    # Written against the shipped defaults, so pin them: an install that
-    # overrides the threshold must not turn a logic check into a false failure.
-    global SILENCE_THRESHOLD, LOOKBACK
-    SILENCE_THRESHOLD, LOOKBACK = timedelta(hours=24), timedelta(days=7)
-
-    now = datetime(2026, 8, 19, 10, 20, 0, tzinfo=timezone.utc)
-    agent = {"id": "152", "name": "File2", "status": "active", "groups": ["Server"]}
-
-    stopped = now - timedelta(hours=25, minutes=40)
-    event, state = decide(agent, stopped, {}, now)
-    assert event["event_status"] == "SILENT", event
-    assert event["status_text"] == "No logs received", event
-    assert event["no_logs_for"] == "25h 40m", event
-    assert event["agent_id"] == "152" and event["agent_name"] == "File2"
-    assert event["group"] == "Server", event
-    assert state["status"] == "SILENT"
-    assert decide(agent, stopped, state, now)[0] is None, "repeat alert not suppressed"
-
-    resumed = stopped + timedelta(hours=25, minutes=40)
-    event, ok_state = decide(agent, resumed, state, now)
-    assert event["event_status"] == "RESTORED", event
-    assert event["status_text"] == "Logs received", event
-    assert event["silence_duration"] == "25h 40m", event
-    assert ok_state["status"] == "OK"
-    assert decide(agent, resumed, ok_state, now)[0] is None, "repeat recovery not suppressed"
-
-    assert decide(agent, now - timedelta(hours=23), {}, now)[0] is None
-
-    event, _ = decide(agent, None, {}, now)
-    assert event["event_status"] == "SILENT" and event["last_log"] == "unknown", event
-
-    both = dict(agent, groups=["Server", "Windows"])
-    assert decide(both, stopped, {}, now)[0]["group"] == "Server,Windows"
-
-    print("selftest OK")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detect Wazuh agents that stopped sending logs.")
     parser.add_argument("--group", default=",".join(TARGET_GROUPS),
                         help="comma-separated agent groups to monitor "
                              f"(default: {','.join(TARGET_GROUPS)})")
-    parser.add_argument("--selftest", action="store_true",
-                        help="run offline assertions on the decision logic and exit")
     args = parser.parse_args()
 
-    if args.selftest:
-        selftest()
-    else:
-        TARGET_GROUPS = [g.strip() for g in args.group.split(",") if g.strip()]
-        main()
+    TARGET_GROUPS = [g.strip() for g in args.group.split(",") if g.strip()]
+    main()

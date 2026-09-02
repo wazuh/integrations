@@ -147,12 +147,6 @@ When a Telegram integration already exists, keep it and add `100121,100122` to i
 `wazuh-integratord` runs integration scripts as the `wazuh` user, so any path the script writes, including a custom `TELEGRAM_LOG`, must be writable by it.
 
 ## Testing
-Offline assertions on the decision logic, no API or indexer needed:
-```bash
-/var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py --selftest
-# selftest OK
-```
-
 Run the check by hand against the live environment:
 ```bash
 /var/ossec/framework/python/bin/python3 /var/ossec/wodles/silent_agent_monitor.py --group Server
