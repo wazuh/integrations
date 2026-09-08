@@ -56,6 +56,8 @@ Examples:
         --k8s-namespace wazuh
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
