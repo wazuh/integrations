@@ -1,0 +1,332 @@
+{
+  "m365": {
+    "properties": {
+      "prepaid_enabled_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "prepaid_warning_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "prepaid_suspended_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "prepaid_locked_out_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "usable_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "assigned_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "available_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "utilization_pct": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "total_users": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "member_users": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "guest_users": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "licensed_users": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "days_to_next_lifecycle": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "subscription_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "tenant_verified_domain_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "sku_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "sku_count_all": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "free_sku_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "total_usable_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "total_assigned_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "total_available_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "total_usable_units_all": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "total_assigned_units_all": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "overall_utilization_pct": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "skus_expiring_critical": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "skus_expiring_warning": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "skus_expired": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "skus_pool_exhausted": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "skus_overassigned": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "overassigned": {
+        "type": "boolean"
+      },
+      "pool_exhausted": {
+        "type": "boolean"
+      },
+      "counted_in_totals": {
+        "type": "boolean"
+      },
+      "is_trial": {
+        "type": "boolean"
+      },
+      "tenant_id_mismatch": {
+        "type": "boolean"
+      },
+      "next_lifecycle_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd",
+        "ignore_malformed": true
+      },
+      "next_lifecycle_datetime": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "collected_at": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "tenant_created": {
+        "type": "date",
+        "format": "yyyy-MM-dd",
+        "ignore_malformed": true
+      },
+      "tenants_total": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "tenants_succeeded": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "tenants_failed": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "collection_duration_ms": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "paid_sku_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "collection_complete": {
+        "type": "boolean"
+      },
+      "disabled_licensed_users": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "service_plan_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "service_plans_degraded": {
+        "type": "boolean"
+      },
+      "skus_service_plans_degraded": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "unit_cost": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "committed_monthly_cost": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "wasted_monthly_cost": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "days_to_secret_expiry": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "min_days_to_secret_expiry": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "state_changed": {
+        "type": "boolean"
+      },
+      "first_seen": {
+        "type": "boolean"
+      },
+      "baseline": {
+        "type": "boolean"
+      },
+      "assigned_units_delta": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "total_users_delta": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "licensed_users_delta": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "last_usable_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "last_assigned_units": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "all_lifecycle_dates": {
+        "type": "keyword"
+      },
+      "applies_to": {
+        "type": "keyword"
+      },
+      "capability_status": {
+        "type": "keyword"
+      },
+      "changed_fields": {
+        "type": "keyword"
+      },
+      "changed_summary": {
+        "type": "keyword"
+      },
+      "collection_status": {
+        "type": "keyword"
+      },
+      "collector_version": {
+        "type": "keyword"
+      },
+      "currency": {
+        "type": "keyword"
+      },
+      "date_source": {
+        "type": "keyword"
+      },
+      "error_message": {
+        "type": "keyword"
+      },
+      "event_type": {
+        "type": "keyword"
+      },
+      "expiry_bucket": {
+        "type": "keyword"
+      },
+      "failed_tenant_names": {
+        "type": "keyword"
+      },
+      "last_expiry_bucket": {
+        "type": "keyword"
+      },
+      "license_class": {
+        "type": "keyword"
+      },
+      "license_class_source": {
+        "type": "keyword"
+      },
+      "secret_expiry_bucket": {
+        "type": "keyword"
+      },
+      "service_plans_not_provisioned": {
+        "type": "keyword"
+      },
+      "sku_display_name": {
+        "type": "keyword"
+      },
+      "sku_id": {
+        "type": "keyword"
+      },
+      "sku_part_number": {
+        "type": "keyword"
+      },
+      "stage": {
+        "type": "keyword"
+      },
+      "subscription_statuses": {
+        "type": "keyword"
+      },
+      "tenant_country": {
+        "type": "keyword"
+      },
+      "tenant_default_domain": {
+        "type": "keyword"
+      },
+      "tenant_display_name": {
+        "type": "keyword"
+      },
+      "tenant_graph_id": {
+        "type": "keyword"
+      },
+      "tenant_id": {
+        "type": "keyword"
+      },
+      "tenant_name": {
+        "type": "keyword"
+      },
+      "tenant_type": {
+        "type": "keyword"
+      }
+    }
+  }
+}
