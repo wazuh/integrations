@@ -117,8 +117,7 @@ Use the bundled script only when there is no Telegram integration yet:
 <integration>
   <name>custom-server-telegram</name>
   <rule_id>100121,100122</rule_id>
-  <hook_url>https://api.telegram.org/bot&lt;BOT_TOKEN&gt;/sendMessage</hook_url>
-  <api_key>&lt;CHAT_ID&gt;</api_key>
+  <api_key>&lt;CHAT_ID&gt;:&lt;BOT_TOKEN&gt;</api_key>
   <alert_format>json</alert_format>
 </integration>
 
@@ -126,12 +125,11 @@ Use the bundled script only when there is no Telegram integration yet:
 <integration>
   <name>custom-server-telegram</name>
   <rule_id>100121,100122</rule_id>
-  <hook_url>https://api.telegram.org/bot8454124324:niwefn76t5safuef8s76tg/sendMessage</hook_url>
-  <api_key>123123123123</api_key>
+  <api_key>123123123123:8454124324:niwefn76t5safuef8s76tg</api_key>
   <alert_format>json</alert_format>
 </integration>
 ```
-`<hook_url>` is the full `sendMessage` endpoint of the bot and `<api_key>` is the numeric chat ID. Both are passed to the script as arguments and override its defaults. The messages it produces:
+`<api_key>` carries both values: the numeric chat ID, a colon, then the bot token. The script splits on that first colon, so the colon inside the token itself is preserved, and it builds the `sendMessage` URL from the token. No `<hook_url>` is needed. The same value can be given in `TELEGRAM_API_KEY` for a manual test run. The messages it produces:
 
 ```
 ⚠️ Server Logging Alert          ✅ Server Logging Restored
@@ -176,7 +174,7 @@ echo '{"integration":"silent-agent-monitor","event_status":"SILENT","agent_id":"
 | `No agents in group(s) 'X'` | The group does not exist or is empty. Check with `/var/ossec/bin/agent_groups -l`. |
 | Records in `silent_agents.json` but no alerts | The `<localfile>` block is missing, points elsewhere, or sits on a node that is not running the script. |
 | Alerts fire but no email | Global email is not enabled, or the rules lost `<options>alert_by_email</options>`. Check `/var/ossec/logs/ossec.log` for `wazuh-maild`. |
-| Alerts fire but no Telegram message | Check `/var/ossec/logs/integrations.log`. A missing chat ID or hook URL, or an HTTP error from the bot API, is logged with the rule ID. |
+| Alerts fire but no Telegram message | Check `/var/ossec/logs/integrations.log`. A missing or malformed `<api_key>`, or an HTTP error from the bot API, is logged with the rule ID. |
 | `Field 'status' is static` | The rule was edited to match `status` instead of `event_status`. |
 | A healthy agent is reported silent | It produced no alerts within the threshold. Point `SAM_INDEX_PATTERN` at `wazuh-archives-*`, or raise the threshold. |
 | Every agent reported again after a manager rebuild | The state file was lost, so the first run re-reports the conditions that are still true. One repeat, then quiet again. |

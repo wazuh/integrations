@@ -9,7 +9,8 @@
 # to a Telegram chat. Any other rule routed here falls back to a generic
 # message. wazuh-integratord calls this as:
 #   custom-server-telegram <alert_file> <api_key> <hook_url>
-# so <api_key> carries the chat ID and <hook_url> the bot sendMessage URL.
+# so only <api_key> is needed, given as "<chat_id>:<bot_token>". The
+# sendMessage URL is built from the token, and <hook_url> is ignored.
 
 import json
 import logging
@@ -20,11 +21,12 @@ import urllib.request
 
 # === CONFIGURATION ===
 # Used only when ossec.conf passes nothing, or for a manual test run.
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
-HOOK_URL = os.environ.get("TELEGRAM_HOOK_URL", "")
+# Same "<chat_id>:<bot_token>" form that ossec.conf puts in <api_key>.
+API_KEY = os.environ.get("TELEGRAM_API_KEY", "")
 LOG_PATH = os.environ.get("TELEGRAM_LOG", "/var/ossec/logs/integrations.log")
 VERIFY_SSL = os.environ.get("TELEGRAM_VERIFY_SSL", "yes").lower() in ("yes", "true", "1")
 TIMEOUT = 15
+API_URL = "https://api.telegram.org/bot{}/sendMessage"
 
 SILENT_RULE = "100121"
 RESTORED_RULE = "100122"
@@ -81,10 +83,11 @@ def ssl_context():
         return ssl.create_default_context()
 
 
-def send(hook_url, chat_id, message):
+def send(bot_token, chat_id, message):
     payload = json.dumps({"chat_id": chat_id, "text": message,
                           "parse_mode": "HTML"}).encode()
-    req = urllib.request.Request(hook_url, data=payload, method="POST")
+    req = urllib.request.Request(API_URL.format(bot_token), data=payload,
+                                 method="POST")
     req.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(req, timeout=TIMEOUT, context=ssl_context()) as resp:
         return resp.status
@@ -92,7 +95,7 @@ def send(hook_url, chat_id, message):
 
 def main():
     if len(sys.argv) < 2:
-        logging.error("Usage: %s <alert-file> [chat_id] [hook_url]", sys.argv[0])
+        logging.error("Usage: %s <alert-file> [chat_id:bot_token]", sys.argv[0])
         sys.exit(1)
 
     try:
@@ -102,16 +105,17 @@ def main():
         logging.error("Failed to read alert file '%s': %s", sys.argv[1], err)
         sys.exit(1)
 
-    chat_id = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else CHAT_ID
-    hook_url = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else HOOK_URL
-    if not chat_id or not hook_url:
-        logging.error("Missing chat ID or hook URL. Set <api_key> and <hook_url> "
-                      "in the <integration> block.")
+    api_key = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else API_KEY
+    # The bot token contains a colon of its own, so split on the first one only.
+    chat_id, _, bot_token = api_key.partition(":")
+    if not chat_id or not bot_token:
+        logging.error("Missing or malformed API key. Set <api_key> to "
+                      "\"<chat_id>:<bot_token>\" in the <integration> block.")
         sys.exit(1)
 
     message = build_message(alert)
     try:
-        status = send(hook_url, chat_id, message)
+        status = send(bot_token, chat_id, message)
     except Exception as err:
         logging.error("Telegram delivery failed for rule %s: %s",
                       alert.get("rule", {}).get("id", ""), err)
