@@ -1,0 +1,181 @@
+<!-- M365 license inventory. Install in /var/ossec/etc/rules/ or paste under
+     Management -> Rules -> Custom rules. Confirm 100600-100620 are unused. -->
+<group name="m365,m365_inventory,">
+
+  <!-- Anchor. Level 0: never alerts on its own. -->
+  <rule id="100600" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^m365_inventory$</field>
+    <description>M365 inventory: base event</description>
+  </rule>
+
+  <!-- The dashboard rows. Level 3 is the floor to reach the indexer. -->
+  <rule id="100601" level="3">
+    <if_sid>100600</if_sid>
+    <field name="m365.event_type">^license$</field>
+    <description>M365 license snapshot: $(m365.tenant_name) / $(m365.sku_part_number) - $(m365.assigned_units) assigned, $(m365.available_units) free</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Heartbeat. -->
+  <rule id="100602" level="3">
+    <if_sid>100600</if_sid>
+    <field name="m365.event_type">^tenant_summary$</field>
+    <description>M365 inventory collected successfully for tenant $(m365.tenant_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- CHANGE GATE: the rules below fire only on a transition, not every run.
+       Do not re-parent them onto 100601, and do not use <ignore> instead: it
+       mutes a rule globally, so one tenant would suppress all the others. -->
+  <rule id="100615" level="3">
+    <if_sid>100601</if_sid>
+    <field name="m365.state_changed">^true$</field>
+    <description>M365 licence state changed: $(m365.tenant_name) / $(m365.sku_display_name) - $(m365.changed_summary)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Renewal proximity. -->
+  <rule id="100603" level="5">
+    <if_sid>100615</if_sid>
+    <field name="m365.expiry_bucket">^warning$</field>
+    <field name="m365.license_class">^paid$</field>
+    <description>M365 subscription renews within 90 days: $(m365.tenant_name) / $(m365.sku_part_number) on $(m365.next_lifecycle_date)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="100604" level="10">
+    <if_sid>100615</if_sid>
+    <field name="m365.expiry_bucket">^critical$</field>
+    <field name="m365.license_class">^paid$</field>
+    <description>M365 subscription renews within 30 days: $(m365.tenant_name) / $(m365.sku_part_number) on $(m365.next_lifecycle_date)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="100605" level="12">
+    <if_sid>100615</if_sid>
+    <field name="m365.expiry_bucket">^expired$</field>
+    <field name="m365.license_class">^paid$</field>
+    <description>M365 subscription past its lifecycle date: $(m365.tenant_name) / $(m365.sku_part_number)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Keyed off the collector's flag, not available_units == 0, so 1-seat SKUs
+       at 1/1 and free SKUs do not alert. -->
+  <rule id="100606" level="7">
+    <if_sid>100615</if_sid>
+    <field name="m365.pool_exhausted">^true$</field>
+    <description>M365 license pool exhausted: $(m365.tenant_name) / $(m365.sku_display_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Assigned exceeds usable: needs immediate attention. -->
+  <rule id="100607" level="10">
+    <if_sid>100615</if_sid>
+    <field name="m365.overassigned">^true$</field>
+    <description>M365 license over-assignment: $(m365.tenant_name) / $(m365.sku_part_number)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- This tenant's rows are labelled with the wrong tenant. -->
+  <rule id="100609" level="12">
+    <if_sid>100602</if_sid>
+    <field name="m365.tenant_id_mismatch">^true$</field>
+    <description>M365 inventory config error: tenant_id for $(m365.tenant_name) does not match the tenant Graph reports</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- The tenant is stale and the dashboard is lying. -->
+  <rule id="100608" level="10">
+    <if_sid>100600</if_sid>
+    <field name="m365.event_type">^error$</field>
+    <description>M365 inventory collection failed for $(m365.tenant_name) at stage $(m365.stage)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Run-level rollup: powers the KPI panels. -->
+  <rule id="100610" level="3">
+    <if_sid>100600</if_sid>
+    <field name="m365.event_type">^collection_summary$</field>
+    <description>M365 inventory run complete: $(m365.tenants_succeeded)/$(m365.tenants_total) tenants, $(m365.total_assigned_units)/$(m365.total_usable_units) seats assigned</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- The dashboard is now missing one or more tenants. -->
+  <rule id="100611" level="10">
+    <if_sid>100610</if_sid>
+    <field name="m365.collection_complete">^false$</field>
+    <description>M365 inventory run incomplete: $(m365.tenants_failed) of $(m365.tenants_total) tenants failed ($(m365.failed_tenant_names))</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- The secret is the integration's single point of failure. -->
+  <rule id="100612" level="12">
+    <if_sid>100602</if_sid>
+    <field name="m365.secret_expiry_bucket">^critical$|^expired$</field>
+    <description>M365 app registration secret for $(m365.tenant_name) expires in $(m365.days_to_secret_expiry) days - the integration will stop collecting</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Enabled SKU with unprovisioned plans inside it. -->
+  <rule id="100613" level="5">
+    <if_sid>100615</if_sid>
+    <field name="m365.service_plans_degraded">^true$</field>
+    <field name="m365.license_class">^paid$</field>
+    <description>M365 service plans not provisioned in $(m365.sku_display_name) for $(m365.tenant_name): $(m365.service_plans_not_provisioned)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Subscription no longer fully healthy (Warning/Suspended/LockedOut). -->
+  <rule id="100614" level="7">
+    <if_sid>100615</if_sid>
+    <field name="m365.license_class">^paid$</field>
+    <field name="m365.capability_status">^Warning$|^Suspended$|^LockedOut$</field>
+    <description>M365 SKU capability status is $(m365.capability_status): $(m365.tenant_name) / $(m365.sku_display_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- New spend. -->
+  <rule id="100616" level="5">
+    <if_sid>100601</if_sid>
+    <field name="m365.first_seen">^true$</field>
+    <field name="m365.license_class">^paid$</field>
+    <description>M365 new paid SKU appeared in $(m365.tenant_name): $(m365.sku_display_name), $(m365.usable_units) seats</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- A cancelled SKU stops being returned, and absence is invisible on a
+       latest-value dashboard. -->
+  <rule id="100617" level="10">
+    <if_sid>100600</if_sid>
+    <field name="m365.event_type">^sku_removed$</field>
+    <description>M365 SKU disappeared from $(m365.tenant_name): $(m365.sku_display_name) (had $(m365.last_assigned_units) of $(m365.last_usable_units) seats assigned)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Users added or removed, or licences assigned. -->
+  <rule id="100618" level="3">
+    <if_sid>100602</if_sid>
+    <field name="m365.state_changed">^true$</field>
+    <description>M365 tenant counts changed for $(m365.tenant_name): $(m365.changed_summary)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Baseline variants, so a first run does not describe itself as a change.
+       Safe at level 3: Wazuh keeps the highest-level match, so a baseline event
+       that is also critical still alerts as 100604. -->
+  <rule id="100619" level="3">
+    <if_sid>100615</if_sid>
+    <field name="m365.baseline">^true$</field>
+    <description>M365 licence baseline recorded: $(m365.tenant_name) / $(m365.sku_display_name) - first observation, change reporting starts next run</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="100620" level="3">
+    <if_sid>100618</if_sid>
+    <field name="m365.baseline">^true$</field>
+    <description>M365 tenant baseline recorded for $(m365.tenant_name) - first observation, change reporting starts next run</description>
+    <options>no_full_log</options>
+  </rule>
+
+</group>
