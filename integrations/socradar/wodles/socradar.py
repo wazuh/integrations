@@ -10,6 +10,8 @@ Features:
   - Full reverse pagination (last page → first page)
   - Chronological output (oldest alarms first)
   - Deduplication via state file
+  - 1-minute incremental window plus periodic catch-up (fetch_overlap_seconds)
+  - Uncapped lookback/catch-up bounded per tick (max_catchup_pages + window_resume)
   - Runs every 1 minute via Wazuh wodle command
 
 Pagination Logic:
@@ -21,7 +23,7 @@ Pagination Logic:
     4. Emit in that order → oldest first, newest last
 
 Author: SOCRadar Integration Team
-Version: 1.0.2
+Version: 1.0.4
 """
 
 import json
@@ -35,7 +37,7 @@ import urllib.error
 import urllib.parse
 from datetime import datetime, timezone
 
-VERSION = "1.0.2"
+VERSION = "1.0.4"
 USER_AGENT = f"wazuh-socradar-integration/{VERSION}"
 
 
@@ -117,6 +119,20 @@ def save_state(state):
     with open(tmp, "w") as f:
         json.dump(state, f)
     os.replace(tmp, STATE_FILE)
+
+
+SEEN_CACHE_MAX = 50000
+
+
+def persist_seen(state, seen):
+    """Write seen_alarm_ids only. Does not set last_run or last_catchup."""
+    seen_list = list(seen)
+    if len(seen_list) > SEEN_CACHE_MAX:
+        seen_list = seen_list[-SEEN_CACHE_MAX:]
+        seen.clear()
+        seen.update(dict.fromkeys(seen_list))
+    state["seen_alarm_ids"] = seen_list
+    save_state(state)
 
 
 def _truncate(s, limit=1200):
@@ -228,14 +244,24 @@ def _should_retry_http_status(code):
     return code in (408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524)
 
 
-def api_request(url, headers, config=None):
+def api_request(url, headers, config=None, timeout_seconds=None):
     """Perform a GET request and parse JSON.
 
     Retries are intentionally conservative and configurable. The main resiliency
     mechanism is the persistent retry queue in the state file.
     """
     http_retries = _get_int(config, "http_retries", default=0, min_value=0, max_value=5)
-    timeout_seconds = _get_int(config, "http_timeout_seconds", default=120, min_value=5, max_value=600)
+    if timeout_seconds is None:
+        timeout_seconds = _get_int(config, "http_timeout_seconds", default=120, min_value=5, max_value=600)
+    else:
+        try:
+            timeout_seconds = int(timeout_seconds)
+        except Exception:
+            timeout_seconds = 15
+        if timeout_seconds < 5:
+            timeout_seconds = 5
+        if timeout_seconds > 600:
+            timeout_seconds = 600
 
     attempts = 0
     max_attempts = 1 + http_retries
@@ -474,7 +500,17 @@ def _prune_retry_pages(state, max_retry_pages):
     _set_retry_pages(state, q_sorted[-max_retry_pages:])
 
 
-def enqueue_retry_page(state, start_epoch, end_epoch, page, page_size, include_total=False, reason=None, fingerprint=None):
+def enqueue_retry_page(
+    state,
+    start_epoch,
+    end_epoch,
+    page,
+    page_size,
+    include_total=False,
+    reason=None,
+    fingerprint=None,
+    apply_max_pages=True,
+):
     if not isinstance(state, dict):
         return
     try:
@@ -499,6 +535,8 @@ def enqueue_retry_page(state, start_epoch, end_epoch, page, page_size, include_t
         if isinstance(t, dict) and t.get("key") == key:
             t["last_error"] = str(reason) if reason else t.get("last_error")
             t["last_enqueued_epoch"] = now
+            if not apply_max_pages:
+                t["apply_max_pages"] = False
             return
 
     q.append(
@@ -509,6 +547,7 @@ def enqueue_retry_page(state, start_epoch, end_epoch, page, page_size, include_t
             "page": page,
             "page_size": page_size,
             "include_total": bool(include_total),
+            "apply_max_pages": bool(apply_max_pages),
             "fingerprint": fingerprint,
             "attempts": 0,
             "next_retry_epoch": 0,
@@ -667,7 +706,7 @@ def build_url(config, start_epoch, end_epoch, page, page_size, include_total=Fal
     return f"{SOCRADAR_BASE_URL}/company/{company_id}/incidents/v4?{query}"
 
 
-def fetch_page(config, start_epoch, end_epoch, page, page_size, include_total=False):
+def fetch_page(config, start_epoch, end_epoch, page, page_size, include_total=False, timeout_seconds=None):
     """Fetch a single page of incidents."""
     url = build_url(config, start_epoch, end_epoch, page, page_size, include_total)
     headers = {
@@ -675,26 +714,47 @@ def fetch_page(config, start_epoch, end_epoch, page, page_size, include_total=Fa
         "Accept": "application/json",
         "User-Agent": USER_AGENT,
     }
-    return api_request(url, headers, config=config)
+    return api_request(url, headers, config=config, timeout_seconds=timeout_seconds)
 
 
-def fetch_all_incidents(config, start_epoch, end_epoch, sleep_seconds=0.2):
+def _empty_fetch_result(page1_ok=False, err_summary=None, failed_pages=None, total_pages=0):
+    return {
+        "pages": [],
+        "had_failures": bool(failed_pages),
+        "err_summary": err_summary,
+        "failed_pages": failed_pages or [],
+        "page1_ok": page1_ok,
+        "resume_next_page": None,
+        "total_pages": total_pages,
+    }
+
+
+def fetch_all_incidents(
+    config,
+    start_epoch,
+    end_epoch,
+    sleep_seconds=0.2,
+    apply_max_pages=True,
+    page_budget=None,
+    resume_from_page=None,
+    timeout_seconds=None,
+    skip_page1=False,
+    known_total_pages=None,
+):
     """
-    Full reverse pagination for chronological order:
+    Full reverse pagination for chronological order.
 
-    SOCRadar page layout (newest on page 1):
-      Page 1: alarms 401-500 (newest)
-      Page 2: alarms 301-400
-      ...
-      Page 5: alarms   1-100 (oldest)
+    Returns a result dict. pages is oldest-first; each entry is one page of
+    incidents in chronological order within that page.
 
-    We fetch: page 5 → 4 → 3 → 2 → 1
-    Result:   alarms 1 → 500 (chronological)
+    When page_budget is set, older pages are fetched from the true last page
+    (or resume_from_page) and unattempted pages are returned as resume_next_page.
+    max_pages remapping (newest N pages) is only used when apply_max_pages=True.
     """
     log("INFO", f"Fetching | epoch {start_epoch} -> {end_epoch}")
 
     page_size = get_page_size(config)
-    max_pages = get_max_pages(config)
+    max_pages = get_max_pages(config) if apply_max_pages else None
 
     if _should_log("DEBUG"):
         debug_filters = {
@@ -703,70 +763,129 @@ def fetch_all_incidents(config, start_epoch, end_epoch, sleep_seconds=0.2):
             "alarm_main_types": config.get("alarm_main_types", []),
             "page_size": page_size,
             "max_pages": max_pages,
+            "apply_max_pages": apply_max_pages,
+            "page_budget": page_budget,
+            "resume_from_page": resume_from_page,
+            "skip_page1": skip_page1,
         }
         log("DEBUG", f"Fetch settings: {debug_filters}")
 
-    # Step 1: Get total count from first request
     failed_pages = []
-    result = fetch_page(config, start_epoch, end_epoch, page=1, page_size=page_size, include_total=True)
+    all_pages = {}
+    total_pages = 0
+    page1_ok = False
 
-    if not result or not result.get("is_success", False):
-        log("ERROR", f"Initial call failed: {result}")
-        failed_pages.append({"page": 1, "include_total": True})
-        return [], True, "initial_call_failed", failed_pages
-
-    first_page_data, total_records = _extract_list_and_total(result)
-
-    if total_records == 0 and not first_page_data:
-        log("INFO", "No incidents in time range")
-        return [], False, None, []
-
-    if total_records == 0:
-        total_records = len(first_page_data)
-
-    total_pages = math.ceil(total_records / page_size)
-
-    if max_pages and total_pages > max_pages:
-        log("INFO", f"Total: {total_records} records, {total_pages} pages (limiting to {max_pages})")
-        total_pages = max_pages
+    if skip_page1:
+        try:
+            total_pages = int(known_total_pages or 0)
+            start_older = int(resume_from_page or 0)
+        except (TypeError, ValueError):
+            return _empty_fetch_result(page1_ok=False, err_summary="invalid_resume")
+        if total_pages < 2 or start_older < 2:
+            return _empty_fetch_result(page1_ok=True, total_pages=total_pages)
+        page1_ok = True
     else:
-        log("INFO", f"Total: {total_records} records, {total_pages} pages")
+        result = fetch_page(
+            config, start_epoch, end_epoch, page=1, page_size=page_size,
+            include_total=True, timeout_seconds=timeout_seconds,
+        )
 
-    # Single page — reverse and return
-    if total_pages <= 1:
-        return list(reversed(first_page_data)), False, None, []
+        if not result or not result.get("is_success", False):
+            log("ERROR", f"Initial call failed: {result}")
+            failed_pages.append({"page": 1, "include_total": True})
+            return _empty_fetch_result(
+                page1_ok=False, err_summary="initial_call_failed", failed_pages=failed_pages
+            )
 
-    # Step 2: Fetch from LAST page to page 2 (we already have page 1)
-    all_pages = {1: first_page_data}
+        first_page_data, total_records = _extract_list_and_total(result)
+        page1_ok = True
 
-    for page_num in range(total_pages, 1, -1):
+        if total_records == 0 and not first_page_data:
+            log("INFO", "No incidents in time range")
+            return _empty_fetch_result(page1_ok=True, total_pages=0)
+
+        if total_records == 0:
+            total_records = len(first_page_data)
+
+        total_pages = math.ceil(total_records / page_size)
+
+        if max_pages and total_pages > max_pages:
+            log("INFO", f"Total: {total_records} records, {total_pages} pages (limiting to {max_pages})")
+            total_pages = max_pages
+        else:
+            log("INFO", f"Total: {total_records} records, {total_pages} pages")
+
+        all_pages[1] = first_page_data
+        if total_pages <= 1:
+            pages = [list(reversed(first_page_data))]
+            log("INFO", f"Collected {len(first_page_data)} incidents (chronological)")
+            return {
+                "pages": pages,
+                "had_failures": False,
+                "err_summary": None,
+                "failed_pages": [],
+                "page1_ok": True,
+                "resume_next_page": None,
+                "total_pages": total_pages,
+            }
+        start_older = total_pages
+
+    older_budget = page_budget
+    if page_budget is not None and not skip_page1:
+        older_budget = page_budget - 1
+        if older_budget < 0:
+            older_budget = 0
+
+    older_pages = list(range(start_older, 1, -1))
+    attempted = []
+    for page_num in older_pages:
+        if older_budget is not None and len(attempted) >= older_budget:
+            break
         log("INFO", f"Fetching page {page_num}/{total_pages}")
-        page_result = fetch_page(config, start_epoch, end_epoch, page_num, page_size)
+        page_result = fetch_page(
+            config, start_epoch, end_epoch, page_num, page_size, timeout_seconds=timeout_seconds
+        )
+        attempted.append(page_num)
 
         if not page_result or not page_result.get("is_success", False):
             log("ERROR", f"Failed page {page_num}")
             failed_pages.append({"page": page_num, "include_total": False})
         else:
             page_data, _ = _extract_list_and_total(page_result)
-
             if page_data:
                 all_pages[page_num] = page_data
 
         if sleep_seconds and sleep_seconds > 0:
             time.sleep(sleep_seconds)
 
-    # Step 3: Assemble chronologically (last page first → first page last)
-    all_incidents = []
-    for page_num in range(total_pages, 0, -1):
-        if page_num in all_pages:
-            all_incidents.extend(reversed(all_pages[page_num]))
+    unattempted = [p for p in older_pages if p not in attempted]
+    resume_next_page = unattempted[0] if unattempted else None
+    if resume_next_page is not None:
+        log("INFO", f"Page budget reached; resume at page {resume_next_page}/{total_pages}")
 
-    log("INFO", f"Collected {len(all_incidents)} incidents (chronological)")
+    assemble_from = start_older if skip_page1 else total_pages
+    pages = []
+    collected = 0
+    for page_num in range(assemble_from, 0, -1):
+        if page_num in all_pages:
+            page_incidents = list(reversed(all_pages[page_num]))
+            pages.append(page_incidents)
+            collected += len(page_incidents)
+
+    log("INFO", f"Collected {collected} incidents (chronological)")
     had_failures = len(failed_pages) > 0
     err_summary = None
     if had_failures:
         err_summary = f"failed_pages={[f.get('page') for f in failed_pages if isinstance(f, dict)]}"
-    return all_incidents, had_failures, err_summary, failed_pages
+    return {
+        "pages": pages,
+        "had_failures": had_failures,
+        "err_summary": err_summary,
+        "failed_pages": failed_pages,
+        "page1_ok": page1_ok,
+        "resume_next_page": resume_next_page,
+        "total_pages": total_pages,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -946,6 +1065,221 @@ def emit_alert(incident):
     print(_bound_emit_payload(output, alarm_id=incident.get("alarm_id")))
 
 
+def _enqueue_failed_pages(
+    state, config, start_epoch, end_epoch, failed_pages, err_summary, max_retry_pages, apply_max_pages=True
+):
+    fingerprint = _params_fingerprint(config)
+    page_size = get_page_size(config)
+    for fp in failed_pages:
+        if not isinstance(fp, dict):
+            continue
+        enqueue_retry_page(
+            state,
+            start_epoch,
+            end_epoch,
+            page=fp.get("page"),
+            page_size=page_size,
+            include_total=bool(fp.get("include_total")),
+            reason=err_summary,
+            fingerprint=fingerprint,
+            apply_max_pages=apply_max_pages,
+        )
+    _prune_retry_pages(state, max_retry_pages=max_retry_pages)
+
+
+def _emit_unseen(incidents, seen):
+    """Emit alerts for alarm_ids not already in seen. Returns new emit count."""
+    new_count = 0
+    for incident in incidents:
+        if not isinstance(incident, dict):
+            continue
+        alarm_id = incident.get("alarm_id")
+        if alarm_id is not None and alarm_id not in seen:
+            if _should_log("DEBUG"):
+                log(
+                    "DEBUG",
+                    "Emitting new incident | "
+                    f"alarm_id={alarm_id} "
+                    f"risk={incident.get('alarm_risk_level')} "
+                    f"status={incident.get('status')} "
+                    f"date={incident.get('date')}"
+                )
+            emit_alert(incident)
+            seen[alarm_id] = True
+            new_count += 1
+    return new_count
+
+
+def _ingest_time_window(
+    config,
+    state,
+    start_epoch,
+    end_epoch,
+    sleep_s,
+    seen,
+    max_retry_pages,
+    apply_max_pages=True,
+    page_budget=None,
+    resume=None,
+    timeout_seconds=None,
+    kind=None,
+):
+    """Fetch one time window, enqueue failed pages, emit unseen IDs.
+
+    Emits and persists seen IDs once per page.
+    Returns (new_count, fetched_count, page1_ok, resume_out).
+    """
+    skip_page1 = False
+    resume_from_page = None
+    known_total_pages = None
+    if resume:
+        skip_page1 = True
+        resume_from_page = resume.get("next_page")
+        known_total_pages = resume.get("total_pages")
+        start_epoch = int(resume["start_epoch"])
+        end_epoch = int(resume["end_epoch"])
+        kind = kind or resume.get("kind")
+
+    result = fetch_all_incidents(
+        config,
+        start_epoch,
+        end_epoch,
+        sleep_seconds=sleep_s,
+        apply_max_pages=apply_max_pages,
+        page_budget=page_budget,
+        resume_from_page=resume_from_page,
+        timeout_seconds=timeout_seconds,
+        skip_page1=skip_page1,
+        known_total_pages=known_total_pages,
+    )
+    if result["had_failures"]:
+        _enqueue_failed_pages(
+            state,
+            config,
+            start_epoch,
+            end_epoch,
+            result["failed_pages"],
+            result["err_summary"],
+            max_retry_pages,
+            apply_max_pages=apply_max_pages,
+        )
+    new_count = 0
+    fetched_count = 0
+    for page_incidents in result["pages"]:
+        fetched_count += len(page_incidents)
+        page_new = _emit_unseen(page_incidents, seen)
+        new_count += page_new
+        if page_new:
+            persist_seen(state, seen)
+
+    if result.get("err_summary") == "invalid_resume":
+        page1_ok = False
+    elif resume:
+        page1_ok = True
+    else:
+        page1_ok = bool(result["page1_ok"])
+    resume_out = None
+    next_page = result.get("resume_next_page")
+    if page1_ok and next_page is not None and int(next_page) >= 2:
+        resume_out = {
+            "kind": kind,
+            "start_epoch": int(start_epoch),
+            "end_epoch": int(end_epoch),
+            "next_page": int(next_page),
+            "total_pages": int(result.get("total_pages") or 0),
+            "page_size": get_page_size(config),
+            "fingerprint": _params_fingerprint(config),
+        }
+    return new_count, fetched_count, page1_ok, resume_out
+
+
+def _window_resume(state, config):
+    if not isinstance(state, dict):
+        return None
+    raw = state.get("window_resume")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        next_page = int(raw.get("next_page"))
+        start_epoch = int(raw.get("start_epoch"))
+        end_epoch = int(raw.get("end_epoch"))
+        total_pages = int(raw.get("total_pages"))
+        kind = raw.get("kind")
+    except (TypeError, ValueError):
+        return None
+    if next_page < 2 or start_epoch <= 0 or end_epoch <= start_epoch or total_pages < 2:
+        return None
+    if kind not in ("lookback", "catchup"):
+        return None
+    saved_fp = raw.get("fingerprint") or ""
+    current_fp = _params_fingerprint(config)
+    if saved_fp and saved_fp != current_fp:
+        log("WARN", "Dropping window_resume (fingerprint changed)")
+        return None
+    return raw
+
+
+def _stamp_last_run(state, end_epoch):
+    end_epoch = int(end_epoch)
+    state["last_run_epoch"] = end_epoch
+    state["last_run_iso"] = datetime.fromtimestamp(end_epoch, tz=timezone.utc).isoformat()
+
+
+def _stamp_last_catchup(state, end_epoch):
+    end_epoch = int(end_epoch)
+    state["last_catchup_epoch"] = end_epoch
+    state["last_catchup_iso"] = datetime.fromtimestamp(end_epoch, tz=timezone.utc).isoformat()
+
+
+def _apply_resume_result(state, resume, resume_out, page1_ok):
+    """Persist or clear window_resume.
+
+    Lookback does not rewrite last_run (stamped when page 1 first succeeded).
+    Catch-up stamps last_catchup to the original window end when drain finishes.
+    """
+    if resume_out:
+        state["window_resume"] = resume_out
+        return
+    state.pop("window_resume", None)
+    if not page1_ok or not resume:
+        return
+    if resume.get("kind") == "catchup":
+        _stamp_last_catchup(state, resume.get("end_epoch"))
+
+
+def _live_incremental(config, state, end_epoch, sleep_s, seen, max_retry_pages, timeout_seconds=None):
+    """Fetch last_run → now. Stamp last_run to end_epoch only if page 1 succeeded."""
+    last_run = state.get("last_run_epoch")
+    if not last_run:
+        return 0, 0
+    inc_new, inc_fetched, page1_ok, _unused = _ingest_time_window(
+        config,
+        state,
+        int(last_run),
+        end_epoch,
+        sleep_s,
+        seen,
+        max_retry_pages,
+        apply_max_pages=True,
+        timeout_seconds=timeout_seconds,
+    )
+    if page1_ok:
+        _stamp_last_run(state, end_epoch)
+    return inc_new, inc_fetched
+
+
+def _catchup_due(state, end_epoch, overlap, is_first_run):
+    if not overlap or is_first_run:
+        return False
+    last_catchup = state.get("last_catchup_epoch")
+    if not last_catchup:
+        return True
+    try:
+        return (end_epoch - int(last_catchup)) >= overlap
+    except (TypeError, ValueError):
+        return True
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -959,20 +1293,21 @@ def main():
     SSL_CTX = build_ssl_context(config)
     state = load_state()
 
-    # Time window: last_run → now
+    # Incremental window: last_run → now. Catch-up (if due) is a second fetch.
     end_epoch = now_epoch()
+    overlap = _get_int(config, "fetch_overlap_seconds", default=180, min_value=0, max_value=86400)
 
     last_run_epoch = state.get("last_run_epoch")
     is_first_run = not bool(last_run_epoch)
     if last_run_epoch:
-        start_epoch = last_run_epoch
+        start_epoch = int(last_run_epoch)
     else:
         # First run: look back N hours (default 24)
         lookback_hours = config.get("initial_lookback_hours", 24)
         start_epoch = end_epoch - (lookback_hours * 3600)
 
     log("INFO",
-        f"Starting v{VERSION} | {start_epoch} -> {end_epoch} | "
+        f"Starting v{VERSION} | incremental {start_epoch} -> {end_epoch} | "
         f"{datetime.fromtimestamp(start_epoch, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} -> "
         f"{datetime.fromtimestamp(end_epoch, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -1005,127 +1340,212 @@ def main():
         min_value=0.0,
         max_value=10.0,
     )
+    page_budget = _get_int(config, "max_catchup_pages", default=15, min_value=1, max_value=200)
+    catchup_http_timeout = _get_int(
+        config, "catchup_http_timeout_seconds", default=15, min_value=5, max_value=600
+    )
 
     _try_migrate_retry_windows_to_pages(state, config)
     _prune_retry_pages(state, max_retry_pages=max_retry_pages)
 
-    # 1) Retry queued failed pages first (bounded), to heal gaps cheaply.
-    for t in _due_retry_pages(state, max_per_run=max_retry_pages_per_run):
-        t_key = t.get("key")
-        t_start = t.get("start_epoch")
-        t_end = t.get("end_epoch")
-        t_page = t.get("page")
-        t_page_size = t.get("page_size")
-        t_include_total = bool(t.get("include_total"))
-        log("INFO", f"Retry page {t_page} | key={t_key}")
+    try:
+        # 1) Retry queued failed pages first (bounded), to heal gaps cheaply.
+        used_120s_retry = False
+        for t in _due_retry_pages(state, max_per_run=max_retry_pages_per_run):
+            t_key = t.get("key")
+            t_start = t.get("start_epoch")
+            t_end = t.get("end_epoch")
+            t_page = t.get("page")
+            t_page_size = t.get("page_size")
+            t_include_total = bool(t.get("include_total"))
+            apply_cap = t.get("apply_max_pages", True)
+            retry_timeout = None if apply_cap else catchup_http_timeout
+            if apply_cap:
+                used_120s_retry = True
+            log("INFO", f"Retry page {t_page} | key={t_key}")
 
-        page_result = fetch_page(config, t_start, t_end, page=t_page, page_size=t_page_size, include_total=t_include_total)
-        if not page_result or not page_result.get("is_success", False):
-            _mark_retry_page_attempt(t, config=config, failure_reason="retry_page_failed")
-            log("WARN", f"Retry page still failing | key={t_key} | next_retry_epoch={t.get('next_retry_epoch')}")
-            continue
-
-        page_data, total_records = _extract_list_and_total(page_result)
-        # Emit oldest-first within this page.
-        for incident in reversed(page_data or []):
-            if not isinstance(incident, dict):
+            page_result = fetch_page(
+                config,
+                t_start,
+                t_end,
+                page=t_page,
+                page_size=t_page_size,
+                include_total=t_include_total,
+                timeout_seconds=retry_timeout,
+            )
+            if not page_result or not page_result.get("is_success", False):
+                _mark_retry_page_attempt(t, config=config, failure_reason="retry_page_failed")
+                log("WARN", f"Retry page still failing | key={t_key} | next_retry_epoch={t.get('next_retry_epoch')}")
                 continue
-            alarm_id = incident.get("alarm_id")
-            if alarm_id is not None and alarm_id not in seen:
-                emit_alert(incident)
-                seen[alarm_id] = True
-                new_count += 1
-        total_fetched += len(page_data or [])
 
-        # If this was the initial include_total request (page 1), expand into per-page
-        # tasks so we can backfill the whole window incrementally without a single
-        # long run.
-        if t_include_total:
-            if total_records == 0:
-                total_records = len(page_data or [])
-            total_pages = 1
-            try:
-                total_pages = int(math.ceil(float(total_records) / float(t_page_size or 1)))
-            except Exception:
+            page_data, total_records = _extract_list_and_total(page_result)
+            # Emit oldest-first within this page; persist once if anything new.
+            page_new = _emit_unseen(list(reversed(page_data or [])), seen)
+            if page_new:
+                persist_seen(state, seen)
+            new_count += page_new
+            total_fetched += len(page_data or [])
+
+            # If this was the initial include_total request (page 1), expand into per-page
+            # tasks so we can backfill the whole window incrementally without a single
+            # long run.
+            if t_include_total:
+                if total_records == 0:
+                    total_records = len(page_data or [])
                 total_pages = 1
+                try:
+                    total_pages = int(math.ceil(float(total_records) / float(t_page_size or 1)))
+                except Exception:
+                    total_pages = 1
 
-            max_pages = get_max_pages(config)
-            if max_pages and total_pages > max_pages:
-                total_pages = max_pages
+                max_pages = get_max_pages(config) if apply_cap else None
+                if max_pages and total_pages > max_pages:
+                    total_pages = max_pages
 
-            fingerprint = t.get("fingerprint") or _params_fingerprint(config)
-            # Enqueue older pages first (highest page number is oldest).
-            for page_num in range(total_pages, 1, -1):
-                enqueue_retry_page(
-                    state,
-                    t_start,
-                    t_end,
-                    page=page_num,
-                    page_size=t_page_size,
-                    include_total=False,
-                    reason="expanded_from_include_total",
-                    fingerprint=fingerprint,
-                )
-            _prune_retry_pages(state, max_retry_pages=max_retry_pages)
+                fingerprint = t.get("fingerprint") or _params_fingerprint(config)
+                # Enqueue older pages first (highest page number is oldest).
+                for page_num in range(total_pages, 1, -1):
+                    enqueue_retry_page(
+                        state,
+                        t_start,
+                        t_end,
+                        page=page_num,
+                        page_size=t_page_size,
+                        include_total=False,
+                        reason="expanded_from_include_total",
+                        fingerprint=fingerprint,
+                        apply_max_pages=apply_cap,
+                    )
+                _prune_retry_pages(state, max_retry_pages=max_retry_pages)
 
-        _mark_retry_page_success(t)
-        _remove_retry_page(state, key=t_key)
+            _mark_retry_page_success(t)
+            _remove_retry_page(state, key=t_key)
 
-    # 2) Normal fetch window for this run (keeps workflow moving)
-    sleep_s = lookback_page_sleep_seconds if is_first_run else page_sleep_seconds
-    incidents, had_failures, err_summary, failed_pages = fetch_all_incidents(config, start_epoch, end_epoch, sleep_seconds=sleep_s)
-    total_fetched += len(incidents)
-    if had_failures:
-        fingerprint = _params_fingerprint(config)
-        page_size = get_page_size(config)
-        for fp in failed_pages:
-            if not isinstance(fp, dict):
-                continue
-            enqueue_retry_page(
+        # 2) Drain an in-progress uncapped window, or start lookback / incremental.
+        resume = _window_resume(state, config)
+        if state.get("window_resume") and resume is None:
+            state.pop("window_resume", None)
+
+        if used_120s_retry:
+            log("INFO", "Skipping budgeted uncapped window (120s incremental retry already ran)")
+            live_new, live_fetched = _live_incremental(
+                config, state, end_epoch, page_sleep_seconds, seen, max_retry_pages
+            )
+            new_count += live_new
+            total_fetched += live_fetched
+            persist_seen(state, seen)
+        elif resume:
+            log(
+                "INFO",
+                f"Resume {resume.get('kind')} | page {resume.get('next_page')}/"
+                f"{resume.get('total_pages')} | {resume.get('start_epoch')} -> {resume.get('end_epoch')}",
+            )
+            sleep_s = lookback_page_sleep_seconds if resume.get("kind") == "lookback" else page_sleep_seconds
+            r_new, r_fetched, page1_ok, resume_out = _ingest_time_window(
+                config,
+                state,
+                resume.get("start_epoch"),
+                resume.get("end_epoch"),
+                sleep_s,
+                seen,
+                max_retry_pages,
+                apply_max_pages=False,
+                page_budget=page_budget,
+                resume=resume,
+                timeout_seconds=catchup_http_timeout,
+                kind=resume.get("kind"),
+            )
+            new_count += r_new
+            total_fetched += r_fetched
+            _apply_resume_result(state, resume, resume_out, page1_ok)
+            persist_seen(state, seen)
+            live_new, live_fetched = _live_incremental(
+                config,
+                state,
+                end_epoch,
+                page_sleep_seconds,
+                seen,
+                max_retry_pages,
+                timeout_seconds=catchup_http_timeout,
+            )
+            new_count += live_new
+            total_fetched += live_fetched
+            persist_seen(state, seen)
+        elif is_first_run:
+            sleep_s = lookback_page_sleep_seconds
+            inc_new, inc_fetched, page1_ok, resume_out = _ingest_time_window(
+                config,
                 state,
                 start_epoch,
                 end_epoch,
-                page=fp.get("page"),
-                page_size=page_size,
-                include_total=bool(fp.get("include_total")),
-                reason=err_summary,
-                fingerprint=fingerprint,
+                sleep_s,
+                seen,
+                max_retry_pages,
+                apply_max_pages=False,
+                page_budget=page_budget,
+                timeout_seconds=catchup_http_timeout,
+                kind="lookback",
             )
-        _prune_retry_pages(state, max_retry_pages=max_retry_pages)
+            new_count += inc_new
+            total_fetched += inc_fetched
+            if page1_ok:
+                _stamp_last_run(state, end_epoch)
+            if resume_out:
+                state["window_resume"] = resume_out
+            persist_seen(state, seen)
+        else:
+            inc_new, inc_fetched, page1_ok, _resume_unused = _ingest_time_window(
+                config, state, start_epoch, end_epoch, page_sleep_seconds, seen, max_retry_pages
+            )
+            new_count += inc_new
+            total_fetched += inc_fetched
+            if page1_ok:
+                _stamp_last_run(state, end_epoch)
+            persist_seen(state, seen)
 
-    for incident in incidents:
-        if not isinstance(incident, dict):
-            continue
-        alarm_id = incident.get("alarm_id")
-        if alarm_id is not None and alarm_id not in seen:
-            if _should_log("DEBUG"):
+            # 3) Periodic catch-up: now − overlap → now (same process; not every tick)
+            if _catchup_due(state, end_epoch, overlap, is_first_run) and not state.get("window_resume"):
+                catchup_start = end_epoch - overlap
+                last_catchup = state.get("last_catchup_epoch")
                 log(
-                    "DEBUG",
-                    "Emitting new incident | "
-                    f"alarm_id={alarm_id} "
-                    f"risk={incident.get('alarm_risk_level')} "
-                    f"status={incident.get('status')} "
-                    f"date={incident.get('date')}"
+                    "INFO",
+                    f"Catch-up fetch | last={last_catchup} overlap_seconds={overlap} "
+                    f"{catchup_start} -> {end_epoch}",
                 )
-            emit_alert(incident)
-            seen[alarm_id] = True
-            new_count += 1
+                cu_new, cu_fetched, cu_page1_ok, resume_out = _ingest_time_window(
+                    config,
+                    state,
+                    catchup_start,
+                    end_epoch,
+                    page_sleep_seconds,
+                    seen,
+                    max_retry_pages,
+                    apply_max_pages=False,
+                    page_budget=page_budget,
+                    timeout_seconds=catchup_http_timeout,
+                    kind="catchup",
+                )
+                new_count += cu_new
+                total_fetched += cu_fetched
+                if resume_out:
+                    state["window_resume"] = resume_out
+                elif cu_page1_ok:
+                    _stamp_last_catchup(state, end_epoch)
+                persist_seen(state, seen)
 
-    # Bound the seen cache (keep most recently recorded IDs, up to 50000)
-    seen_list = list(seen)
-    if len(seen_list) > 50000:
-        seen_list = seen_list[-50000:]
+        state["last_fetch_new"] = new_count
+        state["last_fetch_total"] = total_fetched
+        persist_seen(state, seen)
 
-    # Save state
-    state["seen_alarm_ids"] = seen_list
-    state["last_run_epoch"] = end_epoch
-    state["last_run_iso"] = datetime.fromtimestamp(end_epoch, tz=timezone.utc).isoformat()
-    state["last_fetch_new"] = new_count
-    state["last_fetch_total"] = total_fetched
-    save_state(state)
-
-    q_len = len(_get_retry_pages(state))
-    log("INFO", f"Done | New: {new_count}, Total: {total_fetched}, Cache: {len(seen_list)}, RetryQueue: {q_len}")
+        q_len = len(_get_retry_pages(state))
+        log(
+            "INFO",
+            f"Done | New: {new_count}, Total: {total_fetched}, "
+            f"Cache: {len(state.get('seen_alarm_ids') or [])}, RetryQueue: {q_len}",
+        )
+    finally:
+        # Exception-path flush only. Does not run on modulesd SIGKILL.
+        persist_seen(state, seen)
 
 
 if __name__ == "__main__":

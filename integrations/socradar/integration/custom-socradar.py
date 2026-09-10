@@ -18,7 +18,7 @@ Placement:
   /var/ossec/integrations/custom-socradar.py
 
 Author: SOCRadar Integration Team
-Version: 1.0.0
+Version: 1.0.3
 """
 
 import json
@@ -36,11 +36,14 @@ from datetime import datetime, timezone
 WAZUH_HOME = os.environ.get("WAZUH_HOME", "/var/ossec")
 CONFIG_FILE = os.path.join(WAZUH_HOME, "etc", "socradar.conf")
 LOG_FILE = os.path.join(WAZUH_HOME, "logs", "socradar-integration.log")
+OUTBOUND_STATE_FILE = os.path.join(WAZUH_HOME, "var", "socradar_outbound_state.json")
+COMMENTED_CACHE_MAX = 50000
 
 SOCRADAR_BASE_URL = "https://platform.socradar.com/api"
 
-VERSION = "1.0.1"
+VERSION = "1.0.3"
 USER_AGENT = f"wazuh-socradar-integration/{VERSION}"
+WAZUH_INGESTED_TAG = "wazuh-ingested"
 
 # SSL context (initialized in main() after config is loaded)
 SSL_CTX = None
@@ -214,6 +217,47 @@ def api_put(url, headers, data):
                 continue
             log("ERROR", f"Request failed: {e}")
             return None
+
+
+def load_outbound_state():
+    if os.path.isfile(OUTBOUND_STATE_FILE):
+        try:
+            with open(OUTBOUND_STATE_FILE) as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            return {}
+    return {}
+
+
+def save_outbound_state(state):
+    tmp = OUTBOUND_STATE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+    os.replace(tmp, OUTBOUND_STATE_FILE)
+
+
+def _commented_ids(state):
+    raw = state.get("commented_alarm_ids") or []
+    if not isinstance(raw, list):
+        return []
+    return [str(x) for x in raw]
+
+
+def alarm_already_commented(state, alarm_id):
+    return str(alarm_id) in set(_commented_ids(state))
+
+
+def remember_commented(state, alarm_id):
+    key = str(alarm_id)
+    ids = _commented_ids(state)
+    if key not in set(ids):
+        ids.append(key)
+    if len(ids) > COMMENTED_CACHE_MAX:
+        ids = ids[-COMMENTED_CACHE_MAX:]
+    state["commented_alarm_ids"] = ids
+    save_outbound_state(state)
 
 
 # ---------------------------------------------------------------------------
@@ -405,18 +449,34 @@ def process_alert(config, alert):
 
     integration_config = config.get("integration", {})
 
+    tags = socradar_data.get("tags") or []
+    if not isinstance(tags, list):
+        tags = []
+    already_ingested = any(
+        str(t).strip().lower() == WAZUH_INGESTED_TAG for t in tags
+    )
+    outbound_state = load_outbound_state()
+    already_commented = alarm_already_commented(outbound_state, alarm_id)
+
     log("INFO", f"Processing alarm {alarm_id} | Rule: {rule_id}, Level: {rule_level}")
 
     # --- Action 1: Auto-tag ---
     if integration_config.get("auto_tag", True):
-        add_tag(config, alarm_id, "wazuh-ingested")
-        _throttle_outbound()
+        if already_ingested:
+            log("INFO", f"Tag '{WAZUH_INGESTED_TAG}' already present on alarm {alarm_id}, skipping tag")
+        else:
+            add_tag(config, alarm_id, WAZUH_INGESTED_TAG)
+            _throttle_outbound()
 
     # --- Action 2: Post Wazuh context as comment ---
     if integration_config.get("post_wazuh_context", True):
-        comment = build_wazuh_comment(alert)
-        add_comment(config, alarm_id, comment)
-        _throttle_outbound()
+        if already_commented:
+            log("INFO", f"Alarm {alarm_id} already commented (outbound state), skipping comment")
+        else:
+            comment = build_wazuh_comment(alert)
+            if add_comment(config, alarm_id, comment):
+                remember_commented(outbound_state, alarm_id)
+            _throttle_outbound()
 
     # --- Action 3: Auto-close by rule ID ---
     auto_close_rules = integration_config.get("auto_close_rule_ids", [])
