@@ -1,0 +1,70 @@
+{
+  "order": 1,
+  "index_patterns": ["wazuh-alerts-4.x-*", "wazuh-archives-4.x-*"],
+  "mappings": {
+    "properties": {
+      "data": {
+        "properties": {
+          "whisper": {
+            "properties": {
+              "risk_score": { "type": "float", "ignore_malformed": true },
+              "known": { "type": "boolean" },
+              "available": { "type": "boolean" },
+              "truncated": { "type": "boolean" },
+              "coverage": {
+                "properties": {
+                  "shared_host": { "type": "boolean" }
+                }
+              },
+              "asn": {
+                "properties": {
+                  "number": { "type": "long", "ignore_malformed": true },
+                  "reputation": {
+                    "properties": {
+                      "threatDensityScore": { "type": "float", "ignore_malformed": true },
+                      "graphMetricsScore": { "type": "float", "ignore_malformed": true },
+                      "historicalScore": { "type": "float", "ignore_malformed": true },
+                      "prefixAgeScore": { "type": "float", "ignore_malformed": true }
+                    }
+                  }
+                }
+              },
+              "prefix_threat": {
+                "properties": {
+                  "score": { "type": "float", "ignore_malformed": true },
+                  "is_threat": { "type": "boolean" },
+                  "threat_neighbor_count": { "type": "long", "ignore_malformed": true }
+                }
+              },
+              "tls": {
+                "properties": {
+                  "cluster_size": { "type": "long", "ignore_malformed": true },
+                  "count": { "type": "long", "ignore_malformed": true }
+                }
+              },
+              "threat_feed": {
+                "properties": {
+                  "sources_count": { "type": "long", "ignore_malformed": true },
+                  "first_seen": { "type": "date", "ignore_malformed": true },
+                  "last_seen": { "type": "date", "ignore_malformed": true }
+                }
+              },
+              "links": {
+                "properties": {
+                  "inbound_total": { "type": "long", "ignore_malformed": true },
+                  "outbound_total": { "type": "long", "ignore_malformed": true },
+                  "suspicious_count": { "type": "long", "ignore_malformed": true }
+                }
+              },
+              "variants": {
+                "properties": {
+                  "confidence": { "type": "float", "ignore_malformed": true }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

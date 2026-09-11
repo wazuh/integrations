@@ -1,0 +1,81 @@
+<!--
+  Whisper enrichment rules — render the custom-whisper integration's data.whisper.*
+  events as analyst-visible alerts (verdict -> alert level). Mapping spec §6.
+
+  Install to /var/ossec/etc/rules/whisper_rules.xml (root:wazuh 660); restart the manager.
+
+  Field names carry NO `data.` prefix in rules XML (the JSON decoder flattens data.whisper.*
+  to whisper.*); query them as data.whisper.* only in OpenSearch/the dashboard. Verdict/level
+  matches are pcre2-anchored so a value can never substring-collide (osmatch default).
+
+  Rule ids 100500-100509 (custom range, above the built-in ceiling of 99999; the agent-activity
+  log source uses the adjacent 100510-100549 band). The
+  `whisper_enrichment` group is the loop guard: it MUST NOT appear in the <integration>
+  trigger filter, so an enrichment alert can never re-invoke the integration (mapping §8).
+  no_full_log keeps the (up to 60 KB) injected JSON envelope out of each alert's full_log —
+  the data.whisper.* fields are decoded and indexed on their own; matches the stock
+  virustotal/maltiverse convention for re-decoded integration events.
+-->
+<group name="whisper,whisper_enrichment,">
+
+  <!-- Base classifier: level 0 = decode + tag only, no alert of its own -->
+  <rule id="100500" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration" type="pcre2">^custom-whisper$</field>
+    <description>Whisper enrichment event</description>
+  </rule>
+
+  <rule id="100501" level="12">
+    <if_sid>100500</if_sid>
+    <field name="whisper.verdict" type="pcre2">^known_bad$</field>
+    <description>Whisper: $(whisper.ioc) is KNOWN BAD ($(whisper.level))</description>
+    <options>no_full_log</options>
+    <group>whisper_known_bad,</group>
+  </rule>
+
+  <!-- Escalate a known_bad to level 14 when the graph level is CRITICAL -->
+  <rule id="100505" level="14">
+    <if_sid>100501</if_sid>
+    <field name="whisper.level" type="pcre2">^CRITICAL$</field>
+    <description>Whisper: $(whisper.ioc) is KNOWN BAD (CRITICAL)</description>
+    <options>no_full_log</options>
+    <group>whisper_known_bad,</group>
+  </rule>
+
+  <rule id="100502" level="7">
+    <if_sid>100500</if_sid>
+    <field name="whisper.verdict" type="pcre2">^suspicious$</field>
+    <description>Whisper: $(whisper.ioc) is SUSPICIOUS ($(whisper.level))</description>
+    <options>no_full_log</options>
+    <group>whisper_suspicious,</group>
+  </rule>
+
+  <rule id="100503" level="3">
+    <if_sid>100500</if_sid>
+    <field name="whisper.verdict" type="pcre2">^known_good$</field>
+    <description>Whisper: $(whisper.ioc) is known good</description>
+    <options>no_full_log</options>
+    <group>whisper_known_good,</group>
+  </rule>
+
+  <rule id="100504" level="3">
+    <if_sid>100500</if_sid>
+    <field name="whisper.verdict" type="pcre2">^unknown$</field>
+    <description>Whisper: no graph data for $(whisper.ioc)</description>
+    <options>no_full_log</options>
+    <group>whisper_unknown,</group>
+  </rule>
+
+  <!-- Opt-in TLS-fingerprint enrichment (#32). A Cobalt Strike default JARM is a strong C2
+       indicator the threat feeds routinely miss (~97% of emitters read clean), so it escalates
+       INDEPENDENT of verdict — the verdict for such an IP is usually 'unknown'. Fires only when
+       the tls_fingerprint enrichment is enabled AND the IP is in the JARM catalog. -->
+  <rule id="100506" level="12">
+    <if_sid>100500</if_sid>
+    <field name="whisper.tls.family" type="pcre2">^cobalt-strike-default$</field>
+    <description>Whisper: $(whisper.ioc) emits a Cobalt Strike default JARM fingerprint (possible C2)</description>
+    <options>no_full_log</options>
+    <group>whisper_c2,</group>
+  </rule>
+
+</group>

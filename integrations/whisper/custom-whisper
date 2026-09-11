@@ -1,0 +1,45 @@
+#!/bin/sh
+# custom-whisper — Whisper enrichment integration for Wazuh (Pattern A).
+# Wrapper modeled on the stock Wazuh integration launchers (virustotal): resolves the
+# manager's bundled Python and execs custom-whisper.py with integratord's argv intact.
+# Install target: /var/ossec/integrations/custom-whisper (750 root:wazuh).
+#
+# Unlike the stock wrapper, this one always pairs the .py next to itself and FAILS
+# LOUDLY when the interpreter or script is missing — the stock case-with-no-default
+# would otherwise exec an empty ${PYTHON_SCRIPT}, handing the alert tmp file to
+# Python as the program.
+#
+# Copyright (C) whisper.security. Licensed under the terms in the repository's LICENSE file.
+
+WPYTHON_BIN="framework/python/bin/python3"
+
+SCRIPT_PATH_NAME="$0"
+
+DIR_NAME="$(cd "$(dirname "${SCRIPT_PATH_NAME}")" && pwd -P)"
+SCRIPT_NAME="$(basename "${SCRIPT_PATH_NAME}")"
+
+case ${DIR_NAME} in
+    */integrations)
+        # Installed layout: {WAZUH_HOME}/integrations/custom-whisper
+        WAZUH_PATH="${WAZUH_PATH:-$(cd "${DIR_NAME}/.." && pwd)}"
+    ;;
+    *)
+        # Any other location (e.g. the repo checkout) — default to the standard home.
+        WAZUH_PATH="${WAZUH_PATH:-/var/ossec}"
+    ;;
+esac
+
+PYTHON_BIN="${WAZUH_PATH}/${WPYTHON_BIN}"
+PYTHON_SCRIPT="${DIR_NAME}/${SCRIPT_NAME}.py"
+
+if [ ! -x "${PYTHON_BIN}" ]; then
+    echo "${SCRIPT_NAME}: wazuh python not found or not executable: ${PYTHON_BIN}" >&2
+    exit 1
+fi
+
+if [ ! -f "${PYTHON_SCRIPT}" ]; then
+    echo "${SCRIPT_NAME}: integration script not found: ${PYTHON_SCRIPT}" >&2
+    exit 1
+fi
+
+exec "${PYTHON_BIN}" "${PYTHON_SCRIPT}" "$@"
