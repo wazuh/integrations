@@ -1,0 +1,65 @@
+# =============================================================================
+# fortigate-ar.conf  —  Wazuh FortiGate Active Response Configuration
+#
+# Deploy to : /var/ossec/etc/fortigate-ar.conf
+# Owner     : root:wazuh    Permissions: 0640
+#
+#   sudo chown root:wazuh /var/ossec/etc/fortigate-ar.conf
+#   sudo chmod 640 /var/ossec/etc/fortigate-ar.conf
+#
+# SECURITY: This file contains your API token. Ensure you do not commit it to version
+# control. The .gitignore in this repo excludes the live file by default.
+# =============================================================================
+
+# ── FortiGate Connection ─────────────────────────────────────────────────────
+
+# Management IP or FQDN of your FortiGate
+FGT_HOST="1.1.1.1"
+
+# HTTPS management port (default 443)
+FGT_PORT="443"
+
+# REST API bearer token
+# Generate: FortiGate GUI - System - Administrators - Create REST API Admin
+# The API admin profile needs Read/Write on: Firewall - Address and Address Group
+# Add the Wazuh Manager IP to the admin's "Trusted Hosts" list if necessary
+FGT_API_TOKEN="YOUR_API_TOKEN_HERE"
+
+# Verify FortiGate TLS certificate (true/false)
+# Use "true" with a CA-signed cert; "false" for self-signed 
+FGT_VERIFY_SSL="false"
+
+# VDOM name — use "root" if VDOMs are not configured
+FGT_VDOM="root"
+
+# ── Block Group ───────────────────────────────────────────────────────────────
+
+# Name of the FortiGate address group that is already:
+#   1. Created in Policy & Objects - Addresses
+#   2. Referenced as Source in a DENY policy positioned above ALLOW rules
+# This group MUST exist before the script runs.
+FGT_BLOCK_GROUP="Wazuh-Blocked-IPs"
+
+# ── Address Object Settings ───────────────────────────────────────────────────
+
+# Prefix for dynamically created address object names
+# Example: prefix "wazuh-" + IP "1.1.1.1" - object name "wazuh-1-1-1-1"
+
+FGT_ADDR_PREFIX="wazuh-"
+
+# Comment added to each created address object 
+FGT_ADDR_COMMENT="Auto-blocked by Wazuh Active Response"
+
+# Delete the address object when the block expires (Wazuh "delete" command)?
+# "true"  = clean up objects after timeout 
+# "false" = leave objects on FortiGate for manual audit
+FGT_CLEANUP_ADDR="true"
+
+# ── Tuning ────────────────────────────────────────────────────────────────────
+
+# curl timeout per API call (seconds)
+FGT_CURL_TIMEOUT="15"
+
+# Path to the local IP whitelist file 
+# RFC1918, loopback, and link-local are always exempt regardless of this file
+LOCAL_WHITELIST_FILE="/var/ossec/etc/lists/fortigate-ar-whitelist"
