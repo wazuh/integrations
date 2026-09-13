@@ -92,6 +92,23 @@ Examples:
 
 Changelog:
     2026-09-13 – Matías Mercado <matias.mercado@wazuh.com>
+        Fixes found while validating the integration against a real 2-manager +
+        2-indexer Wazuh 4.14.7 cluster:
+          * Checks 16 and 17 rejected FQDN entries. The configuration accepts an
+            IP, host:port, a URL or an FQDN, but a cluster reports its members by
+            IP and node name, so an FQDN matched neither and a perfectly
+            reachable node was reported as missing from the cluster. Declared
+            entries are now matched against every identity they resolve to
+            (_host_identities).
+          * Check 19 queried GET /cluster/node, which does not exist and answers
+            404 on every node, so the check could never pass. The endpoint is
+            GET /cluster/local/info, whose response shape the check already
+            expected.
+          * `--init-config --yes` ignored credentials supplied as environment
+            variables, so it could not run non-interactively on a step-by-step
+            installation - which has no /root/wazuh-install-files.tar to read.
+
+    2026-09-13 – Matías Mercado <matias.mercado@wazuh.com>
         Consolidated every setting into ONE configuration file,
         /etc/wazuh-health-checker.conf (root:root, chmod 600), in the same
         KEY=VALUE format the old secrets file used. Configuring a multi-node
@@ -1951,13 +1968,15 @@ def check_manager_cluster_nodes(
     # affected_items. Absence means it did not respond to the cluster query.
     found_ids = {n["ip"] for n in nodes_found} | {n["name"] for n in nodes_found}
     issues: list[str] = []
-    # Expected entries may come from the topology lists as URLs or host:port,
-    # so compare on the bare host/name.
+    # Expected entries may be an IP, a host:port, a full URL or an FQDN, while
+    # the cluster reports its members by IP and node name - so compare against
+    # every identity the entry can resolve to, not just the literal string.
+    resolved = [(e, _host_identities(e)) for e in expected_nodes]
     expected_nodes = [_node_host(e) if "://" in e or ":" in e else e
                       for e in expected_nodes]
-    for expected in expected_nodes:
-        if expected not in found_ids:
-            issues.append(f"{expected}: not found in cluster response")
+    for entry, identities in resolved:
+        if not (identities & found_ids):
+            issues.append(f"{entry}: not found in cluster response")
 
     notify = bool(issues)
     status = "error" if issues else "ok"
@@ -2005,17 +2024,41 @@ def check_indexer_nodes(
 
     found_names = {n.get("name", "") for n in raw_nodes}
     issues: list[str] = []
+    # As in check 16: an entry may be an IP, host:port, URL or FQDN, so match
+    # on every identity it resolves to rather than on the literal string.
+    resolved = [(e, _host_identities(e)) for e in expected_nodes]
     expected_nodes = [_node_host(e) if "://" in e or ":" in e else e
                       for e in expected_nodes]
-    for ip in expected_nodes:
-        if ip not in found_ips and ip not in found_names:
-            issues.append(f"{ip}: not found in indexer node list")
+    for entry, identities in resolved:
+        if not (identities & (found_ips | found_names)):
+            issues.append(f"{entry}: not found in indexer node list")
 
     notify = bool(issues)
     status = "error" if issues else "ok"
     return _make_check(status, notify,
                        node_count=len(raw_nodes), expected=expected_nodes,
                        nodes=nodes_info, issues=issues or None, url=endpoint)
+
+
+def _host_identities(entry: str) -> set[str]:
+    """Every identifier a declared topology entry may legitimately match.
+
+    The configuration file accepts an IP, a host:port, a full URL or an FQDN,
+    but a cluster reports its members by IP and by node name. An FQDN therefore
+    matches neither unless it is resolved first, which used to make a perfectly
+    reachable node be reported as missing from the cluster.
+    """
+    host = _node_host(entry) if ("://" in entry or ":" in entry) else entry
+    identities = {host, host.split(".")[0]}
+    try:
+        _name, _aliases, addresses = socket.gethostbyname_ex(host)
+        identities.update(addresses)
+        identities.add(_name)
+        identities.add(_name.split(".")[0])
+        identities.update(_aliases)
+    except (socket.gaierror, UnicodeError, OSError):
+        pass          # not resolvable here; the literal forms still apply
+    return {i for i in identities if i}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2045,7 +2088,7 @@ def check_manager_node_endpoints(node_urls: list[str], user: str,
 
         entry: dict = {"host": host, "url": url, "reachable": True}
         try:
-            resp = requests.get(f"{url}/cluster/node",
+            resp = requests.get(f"{url}/cluster/local/info",
                                 headers={"Authorization": f"Bearer {token}"},
                                 verify=False, timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
@@ -2055,8 +2098,8 @@ def check_manager_node_endpoints(node_urls: list[str], user: str,
                     entry["node_type"] = items[0].get("type")
                     entry["cluster"] = items[0].get("cluster")
             else:
-                entry["error"] = f"HTTP {resp.status_code} on /cluster/node"
-                issues.append(f"{label}: HTTP {resp.status_code} on /cluster/node")
+                entry["error"] = f"HTTP {resp.status_code} on /cluster/local/info"
+                issues.append(f"{label}: HTTP {resp.status_code} on /cluster/local/info")
         except Exception as exc:
             entry["error"] = str(exc)
             issues.append(f"{label}: {_short_error(exc)}")
@@ -2395,6 +2438,15 @@ def init_config(config_file: str, manager_url: str, indexer_url: str,
             return 1
 
     values = dict(_config_values)
+    # Environment variables outrank the file. On a step-by-step installation
+    # there is no /root/wazuh-install-files.tar, so the environment is the only
+    # non-interactive source of credentials - which is what --yes relies on.
+    for key in (*_REQUIRED_SECRETS, "MANAGER_NODES", "INDEXER_NODES",
+                "DASHBOARD_NODES", "LOG_FILE", "SLACK_WEBHOOK_URL",
+                "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "EMAIL_TO"):
+        env_value = os.environ.get(key)
+        if env_value:
+            values[key] = env_value
 
     discovered = _credentials_from_install_files()
     if discovered:
