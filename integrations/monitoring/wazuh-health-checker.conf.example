@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Wazuh health checker – single configuration file
+# ─────────────────────────────────────────────────────────────────────────────
+# Read by monitoring.py and sourced by wrapper.sh, which exports every value so
+# the notifier scripts see them too. Keep this file root-owned and chmod 600.
+#
+# Any value can be overridden at run time by an environment variable of the same
+# name, or by the matching monitoring.py command-line flag.
+
+# ── Credentials ──────────────────────────────────────────────────────────────
+MANAGER_USER=wazuh-wui
+MANAGER_PASS=<MANAGER_API_PASSWORD>
+INDEXER_USER=admin
+INDEXER_PASS=<INDEXER_PASSWORD>
+
+# ── Cluster topology ─────────────────────────────────────────────────────────
+# Comma-separated. Each entry may be an IP, host:port, or a full URL.
+# Leave every list empty for an all-in-one deployment.
+# Include the local manager master in MANAGER_NODES: checks 16 and 17 verify
+# that each declared node is still present in the cluster.
+MANAGER_NODES=
+INDEXER_NODES=
+DASHBOARD_NODES=
+
+# ── Paths and thresholds ─────────────────────────────────────────────────────
+LOG_FILE=/var/log/health-checker.json
+#DISK_PATH=/
+#DISK_THRESHOLD=75
+#SHARD_THRESHOLD=80
+#RETENTION_ISM_DAYS=90
+#RETENTION_ALERTS_DAYS=365
+#ALERTS_TREND_DAYS=7
+#ALERTS_DROP_THRESHOLD=20
+#PORTS=1514,1515
+#DEPLOY_MODE=bare-metal
+#NODE_ROLE=all
+#K8S_NAMESPACE=wazuh
+
+# ── Notifications (used by slack_notifier.py / email_notifier.py) ────────────
+SLACK_WEBHOOK_URL=
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+EMAIL_TO=

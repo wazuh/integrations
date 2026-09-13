@@ -3,13 +3,19 @@
 # Wazuh Inc. 
 # Nicolás Curioni <nicolas.curioni@wazuh.com>
 import json
+import os
 import requests
 import socket
 import sys
-# === CONFIGURACIÓN ===
-SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/....../......"
-#N8N_WEBHOOK_URL = "https://tu-instancia-n8n.com/webhook/...."
-LOG_PATH = "/var/log/health-checker.json"
+
+# === CONFIGURATION ===
+# Values come from /etc/wazuh-health-checker.conf, which wrapper.sh sources and
+# exports. The literals below are only the fallback when this script is run on
+# its own, outside the wrapper.
+SLACK_WEBHOOK_URL = os.environ.get(
+    "SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/....../......")
+#N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
+LOG_PATH = os.environ.get("LOG_FILE", "/var/log/health-checker.json")
 HOSTNAME = socket.gethostname()
 
 

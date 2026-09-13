@@ -3,18 +3,22 @@
 # Wazuh Inc.
 # Nicolás Curioni <nicolas.curioni@wazuh.com>
 import json
+import os
 import smtplib
 import socket
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # === SMTP CONFIGURATION ===
-SMTP_SERVER  = "smtp.gmail.com"
-SMTP_PORT    = 587
-SMTP_USER    = "<SENDER_EMAIL>"
-SMTP_PASS    = "<APP_PASSWORD>"
-DESTINATARIO = "<RECEIPIENT_EMAIL>"
-LOG_PATH     = "/var/log/health-checker.json"
+# Values come from /etc/wazuh-health-checker.conf, which wrapper.sh sources and
+# exports. Keeping the password there (root-owned, chmod 600) rather than in
+# this file also keeps it out of the repository.
+SMTP_SERVER  = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT    = int(os.environ.get("SMTP_PORT") or 587)
+SMTP_USER    = os.environ.get("SMTP_USER", "<SENDER_EMAIL>")
+SMTP_PASS    = os.environ.get("SMTP_PASS", "<APP_PASSWORD>")
+DESTINATARIO = os.environ.get("EMAIL_TO", "<RECEIPIENT_EMAIL>")
+LOG_PATH     = os.environ.get("LOG_FILE", "/var/log/health-checker.json")
 HOSTNAME     = socket.gethostname()
 
 

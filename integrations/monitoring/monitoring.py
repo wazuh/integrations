@@ -4,7 +4,13 @@ Wazuh Environment Health Checker
 Wazuh Inc.
 Nicolás Curioni <nicolas.curioni@wazuh.com>
 =====================================================
-Supports bare-metal, Docker, and Kubernetes Wazuh deployments.
+Supports bare-metal, Docker, and Kubernetes Wazuh deployments, from
+all-in-one servers up to fully distributed clusters.
+
+The script is meant to be installed **only on the Wazuh Manager master node**.
+From there it reaches out to every other server of the deployment (manager
+workers, indexer cluster nodes and dashboards) using the addresses declared in
+the *Cluster topology* section below (or their `--*-nodes` CLI equivalents).
 
 Checks performed:
 
@@ -16,18 +22,21 @@ Checks performed:
    4b. Indexer disk space via API                                      [indexer]
     5. Shards configured per node (max_shards_per_node x node_count)   [indexer]
     6. Active shards closeness to limit (>= 80% of limit by default)   [indexer]
-    7. JVM Xms/Xmx vs total system RAM (via API)                      [indexer]
+    7. JVM Xms/Xmx vs total system RAM (via API)                       [indexer]
     8. Unassigned shards                                               [indexer]
-    9. TCP port reachability (1514 – events, 1515 – enrollment)        [manager]
+    9. TCP port reachability (1514 - events, 1515 - enrollment)        [manager]
    10. Agent summary (active / disconnected / pending / never_connected)[manager]
-   11. ILM policies configured in the Indexer                          [indexer]
+   11. ISM policies configured and actually applied in the Indexer     [indexer]
    12. Cron jobs for alert/archive log rotation in the Manager         [manager]
-   13. Retention feasibility (disk + shards vs ILM retention days)     [indexer]
+   13. Retention feasibility (disk + shards vs ISM retention days)     [indexer]
    14. Filebeat service status                                         [manager]
    15. Filebeat output connectivity                                    [manager]
-   16. Wazuh Manager cluster nodes (via API)            [optional]     [manager]
-   17. Wazuh Indexer cluster nodes (_cat/nodes)          [optional]     [indexer]
-   18. Alert volume trend drop (current vs previous window)             [indexer]
+   16. Wazuh Manager cluster nodes (via API)              [multi-node] [manager]
+   17. Wazuh Indexer cluster nodes (_cat/nodes)           [multi-node] [indexer]
+   18. Alert volume trend drop (current vs previous window)            [indexer]
+   19. Manager API reachable on every manager node        [multi-node] [manager]
+   20. Indexer reachable / same cluster on every node     [multi-node] [indexer]
+   21. Dashboard reachable on every dashboard node        [multi-node] [dashboard]
 
 Deploy modes (--deploy-mode):
     bare-metal – traditional installation (default)
@@ -36,16 +45,42 @@ Deploy modes (--deploy-mode):
 
 Node roles (--node-role):
     all       – run every check (default)
-    manager   – checks 1, 4, 9, 10, 12, 14, 15, 16
-    indexer   – checks 1, 2, 4, 4b, 5, 6, 7, 8, 11, 13, 17, 18
-    dashboard – checks 1, 3, 4
+    manager   – checks 1, 4, 9, 10, 12, 14, 15, 16, 19
+    indexer   – checks 1, 2, 4, 4b, 5, 6, 7, 8, 11, 13, 17, 18, 20
+    dashboard – checks 1, 3, 4, 21
+
+Supported topologies (see the "Cluster topology" section below):
+
+    A) All-in-one       – manager + indexer + dashboard on a single server.
+                          Nothing to configure, the localhost defaults work.
+
+    B) Split services   – e.g. 1 server with the manager and 1 server with
+                          indexer + dashboard. Declare the remote addresses in
+                          DEFAULT_INDEXER_NODES / DEFAULT_DASHBOARD_NODES.
+
+    C) Distributed      – e.g. 6 servers: 1 manager master (where this script
+                          runs), 1 manager worker, 1 indexer master, 2 indexer
+                          data nodes and 1 dashboard. Declare every address in
+                          DEFAULT_MANAGER_NODES / DEFAULT_INDEXER_NODES /
+                          DEFAULT_DASHBOARD_NODES.
 
 Usage:
     python3 monitoring.py [options]
 
 Examples:
-    # Bare-metal (same as original)
-    python3 monitoring.py --deploy-mode bare-metal
+    # A) All-in-one, bare-metal
+    python3 monitoring.py
+
+    # B) Manager here, indexer + dashboard on 10.0.0.2
+    python3 monitoring.py \\
+        --indexer-nodes 10.0.0.2 \\
+        --dashboard-nodes 10.0.0.2
+
+    # C) Distributed cluster driven from the manager master
+    python3 monitoring.py \\
+        --manager-nodes   10.0.0.1,10.0.0.2 \\
+        --indexer-nodes   10.0.0.3,10.0.0.4,10.0.0.5 \\
+        --dashboard-nodes 10.0.0.6
 
     # Docker single-node
     python3 monitoring.py --deploy-mode docker \\
@@ -54,6 +89,67 @@ Examples:
     # Kubernetes
     python3 monitoring.py --deploy-mode kubernetes \\
         --k8s-namespace wazuh
+
+Changelog:
+    2026-09-13 – Matías Mercado <matias.mercado@wazuh.com>
+        Consolidated every setting into ONE configuration file,
+        /etc/wazuh-health-checker.conf (root:root, chmod 600), in the same
+        KEY=VALUE format the old secrets file used. Configuring a multi-node
+        deployment previously meant editing four separate files - node lists in
+        this script, the webhook in slack_notifier.py, the SMTP credentials in
+        email_notifier.py and the paths in wrapper.sh - while wrapper.sh passed
+        no arguments at all, so none of the CLI flags were reachable from the
+        documented installation.
+          * wrapper.sh now sources the configuration file and exports it, so the
+            notifier scripts receive the same values as environment variables;
+            it also resolves its own directory instead of hard-coding
+            /opt/scripts, skips a notifier that is not installed (it used to
+            fail on every run looking for teams_notifier.py) and forwards its
+            arguments to monitoring.py.
+          * `--init-config` writes that file: it reads the credentials
+            wazuh-install.sh left in /root/wazuh-install-files.tar when they are
+            still available, discovers the manager topology through
+            GET /cluster/nodes and the indexer topology through _cat/nodes, and
+            writes the result with chmod 600 for review. A standalone manager is
+            reported as such rather than as an error - GET /cluster/nodes answers
+            400 (error 3013) whenever clustering is disabled, so GET
+            /cluster/status is consulted first. Use `--yes` for a
+            non-interactive run.
+          * The topology is discovered once and stored, deliberately: checks 16
+            and 17 verify that every declared node is still present in the
+            cluster, which only works when the expected list is a reviewed
+            declaration rather than something rediscovered on every run.
+          * Precedence is CLI flag > environment variable > config file >
+            legacy /etc/health-checker.secrets > built-in default. Existing
+            installations are unaffected: the legacy secrets file and the
+            DEFAULT_*_NODES lists are still read when the new file is absent.
+          * LOG_FILE is defined once instead of being repeated in three files.
+
+    2026-09-13 – Matías Mercado <matias.mercado@wazuh.com>
+        Reworked ISM retention detection in checks 11 and 13, which reported
+        "No ISM policies found. Projecting with default 90d." on clusters that
+        had a valid retention policy applied to every index:
+          * A state is now recognised as a delete phase by its `delete` action
+            rather than only by its name. The Wazuh documentation names that
+            state `delete_alerts`, so matching the literal names
+            "delete"/"deleted" never matched a documented policy.
+          * Checks 11 and 13 share the same ISM parsing, so they can no longer
+            disagree about whether a policy exists, and check 11 now also
+            verifies that policies are effectively applied to indices
+            (_ism/explain) instead of only that they are defined.
+          * `_parse_age_to_days()` now follows the OpenSearch time units the
+            indexer really accepts for `min_index_age`: 'h' is an hour rather
+            than a full day (a "4320h" policy was read as 4320 days instead of
+            180), and 'm'/'s'/'ms' are supported - "259200m" and "15552000s"
+            were previously unparsable. Upper-case days and hours are also
+            tolerated.
+          * Both ISM reads request `size=ISM_POLICY_PAGE_SIZE` (1000);
+            /_plugins/_ism/policies returns only 20 policies by default. The
+            _opendistro/_ism prefix is tried as a fallback.
+          * A failed ISM read (auth, permissions - e.g. HTTP 403 without
+            'cluster:admin/opendistro/ism/*' - or connectivity) is reported as
+            such instead of being indistinguishable from an empty cluster, and
+            so is a policy that exists but defines no age-based delete phase.
 """
 
 from __future__ import annotations
@@ -88,10 +184,55 @@ DEFAULT_LOG_FILE       = "/var/log/health-checker.json"
 DEFAULT_DISK_PATH      = "/"
 DEFAULT_DISK_THRESHOLD = 75
 DEFAULT_SHARD_THRESHOLD = 80
-DEFAULT_SECRETS_FILE   = "/etc/health-checker.secrets"
-DEFAULT_MANAGER_NODES: list[str] = []
-DEFAULT_INDEXER_NODES: list[str] = []
+DEFAULT_SECRETS_FILE   = "/etc/health-checker.secrets"   # legacy, still honoured
+DEFAULT_CONFIG_FILE    = "/etc/wazuh-health-checker.conf"
 REQUEST_TIMEOUT = 10
+
+# Default TCP ports used when a topology entry is written as a bare IP/hostname
+MANAGER_API_PORT   = 55000
+INDEXER_PORT       = 9200
+DASHBOARD_PORT     = 443
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cluster topology
+# ─────────────────────────────────────────────────────────────────────────────
+# Install this script ONLY on the Wazuh Manager master node. It reaches every
+# other server of the deployment over the network, so the addresses of those
+# servers have to be declared here (or with the equivalent CLI flags:
+# --manager-nodes / --indexer-nodes / --dashboard-nodes).
+#
+# Each list entry accepts any of these forms:
+#
+#     "10.0.0.11"               -> https://10.0.0.11:<default port>
+#     "10.0.0.11:9200"          -> https://10.0.0.11:9200
+#     "https://indexer-1:9200"  -> used verbatim
+#     "http://10.0.0.11:9200"   -> used verbatim (plain HTTP)
+#
+# Leave a list empty to fall back to the localhost defaults above, which is
+# what an all-in-one deployment needs.
+#
+# ── Scenario A – all-in-one (manager + indexer + dashboard on this server) ──
+#     DEFAULT_MANAGER_NODES   = []
+#     DEFAULT_INDEXER_NODES   = []
+#     DEFAULT_DASHBOARD_NODES = []
+#
+# ── Scenario B – manager here, indexer + dashboard on another server ────────
+#     DEFAULT_MANAGER_NODES   = []
+#     DEFAULT_INDEXER_NODES   = ["10.0.0.2"]
+#     DEFAULT_DASHBOARD_NODES = ["10.0.0.2"]
+#
+# ── Scenario C – distributed: manager master + worker, 3 indexers, dashboard ─
+#     DEFAULT_MANAGER_NODES   = ["10.0.0.1", "10.0.0.2"]          # master + worker
+#     DEFAULT_INDEXER_NODES   = ["10.0.0.3", "10.0.0.4", "10.0.0.5"]
+#     DEFAULT_DASHBOARD_NODES = ["10.0.0.6"]
+#
+# Include the local master node in DEFAULT_MANAGER_NODES as well: check 16
+# validates that every declared node shows up in the Wazuh cluster response.
+#
+DEFAULT_MANAGER_NODES:   list[str] = []
+DEFAULT_INDEXER_NODES:   list[str] = []
+DEFAULT_DASHBOARD_NODES: list[str] = []
 
 # Docker image patterns used to auto-discover containers
 DOCKER_IMAGE_MANAGER   = "wazuh/wazuh-manager"
@@ -124,6 +265,136 @@ def _make_check(status: str, notify: bool, **details: Any) -> dict:
 def _make_skip(node_role: str) -> dict:
     return {"status": "skipped", "notify": False,
             "details": f"Not applicable for node role '{node_role}'"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cluster topology helpers
+# ─────────────────────────────────────────────────────────────────────────────
+def _normalize_node_url(entry: str, default_port: int,
+                        default_scheme: str = "https") -> str:
+    """
+    Turn a topology entry into a full base URL.
+
+    "10.0.0.11"              -> "https://10.0.0.11:<default_port>"
+    "10.0.0.11:9200"         -> "https://10.0.0.11:9200"
+    "http://10.0.0.11:9200"  -> "http://10.0.0.11:9200"
+    "[fd00::1]:9200"         -> "https://[fd00::1]:9200"
+    """
+    entry = entry.strip().rstrip("/")
+    if not entry:
+        return ""
+
+    if "://" in entry:
+        scheme, _, rest = entry.partition("://")
+    else:
+        scheme, rest = default_scheme, entry
+
+    # Split off an explicit port, taking bracketed IPv6 literals into account.
+    if rest.startswith("["):
+        host, _, tail = rest.partition("]")
+        host += "]"
+        port = tail[1:] if tail.startswith(":") else ""
+    elif rest.count(":") == 1:
+        host, _, port = rest.partition(":")
+    elif rest.count(":") > 1:
+        # Bare IPv6 literal without brackets.
+        host, port = f"[{rest}]", ""
+    else:
+        host, port = rest, ""
+
+    if not port:
+        port = str(default_port)
+    return f"{scheme}://{host}:{port}"
+
+
+def _node_host(url: str) -> str:
+    """Extract the bare host (no scheme, no port) from a normalized node URL."""
+    rest = url.split("://", 1)[-1].rstrip("/")
+    if rest.startswith("["):
+        return rest.partition("]")[0].lstrip("[")
+    return rest.split(":", 1)[0]
+
+
+def _short_error(err: str) -> str:
+    """
+    Condense a requests/urllib3 exception into something readable in a Slack
+    or email alert. The full text is still kept in the per-node payload.
+    """
+    text = str(err)
+    lowered = text.lower()
+    if "connection refused" in lowered or "max retries" in lowered:
+        return "connection refused"
+    if "timed out" in lowered or "timeout" in lowered:
+        return "timed out"
+    if "name or service not known" in lowered or "nodename nor servname" in lowered:
+        return "host name could not be resolved"
+    if "certificate" in lowered:
+        return "TLS certificate error"
+    return text if len(text) <= 140 else text[:137] + "…"
+
+
+def _node_label(url: str) -> str:
+    """Short 'host:port' label used in per-node messages."""
+    return url.split("://", 1)[-1].rstrip("/")
+
+
+def _parse_node_list(cli_value: str | None, fallback: list[str],
+                     default_port: int) -> list[str]:
+    """
+    Build the list of node base URLs from the CLI flag (comma separated) or,
+    when the flag is absent, from the in-file topology defaults.
+    Duplicates are removed while preserving order.
+    """
+    raw = ([e for e in cli_value.split(",")] if cli_value else list(fallback))
+    urls: list[str] = []
+    for entry in raw:
+        url = _normalize_node_url(entry, default_port)
+        if url and url not in urls:
+            urls.append(url)
+    return urls
+
+
+def _resolve_endpoints(explicit_url: str | None, node_urls: list[str],
+                       default_url: str) -> list[str]:
+    """
+    Merge an explicitly requested URL with the declared cluster nodes.
+
+    - Nothing declared            -> [default_url]        (all-in-one)
+    - Only nodes declared         -> the node URLs        (split / distributed)
+    - Both declared               -> explicit URL first, then the nodes
+    """
+    urls: list[str] = []
+    if explicit_url:
+        urls.append(explicit_url.rstrip("/"))
+    for url in node_urls:
+        if url not in urls:
+            urls.append(url)
+    return urls or [default_url]
+
+
+def _first_reachable(urls: list[str], probe) -> tuple[str, list[str]]:
+    """
+    Return the first URL for which ``probe(url)`` is truthy, together with the
+    list of URLs that failed. Falls back to ``urls[0]`` when none answers, so
+    the cluster-wide checks still report a meaningful connection error.
+    """
+    unreachable: list[str] = []
+    for url in urls:
+        if probe(url):
+            return url, unreachable
+        unreachable.append(url)
+    return urls[0], unreachable
+
+
+def _probe_indexer(user: str, password: str):
+    """Build a probe callable that returns True when an indexer node answers."""
+    def _probe(url: str) -> bool:
+        try:
+            resp = requests.get(f"{url}/_cluster/health", auth=(user, password),
+                                verify=False, timeout=REQUEST_TIMEOUT)
+            return resp.status_code == 200
+        except Exception:
+            return False
+    return _probe
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -189,13 +460,13 @@ LOCAL_CHECKS = {"manager_api", "disk_space", "container_health"}
 INDEXER_CHECKS = {
     "indexer_api", "indexer_disk_space", "shards_per_node", "active_shards",
     "jvm_options", "unassigned_shards", "ilm_policies", "retention_feasibility",
-    "indexer_nodes", "alert_volume_trend",
+    "indexer_nodes", "alert_volume_trend", "indexer_node_endpoints",
 }
 MANAGER_CHECKS = {
     "ports", "agents", "cron_rotation", "filebeat_service",
-    "filebeat_output", "manager_cluster_nodes",
+    "filebeat_output", "manager_cluster_nodes", "manager_node_endpoints",
 }
-DASHBOARD_CHECKS = {"dashboard"}
+DASHBOARD_CHECKS = {"dashboard", "dashboard_nodes"}
 
 
 def should_run(check_name: str, node_role: str) -> bool:
@@ -213,37 +484,103 @@ def should_run(check_name: str, node_role: str) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Secrets loader
+# Configuration
 # ─────────────────────────────────────────────────────────────────────────────
+# Everything the integration needs lives in ONE file – /etc/wazuh-health-checker.conf
+# (root:root, chmod 600) – in the same KEY=VALUE format the old secrets file used.
+# wrapper.sh sources that file, so the notifier scripts receive exactly the same
+# values as environment variables and nothing has to be edited inside the code.
+#
+# Precedence, highest first:
+#     CLI flag  >  environment variable  >  config file  >  legacy secrets file
+#     >  built-in default
+#
+# Generate a ready-to-review file, with the cluster topology discovered
+# automatically, using:   monitoring.py --init-config
+#
 _REQUIRED_SECRETS = ("MANAGER_USER", "MANAGER_PASS", "INDEXER_USER", "INDEXER_PASS")
 
+# Populated by load_config(); read through cfg() / cfg_int() / cfg_list().
+_config_values: dict[str, str] = {}
 
-def _load_secrets(secrets_file: str) -> dict[str, str]:
-    file_values: dict[str, str] = {}
-    if os.path.isfile(secrets_file):
-        try:
-            with open(secrets_file) as f:
-                for lineno, raw in enumerate(f, 1):
-                    line = raw.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    if "=" not in line:
-                        print(f"WARNING: {secrets_file}:{lineno}: skipping invalid line",
-                              file=sys.stderr)
-                        continue
-                    key, _, value = line.partition("=")
-                    file_values[key.strip()] = value.strip().strip('"').strip("'")
-        except PermissionError:
-            print(f"ERROR: Cannot read {secrets_file}. Run as root.", file=sys.stderr)
-            sys.exit(1)
-    else:
-        print(f"INFO: Secrets file '{secrets_file}' not found – relying on environment variables.",
+
+def _read_kv_file(path: str) -> dict[str, str]:
+    """Parse a KEY=VALUE file. Blank lines and '#' comments are ignored, and a
+    leading 'export ' is tolerated so the same file can be sourced by a shell."""
+    values: dict[str, str] = {}
+    if not os.path.isfile(path):
+        return values
+    try:
+        with open(path) as f:
+            for lineno, raw in enumerate(f, 1):
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):].lstrip()
+                if "=" not in line:
+                    print(f"WARNING: {path}:{lineno}: skipping invalid line",
+                          file=sys.stderr)
+                    continue
+                key, _, value = line.partition("=")
+                values[key.strip()] = value.strip().strip('"').strip("'")
+    except PermissionError:
+        print(f"ERROR: Cannot read {path}. Run as root.", file=sys.stderr)
+        sys.exit(1)
+    return values
+
+
+def load_config(config_file: str, secrets_file: str) -> dict[str, str]:
+    """Merge the legacy secrets file with the config file; the latter wins.
+
+    Reading both keeps every existing installation working: an environment that
+    only has /etc/health-checker.secrets behaves exactly as before.
+    """
+    global _config_values
+    values = _read_kv_file(secrets_file)
+    values.update(_read_kv_file(config_file))
+    _config_values = values
+    return values
+
+
+def cfg(key: str, default: Any = None) -> Any:
+    """Environment variable, then config file, then the built-in default."""
+    value = os.environ.get(key) or _config_values.get(key)
+    return default if value in (None, "") else value
+
+
+def cfg_int(key: str, default: int) -> int:
+    value = cfg(key)
+    try:
+        return int(value) if value is not None else default
+    except (TypeError, ValueError):
+        print(f"WARNING: {key}='{value}' is not an integer, using {default}.",
+              file=sys.stderr)
+        return default
+
+
+def cfg_float(key: str, default: float) -> float:
+    value = cfg(key)
+    try:
+        return float(value) if value is not None else default
+    except (TypeError, ValueError):
+        print(f"WARNING: {key}='{value}' is not a number, using {default}.",
+              file=sys.stderr)
+        return default
+
+
+def _load_secrets(config_file: str, secrets_file: str) -> dict[str, str]:
+    """Return the four credentials, or exit explaining exactly what is missing."""
+    if not os.path.isfile(config_file) and not os.path.isfile(secrets_file):
+        print(f"INFO: Neither '{config_file}' nor '{secrets_file}' exists – "
+              f"relying on environment variables. "
+              f"Run '{os.path.basename(sys.argv[0])} --init-config' to create one.",
               file=sys.stderr)
 
     secrets: dict[str, str] = {}
     missing: list[str] = []
     for key in _REQUIRED_SECRETS:
-        value = os.environ.get(key) or file_values.get(key)
+        value = cfg(key)
         if not value:
             missing.append(key)
         else:
@@ -252,7 +589,8 @@ def _load_secrets(secrets_file: str) -> dict[str, str]:
     if missing:
         print(
             f"ERROR: Missing credentials: {', '.join(missing)}.\n"
-            f"  Provide them in '{secrets_file}' or as environment variables.",
+            f"  Provide them in '{config_file}', as environment variables, or run\n"
+            f"  '{os.path.basename(sys.argv[0])} --init-config' to generate the file.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -844,19 +1182,40 @@ def check_unassigned_shards(indexer_url: str, user: str, password: str) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 # Check 9 – Ports 1514 / 1515
 # ─────────────────────────────────────────────────────────────────────────────
-def check_ports(host: str, ports: list[int], timeout: int = REQUEST_TIMEOUT) -> dict:
-    results = {}
-    all_ok = True
-    for port in ports:
-        try:
-            with socket.create_connection((host, port), timeout=timeout):
-                results[str(port)] = "open"
-        except (ConnectionRefusedError, socket.timeout, OSError) as exc:
-            results[str(port)] = f"closed/unreachable ({exc})"
-            all_ok = False
-    notify = not all_ok
-    status = "ok" if all_ok else "error"
-    return _make_check(status, notify, host=host, ports=results)
+def check_ports(hosts: str | list[str], ports: list[int],
+                timeout: int = REQUEST_TIMEOUT) -> dict:
+    """
+    Probe the agent-facing TCP ports on every manager node.
+
+    Agents enroll and report against workers as well as the master, so in a
+    manager cluster each node has to be probed individually.
+    """
+    if isinstance(hosts, str):
+        hosts = [hosts]
+
+    per_host: dict[str, dict[str, str]] = {}
+    issues: list[str] = []
+    for host in hosts:
+        results: dict[str, str] = {}
+        for port in ports:
+            try:
+                with socket.create_connection((host, port), timeout=timeout):
+                    results[str(port)] = "open"
+            except (ConnectionRefusedError, socket.timeout, OSError) as exc:
+                results[str(port)] = f"closed/unreachable ({exc})"
+                issues.append(f"{host}:{port} closed/unreachable ({exc})")
+        per_host[host] = results
+
+    notify = bool(issues)
+    status = "error" if notify else "ok"
+    result = _make_check(status, notify, hosts=per_host,
+                         host_count=len(per_host), issues=issues or None)
+    # Preserve the single-host shape consumed by the notifiers and the summary.
+    if len(per_host) == 1:
+        only_host = next(iter(per_host))
+        result["host"] = only_host
+        result["ports"] = per_host[only_host]
+    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -902,49 +1261,272 @@ def check_agents(url: str, user: str, password: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ISM (Index State Management) helpers – shared by checks 11 and 13
+# ─────────────────────────────────────────────────────────────────────────────
+# The ISM plugin is exposed under two different prefixes depending on the
+# OpenSearch / Open Distro version shipped with the Wazuh Indexer. Both are
+# tried before concluding that no policy exists.
+ISM_API_PREFIXES = ("_plugins/_ism", "_opendistro/_ism")
+
+# GET /_plugins/_ism/policies returns only 20 policies unless a size is given,
+# which silently hides policies on environments with many of them.
+ISM_POLICY_PAGE_SIZE = 1000
+
+# Index patterns whose ISM management actually matters for a Wazuh deployment.
+ISM_EXPLAIN_PATTERN = "wazuh-*"
+
+# States are considered "delete" states when they run a delete action or when
+# they are named like one (some policies only shrink/close under such a name).
+_DELETE_STATE_NAMES = ("delete", "deleted", "delete_state", "deletion")
+
+
+def _ism_request(indexer_url: str, user: str, password: str, path: str,
+                 params: dict | None = None) -> tuple[dict | None, str | None, str]:
+    """
+    GET an ISM endpoint, trying every known API prefix.
+
+    Returns (payload, error, endpoint_used). ``error`` is None on success and
+    distinguishes a genuine failure (auth, permissions, connectivity) from an
+    empty-but-valid answer, so callers never report "no policies" when the
+    request itself could not be completed.
+    """
+    last_error = "unknown error"
+    endpoint = ""
+    for prefix in ISM_API_PREFIXES:
+        endpoint = f"{indexer_url}/{prefix}/{path.lstrip('/')}"
+        try:
+            resp = requests.get(endpoint, auth=(user, password), verify=False,
+                                timeout=REQUEST_TIMEOUT, params=params)
+        except requests.exceptions.ConnectionError as exc:
+            return None, f"Connection refused: {exc}", endpoint
+        except requests.exceptions.Timeout:
+            return None, "Request timed out", endpoint
+        except Exception as exc:
+            return None, str(exc), endpoint
+
+        if resp.status_code == 200:
+            try:
+                return resp.json(), None, endpoint
+            except ValueError:
+                return None, "Malformed JSON in ISM response", endpoint
+        if resp.status_code in (401, 403):
+            return None, (f"HTTP {resp.status_code}: the '{user}' user is not allowed to "
+                          f"read ISM policies. Grant the 'cluster:admin/opendistro/ism/*' "
+                          f"permissions or use an admin account."), endpoint
+        # 404 / 400 usually just means "wrong prefix for this version" – retry.
+        last_error = f"HTTP {resp.status_code}"
+    return None, last_error, endpoint
+
+
+def _ism_condition_age(conditions: dict) -> str | None:
+    """Pick whichever age condition an ISM transition uses."""
+    for key in ("min_index_age", "min_rollover_age", "min_age"):
+        value = conditions.get(key)
+        if value:
+            return value
+    return None
+
+
+def _analyze_ism_policy(item: dict) -> dict:
+    """
+    Extract the meaningful parts of an ISM policy document.
+
+    A policy is considered to define retention when *any* state performs a
+    delete action (or is named like a delete state). The retention age is read
+    from the transition that leads into that state; transitions that use
+    min_doc_count / min_size instead of an age are reported as non-age
+    conditions rather than being discarded, which is what previously made the
+    script report a perfectly working policy as missing.
+    """
+    policy = item.get("policy", {}) or {}
+    name = policy.get("policy_id") or item.get("_id") or "unknown"
+
+    states = policy.get("states", []) or []
+    state_names = [s.get("name") for s in states]
+
+    delete_states: set[str] = set()
+    rollover_age = rollover_size = None
+    for state in states:
+        state_name = state.get("name", "")
+        for action in state.get("actions", []) or []:
+            if "delete" in action:
+                delete_states.add(state_name)
+            if "rollover" in action:
+                rollover = action.get("rollover") or {}
+                rollover_age = rollover.get("min_index_age") or rollover_age
+                rollover_size = (rollover.get("min_size")
+                                 or rollover.get("min_primary_shard_size")
+                                 or rollover_size)
+        if state_name.lower() in _DELETE_STATE_NAMES:
+            delete_states.add(state_name)
+
+    delete_min_age = None
+    delete_conditions: dict = {}
+    for state in states:
+        for transition in state.get("transitions", []) or []:
+            target = transition.get("state_name", "")
+            if target not in delete_states:
+                continue
+            conditions = transition.get("conditions", {}) or {}
+            delete_conditions = conditions or delete_conditions
+            age = _ism_condition_age(conditions)
+            if age:
+                delete_min_age = age
+
+    # ism_template is what makes a policy apply automatically to new indices.
+    ism_template = policy.get("ism_template") or []
+    if isinstance(ism_template, dict):
+        ism_template = [ism_template]
+    index_patterns: list[str] = []
+    for tmpl in ism_template:
+        index_patterns.extend((tmpl or {}).get("index_patterns", []) or [])
+
+    return {
+        "name": name,
+        "states": state_names,
+        "default_state": policy.get("default_state"),
+        "delete_states": sorted(delete_states),
+        "delete_min_age": delete_min_age,
+        "delete_conditions": delete_conditions or None,
+        "rollover_age": rollover_age,
+        "rollover_size": rollover_size,
+        "index_patterns": index_patterns,
+        "has_delete_phase": bool(delete_states),
+        "has_age_retention": delete_min_age is not None,
+    }
+
+
+def _fetch_ism_policies(indexer_url: str, user: str,
+                        password: str) -> tuple[list[dict], str | None, str]:
+    """Return (analyzed policies, error, endpoint)."""
+    payload, error, endpoint = _ism_request(
+        indexer_url, user, password, "policies",
+        params={"from": 0, "size": ISM_POLICY_PAGE_SIZE})
+    if error:
+        return [], error, endpoint
+    raw = (payload or {}).get("policies", []) or []
+    return [_analyze_ism_policy(item) for item in raw], None, endpoint
+
+
+def _fetch_ism_explain(indexer_url: str, user: str, password: str,
+                       pattern: str = ISM_EXPLAIN_PATTERN) -> tuple[dict, str | None]:
+    """
+    Ask ISM which indices are actually managed, and by which policy.
+
+    This is what tells apart "no policy exists" from "policies exist but are
+    not attached to any index" – the two situations the previous version
+    reported identically.
+    """
+    payload, error, _ = _ism_request(
+        indexer_url, user, password, f"explain/{pattern}")
+    if error:
+        return {}, error
+
+    managed: dict[str, dict] = {}
+    for index_name, info in (payload or {}).items():
+        if not isinstance(info, dict):
+            continue  # skips total_managed_indices and similar scalars
+        policy_id = (info.get("policy_id")
+                     or info.get("index.plugins.index_state_management.policy_id")
+                     or info.get("index.opendistro.index_state_management.policy_id"))
+        if not policy_id:
+            continue
+        managed[index_name] = {
+            "policy_id": policy_id,
+            "enabled": info.get("enabled", True),
+            "state": (info.get("state") or {}).get("name"),
+            "action": (info.get("action") or {}).get("name"),
+            "failed": bool((info.get("action") or {}).get("failed")),
+            "info": (info.get("info") or {}).get("message"),
+        }
+    return managed, None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Check 11 – ISM Policies
 # ─────────────────────────────────────────────────────────────────────────────
 def check_ilm_policies(indexer_url: str, user: str, password: str) -> dict:
-    endpoint = f"{indexer_url}/_plugins/_ism/policies"
-    try:
-        resp = requests.get(endpoint, auth=(user, password),
-                            verify=False, timeout=REQUEST_TIMEOUT)
-        if resp.status_code != 200:
-            return _make_check("error", True, http_code=resp.status_code,
-                               details=f"HTTP {resp.status_code}", url=endpoint)
+    """
+    Verify that ISM policies exist AND are effectively applied.
 
-        raw_policies = resp.json().get("policies", [])
-        policies = []
-        for item in raw_policies:
-            pol = item.get("policy", {})
-            name = pol.get("policy_id", item.get("_id", "unknown"))
-            states = pol.get("states", [])
-            state_names = [s.get("name") for s in states]
-            delete_min_age = rollover_age = None
-            for state in states:
-                actions = state.get("actions", [])
-                for action in actions:
-                    if "rollover" in action:
-                        rollover_age = action["rollover"].get("min_index_age")
-                for transition in state.get("transitions", []):
-                    if transition.get("state_name", "").lower() in ("delete", "deleted"):
-                        delete_min_age = transition.get("conditions", {}).get("min_index_age")
-            policies.append({
-                "name": name, "states": state_names,
-                "delete_min_age": delete_min_age, "rollover_age": rollover_age,
-            })
+    The check reports four clearly separated situations instead of the single
+    "no policies found" verdict used previously:
 
-        if not policies:
-            return _make_check("warning", True,
-                               details="No ISM policies found. Log retention may be unmanaged.",
-                               policies=[])
-        return _make_check("ok", False, policy_count=len(policies), policies=policies)
-    except requests.exceptions.ConnectionError as exc:
-        return _make_check("error", True, details=f"Connection refused: {exc}", url=endpoint)
-    except requests.exceptions.Timeout:
-        return _make_check("error", True, details="Request timed out", url=endpoint)
-    except Exception as exc:
-        return _make_check("error", True, details=str(exc), url=endpoint)
+      * the ISM API could not be queried (auth / permissions / connectivity)
+      * no policy is defined at all
+      * policies are defined but no index is managed by them
+      * policies are defined and managed, optionally without a delete phase
+    """
+    policies, error, endpoint = _fetch_ism_policies(indexer_url, user, password)
+    if error:
+        return _make_check("error", True, details=f"Could not read ISM policies: {error}",
+                           url=endpoint)
+
+    managed, explain_error = _fetch_ism_explain(indexer_url, user, password)
+
+    issues: list[str] = []
+    managed_by_policy: dict[str, int] = {}
+    failed_indices: list[str] = []
+    disabled_indices: list[str] = []
+    for index_name, info in managed.items():
+        managed_by_policy[info["policy_id"]] = managed_by_policy.get(info["policy_id"], 0) + 1
+        if info["failed"]:
+            failed_indices.append(f"{index_name} ({info.get('info') or 'action failed'})")
+        elif not info["enabled"]:
+            disabled_indices.append(index_name)
+
+    for policy in policies:
+        policy["managed_indices"] = managed_by_policy.get(policy["name"], 0)
+
+    if not policies:
+        if managed:
+            # Indices reference a policy that the API did not return: almost
+            # always a permissions or API-prefix problem, not a missing policy.
+            return _make_check(
+                "warning", True, policies=[], managed_indices=len(managed),
+                details=(f"{len(managed)} index(es) are managed by ISM but no policy "
+                         f"document could be retrieved from {endpoint}."),
+                url=endpoint)
+        return _make_check(
+            "warning", True, policies=[], managed_indices=0,
+            details="No ISM policies found. Log retention may be unmanaged.",
+            url=endpoint)
+
+    if explain_error:
+        issues.append(f"Could not verify which indices are managed: {explain_error}")
+    elif not managed:
+        issues.append(
+            f"{len(policies)} ISM policy(ies) are defined but no {ISM_EXPLAIN_PATTERN} "
+            f"index is currently managed by them. Check the 'ism_template' index "
+            f"patterns or attach the policy to the existing indices.")
+
+    if failed_indices:
+        issues.append("ISM action failed on: " + ", ".join(sorted(failed_indices)[:5]))
+    if disabled_indices:
+        issues.append("ISM is disabled on: " + ", ".join(sorted(disabled_indices)[:5]))
+
+    with_retention = [p for p in policies if p["has_delete_phase"]]
+    if not with_retention:
+        issues.append(
+            f"{len(policies)} ISM policy(ies) found, but none defines a delete phase, "
+            f"so indices are never removed.")
+    else:
+        for policy in with_retention:
+            if not policy["has_age_retention"] and policy["delete_conditions"]:
+                issues.append(
+                    f"{policy['name']}: deletes by "
+                    f"{', '.join(policy['delete_conditions'])} instead of index age; "
+                    f"retention in days cannot be projected.")
+
+    notify = bool(issues)
+    return _make_check(
+        "warning" if notify else "ok", notify,
+        policy_count=len(policies),
+        policies=policies,
+        managed_indices=len(managed),
+        policies_with_retention=len(with_retention),
+        issues=issues or None,
+        url=endpoint)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -978,7 +1560,13 @@ def check_cron_rotation(deploy_mode: str = "bare-metal",
             if os.path.isfile(loc):
                 all_cron_lines.extend(_scan_file(loc))
             elif os.path.isdir(loc):
-                for fname in os.listdir(loc):
+                try:
+                    fnames = os.listdir(loc)
+                except (PermissionError, OSError):
+                    # /var/spool/cron/crontabs is root-only on Debian/Ubuntu;
+                    # skip it instead of aborting the whole run.
+                    continue
+                for fname in fnames:
                     fpath = os.path.join(loc, fname)
                     if os.path.isfile(fpath):
                         all_cron_lines.extend(_scan_file(fpath))
@@ -1038,15 +1626,40 @@ def check_cron_rotation(deploy_mode: str = "bare-metal",
 # ─────────────────────────────────────────────────────────────────────────────
 # Check 13 – Retention feasibility
 # ─────────────────────────────────────────────────────────────────────────────
-def _parse_age_to_days(age_str: str) -> int | None:
+def _parse_age_to_days(age_str: str) -> float | None:
+    """
+    Convert an OpenSearch time value into days.
+
+    OpenSearch time units are case sensitive: 'm' is minutes while 'M' is
+    months, and 'h' is hours - the previous version mapped 'h' to a full day
+    and rejected 'm'/'s' outright, which silently dropped valid policies.
+
+    Days and hours are additionally accepted in upper case ('180D', '4320H')
+    for tolerance: the indexer accepts those spellings on policy creation, and
+    although it normalises them to lower case before storing, the value may
+    reach this parser from elsewhere. 'M', 'w' and 'y' are likewise kept for
+    tolerance only - the indexer rejects them when the policy is created.
+    """
     if not age_str:
         return None
-    m = re.fullmatch(r"(\d+)([dhwMy])", age_str.strip())
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(ms|[smhdDHwMy])", str(age_str).strip())
     if not m:
         return None
-    n, unit = int(m.group(1)), m.group(2)
-    multipliers = {"d": 1, "h": 1, "w": 7, "M": 30, "y": 365}
-    return n * multipliers[unit]
+    n, unit = float(m.group(1)), m.group(2)
+    days_per_unit = {
+        "ms": 1 / 86_400_000,
+        "s":  1 / 86_400,
+        "m":  1 / 1_440,
+        "h":  1 / 24,
+        "H":  1 / 24,
+        "d":  1,
+        "D":  1,
+        "w":  7,
+        "M":  30,
+        "y":  365,
+    }
+    days = n * days_per_unit[unit]
+    return int(days) if days.is_integer() else round(days, 3)
 
 
 def _eval_retention(label, retention_days, scope, avg_daily_size_gb,
@@ -1121,34 +1734,31 @@ def check_retention_feasibility(indexer_url, user, password,
     except Exception:
         total_disk_gb = free_disk_gb = None
 
+    # Reuse the same ISM parsing as check 11 so both checks agree on whether a
+    # policy exists. Only fall back to the default projection when there is
+    # genuinely no usable age-based retention, and say why.
     retention_analyses: list[dict] = []
-    no_ism_policies = False
-    try:
-        ism_resp = requests.get(f"{indexer_url}/_plugins/_ism/policies",
-                                auth=(user, password), verify=False,
-                                timeout=REQUEST_TIMEOUT)
-        if ism_resp.status_code == 200:
-            for item in ism_resp.json().get("policies", []):
-                pol = item.get("policy", {})
-                policy_name = pol.get("policy_id", "unknown")
-                delete_age_str = None
-                for state in pol.get("states", []):
-                    for transition in state.get("transitions", []):
-                        if transition.get("state_name", "").lower() in ("delete", "deleted"):
-                            delete_age_str = transition.get("conditions", {}).get("min_index_age")
-                retention_days = _parse_age_to_days(delete_age_str)
-                if retention_days is None:
-                    continue
-                _eval_retention(policy_name, retention_days, "ism",
-                                avg_daily_size_gb, avg_shards_per_day,
-                                total_disk_gb, shard_limit,
-                                retention_analyses, issues)
-    except Exception:
-        pass
+    policies, ism_error, _ = _fetch_ism_policies(indexer_url, user, password)
+    for policy in policies:
+        retention_days = _parse_age_to_days(policy["delete_min_age"])
+        if retention_days is None:
+            continue
+        _eval_retention(policy["name"], retention_days, "ism",
+                        avg_daily_size_gb, avg_shards_per_day,
+                        total_disk_gb, shard_limit,
+                        retention_analyses, issues)
 
-    if not retention_analyses:
-        no_ism_policies = True
-        issues.append(f"No ISM policies found. Projecting with default {default_ism_days}d.")
+    no_ism_policies = not policies and not ism_error
+    no_ism_retention = not retention_analyses
+    if no_ism_retention:
+        if ism_error:
+            reason = f"ISM policies could not be read ({ism_error})."
+        elif not policies:
+            reason = "No ISM policies found."
+        else:
+            reason = (f"{len(policies)} ISM policy(ies) found, but none defines an "
+                      f"age-based delete phase.")
+        issues.append(f"{reason} Projecting with default {default_ism_days}d.")
         _eval_retention(f"default ({default_ism_days}d)", default_ism_days, "ism",
                         avg_daily_size_gb, avg_shards_per_day,
                         total_disk_gb, shard_limit,
@@ -1174,6 +1784,8 @@ def check_retention_feasibility(indexer_url, user, password,
         avg_shards_per_day=avg_shards_per_day, shard_limit=shard_limit,
         total_disk_gb=total_disk_gb, free_disk_gb=free_disk_gb,
         no_ism_policies=no_ism_policies,
+        no_ism_retention=no_ism_retention,
+        ism_policy_count=len(policies),
         retention_analyses=retention_analyses,
         issues=issues if issues else None,
     )
@@ -1339,6 +1951,10 @@ def check_manager_cluster_nodes(
     # affected_items. Absence means it did not respond to the cluster query.
     found_ids = {n["ip"] for n in nodes_found} | {n["name"] for n in nodes_found}
     issues: list[str] = []
+    # Expected entries may come from the topology lists as URLs or host:port,
+    # so compare on the bare host/name.
+    expected_nodes = [_node_host(e) if "://" in e or ":" in e else e
+                      for e in expected_nodes]
     for expected in expected_nodes:
         if expected not in found_ids:
             issues.append(f"{expected}: not found in cluster response")
@@ -1387,9 +2003,12 @@ def check_indexer_nodes(
         for n in raw_nodes
     ]
 
+    found_names = {n.get("name", "") for n in raw_nodes}
     issues: list[str] = []
+    expected_nodes = [_node_host(e) if "://" in e or ":" in e else e
+                      for e in expected_nodes]
     for ip in expected_nodes:
-        if ip not in found_ips:
+        if ip not in found_ips and ip not in found_names:
             issues.append(f"{ip}: not found in indexer node list")
 
     notify = bool(issues)
@@ -1400,40 +2019,533 @@ def check_indexer_nodes(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Check 19 – Manager API reachable on every declared manager node
+# ─────────────────────────────────────────────────────────────────────────────
+def check_manager_node_endpoints(node_urls: list[str], user: str,
+                                 password: str) -> dict:
+    """
+    Authenticate against the API of every declared manager node.
+
+    Check 16 only asks the local master which nodes it believes are connected;
+    this one actually talks to each manager (master and workers) so a worker
+    whose API is down, unreachable through the firewall or using different
+    credentials is reported explicitly.
+    """
+    nodes: list[dict] = []
+    issues: list[str] = []
+
+    for url in node_urls:
+        host = _node_host(url)
+        label = _node_label(url)
+        token, err = _get_manager_token(url, user, password)
+        if err:
+            nodes.append({"host": host, "url": url, "reachable": False, "error": err})
+            issues.append(f"{label}: manager API unreachable ({_short_error(err)})")
+            continue
+
+        entry: dict = {"host": host, "url": url, "reachable": True}
+        try:
+            resp = requests.get(f"{url}/cluster/node",
+                                headers={"Authorization": f"Bearer {token}"},
+                                verify=False, timeout=REQUEST_TIMEOUT)
+            if resp.status_code == 200:
+                items = resp.json().get("data", {}).get("affected_items", [])
+                if items:
+                    entry["node_name"] = items[0].get("node")
+                    entry["node_type"] = items[0].get("type")
+                    entry["cluster"] = items[0].get("cluster")
+            else:
+                entry["error"] = f"HTTP {resp.status_code} on /cluster/node"
+                issues.append(f"{label}: HTTP {resp.status_code} on /cluster/node")
+        except Exception as exc:
+            entry["error"] = str(exc)
+            issues.append(f"{label}: {_short_error(exc)}")
+        nodes.append(entry)
+
+    clusters = {n.get("cluster") for n in nodes if n.get("cluster")}
+    if len(clusters) > 1:
+        issues.append("Manager nodes report different cluster names: "
+                      + ", ".join(sorted(clusters)))
+
+    masters = [n.get("host") for n in nodes if n.get("node_type") == "master"]
+    if len(masters) > 1:
+        issues.append("More than one manager node reports type 'master': "
+                      + ", ".join(masters))
+
+    notify = bool(issues)
+    return _make_check("error" if notify else "ok", notify,
+                       node_count=len(nodes),
+                       reachable=sum(1 for n in nodes if n.get("reachable")),
+                       nodes=nodes, issues=issues or None)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Check 20 – Indexer reachable / same cluster on every declared indexer node
+# ─────────────────────────────────────────────────────────────────────────────
+def check_indexer_node_endpoints(node_urls: list[str], user: str,
+                                 password: str) -> dict:
+    """
+    Query every declared indexer node directly instead of relying on a single
+    entry point. A node that is up but split from the cluster answers with a
+    different cluster_name (or refuses the connection), which the cluster-wide
+    _cat/nodes call made from a healthy node cannot show.
+    """
+    nodes: list[dict] = []
+    issues: list[str] = []
+
+    for url in node_urls:
+        host = _node_host(url)
+        label = _node_label(url)
+        try:
+            resp = requests.get(f"{url}/", auth=(user, password),
+                                verify=False, timeout=REQUEST_TIMEOUT)
+        except requests.exceptions.ConnectionError as exc:
+            nodes.append({"host": host, "url": url, "reachable": False,
+                          "error": f"Connection refused: {exc}"})
+            issues.append(f"{label}: indexer unreachable (connection refused)")
+            continue
+        except requests.exceptions.Timeout:
+            nodes.append({"host": host, "url": url, "reachable": False,
+                          "error": "Request timed out"})
+            issues.append(f"{label}: indexer request timed out")
+            continue
+        except Exception as exc:
+            nodes.append({"host": host, "url": url, "reachable": False,
+                          "error": str(exc)})
+            issues.append(f"{label}: {_short_error(exc)}")
+            continue
+
+        if resp.status_code != 200:
+            nodes.append({"host": host, "url": url, "reachable": False,
+                          "http_code": resp.status_code,
+                          "error": f"HTTP {resp.status_code}"})
+            issues.append(f"{label}: HTTP {resp.status_code} from the indexer API")
+            continue
+
+        data = resp.json()
+        entry = {
+            "host": host, "url": url, "reachable": True,
+            "node_name": data.get("name"),
+            "cluster_name": data.get("cluster_name"),
+            "version": (data.get("version") or {}).get("number"),
+        }
+
+        # Per-node view of the cluster: a node that lost quorum reports its own
+        # health with a red/unknown status even when the rest of the cluster is
+        # fine.
+        try:
+            health = requests.get(f"{url}/_cluster/health", auth=(user, password),
+                                  params={"local": "true"}, verify=False,
+                                  timeout=REQUEST_TIMEOUT)
+            if health.status_code == 200:
+                payload = health.json()
+                entry["cluster_status"] = payload.get("status")
+                entry["nodes_seen"] = payload.get("number_of_nodes")
+                if payload.get("status") == "red":
+                    issues.append(f"{label}: reports cluster status 'red'")
+        except Exception:
+            pass
+
+        nodes.append(entry)
+
+    clusters = {n.get("cluster_name") for n in nodes if n.get("cluster_name")}
+    if len(clusters) > 1:
+        issues.append("Indexer nodes belong to different clusters: "
+                      + ", ".join(sorted(clusters)))
+
+    versions = {n.get("version") for n in nodes if n.get("version")}
+    if len(versions) > 1:
+        issues.append("Indexer nodes run different versions: "
+                      + ", ".join(sorted(versions)))
+
+    seen = {n.get("nodes_seen") for n in nodes if n.get("nodes_seen") is not None}
+    if len(seen) > 1:
+        issues.append("Indexer nodes disagree on the cluster size ("
+                      + ", ".join(str(s) for s in sorted(seen))
+                      + "), which suggests a split cluster.")
+
+    notify = bool(issues)
+    return _make_check("error" if notify else "ok", notify,
+                       node_count=len(nodes),
+                       reachable=sum(1 for n in nodes if n.get("reachable")),
+                       nodes=nodes, issues=issues or None)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Check 21 – Dashboard reachable on every declared dashboard node
+# ─────────────────────────────────────────────────────────────────────────────
+def check_dashboard_nodes(node_urls: list[str]) -> dict:
+    nodes: list[dict] = []
+    issues: list[str] = []
+
+    for url in node_urls:
+        host = _node_host(url)
+        label = _node_label(url)
+        result = check_dashboard(url)
+        entry = {"host": host, "url": url,
+                 "status": result.get("status"),
+                 "http_code": result.get("http_code")}
+        if result.get("status") != "ok":
+            entry["error"] = result.get("details")
+            issues.append(
+                f"{label}: {_short_error(result.get('details', 'unreachable'))}")
+        nodes.append(entry)
+
+    notify = bool(issues)
+    return _make_check("error" if notify else "ok", notify,
+                       node_count=len(nodes),
+                       reachable=sum(1 for n in nodes if n["status"] == "ok"),
+                       nodes=nodes, issues=issues or None)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Argument parser
 # ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# --init-config : generate /etc/wazuh-health-checker.conf
+# ─────────────────────────────────────────────────────────────────────────────
+# The topology is DISCOVERED ONCE and written to the file, on purpose. Checks 16
+# and 17 answer "is a node I expect missing from the cluster?", so the expected
+# list has to be a declaration the user reviewed - if it were rediscovered on
+# every run, a node that drops out would vanish from both sides of the
+# comparison and the check could never fail.
+WAZUH_INSTALL_FILES_TAR = "/root/wazuh-install-files.tar"
+
+
+def _credentials_from_install_files(tar_path: str = WAZUH_INSTALL_FILES_TAR) -> dict[str, str]:
+    """Read the credentials wazuh-install.sh generated, when they are still on disk.
+
+    The installer leaves wazuh-install-files/wazuh-passwords.txt inside the tar,
+    holding repeated "indexer_username/indexer_password" and
+    "api_username/api_password" pairs. Returns {} if anything is unavailable.
+    """
+    if not os.path.isfile(tar_path):
+        return {}
+    try:
+        import tarfile
+        with tarfile.open(tar_path) as tar:
+            member = next((m for m in tar.getmembers()
+                           if m.name.endswith("wazuh-passwords.txt")), None)
+            if member is None:
+                return {}
+            handle = tar.extractfile(member)
+            if handle is None:
+                return {}
+            text = handle.read().decode("utf-8", "replace")
+    except Exception as exc:
+        print(f"WARNING: Could not read {tar_path}: {exc}", file=sys.stderr)
+        return {}
+
+    pairs: list[tuple[str, str, str]] = []
+    kind = user = None
+    for line in text.splitlines():
+        m = re.match(r"\s*(indexer|api)_username:\s*'([^']*)'", line)
+        if m:
+            kind, user = m.group(1), m.group(2)
+            continue
+        m = re.match(r"\s*(indexer|api)_password:\s*'([^']*)'", line)
+        if m and user is not None and m.group(1) == kind:
+            pairs.append((kind, user, m.group(2)))
+            kind = user = None
+
+    found: dict[str, str] = {}
+    for wanted, keys in (("admin", ("INDEXER_USER", "INDEXER_PASS")),):
+        for kind, user, password in pairs:
+            if kind == "indexer" and user == wanted:
+                found[keys[0]], found[keys[1]] = user, password
+                break
+    # wazuh-wui is the API user the dashboard uses; 'wazuh' is the fallback.
+    for wanted in ("wazuh-wui", "wazuh"):
+        for kind, user, password in pairs:
+            if kind == "api" and user == wanted:
+                found.setdefault("MANAGER_USER", user)
+                found.setdefault("MANAGER_PASS", password)
+                break
+        if "MANAGER_USER" in found:
+            break
+    return found
+
+
+def _discover_manager_nodes(url: str, user: str,
+                            password: str) -> tuple[list[str], str | None, bool]:
+    """Manager cluster members, via the same GET /cluster/nodes check 16 uses.
+
+    Returns (nodes, error, cluster_enabled). A standalone manager is NOT an
+    error: GET /cluster/nodes answers 400 (error 3013, "Cluster is not
+    running") whenever clustering is disabled, so GET /cluster/status is asked
+    first and a single-node install reports cluster_enabled=False with no error.
+    """
+    token, err = _get_manager_token(url, user, password)
+    if err:
+        return [], err, False
+
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        status = requests.get(f"{url}/cluster/status", headers=headers,
+                              verify=False, timeout=REQUEST_TIMEOUT)
+        if status.status_code == 200:
+            enabled = status.json().get("data", {}).get("enabled", "no")
+            if str(enabled).lower() not in ("yes", "true"):
+                return [], None, False
+    except Exception:
+        pass  # fall through and let /cluster/nodes report the real problem
+
+    endpoint = f"{url}/cluster/nodes"
+    try:
+        resp = requests.get(endpoint, headers=headers,
+                            verify=False, timeout=REQUEST_TIMEOUT)
+    except Exception as exc:
+        return [], str(exc), True
+    if resp.status_code != 200:
+        payload = {}
+        try:
+            payload = resp.json()
+        except ValueError:
+            pass
+        # 3013 = cluster disabled; treat it as standalone rather than an error.
+        if payload.get("error") == 3013:
+            return [], None, False
+        detail = payload.get("detail") or f"HTTP {resp.status_code}"
+        return [], f"{detail} ({endpoint})", True
+    items = resp.json().get("data", {}).get("affected_items", [])
+    return [n.get("ip") for n in items if n.get("ip")], None, True
+
+
+def _discover_indexer_nodes(url: str, user: str, password: str) -> tuple[list[str], str | None]:
+    """Indexer cluster members, via the same _cat/nodes check 17 uses."""
+    endpoint = f"{url}/_cat/nodes?format=json&h=ip,name"
+    try:
+        resp = requests.get(endpoint, auth=(user, password),
+                            verify=False, timeout=REQUEST_TIMEOUT)
+    except Exception as exc:
+        return [], str(exc)
+    if resp.status_code != 200:
+        return [], f"HTTP {resp.status_code} from {endpoint}"
+    return [n.get("ip") for n in resp.json() if n.get("ip")], None
+
+
+def _prompt(label: str, current: str = "", secret: bool = False) -> str:
+    shown = f" [{current}]" if current and not secret else ""
+    if secret:
+        import getpass
+        value = getpass.getpass(f"{label}: ")
+    else:
+        value = input(f"{label}{shown}: ").strip()
+    return value or current
+
+
+CONFIG_TEMPLATE = """\
+# ─────────────────────────────────────────────────────────────────────────────
+# Wazuh health checker – single configuration file
+# ─────────────────────────────────────────────────────────────────────────────
+# Read by monitoring.py and sourced by wrapper.sh, which exports every value so
+# the notifier scripts see them too. Keep this file root-owned and chmod 600.
+#
+# Any value can be overridden at run time by an environment variable of the same
+# name, or by the matching monitoring.py command-line flag.
+
+# ── Credentials ──────────────────────────────────────────────────────────────
+MANAGER_USER={MANAGER_USER}
+MANAGER_PASS={MANAGER_PASS}
+INDEXER_USER={INDEXER_USER}
+INDEXER_PASS={INDEXER_PASS}
+
+# ── Cluster topology ─────────────────────────────────────────────────────────
+# Comma-separated. Each entry may be an IP, host:port, or a full URL.
+# Leave every list empty for an all-in-one deployment.
+# Include the local manager master in MANAGER_NODES: checks 16 and 17 verify
+# that each declared node is still present in the cluster.
+MANAGER_NODES={MANAGER_NODES}
+INDEXER_NODES={INDEXER_NODES}
+DASHBOARD_NODES={DASHBOARD_NODES}
+
+# ── Paths and thresholds ─────────────────────────────────────────────────────
+LOG_FILE={LOG_FILE}
+#DISK_PATH=/
+#DISK_THRESHOLD=75
+#SHARD_THRESHOLD=80
+#RETENTION_ISM_DAYS=90
+#RETENTION_ALERTS_DAYS=365
+#ALERTS_TREND_DAYS=7
+#ALERTS_DROP_THRESHOLD=20
+#PORTS=1514,1515
+#DEPLOY_MODE=bare-metal
+#NODE_ROLE=all
+#K8S_NAMESPACE=wazuh
+
+# ── Notifications (used by slack_notifier.py / email_notifier.py) ────────────
+SLACK_WEBHOOK_URL={SLACK_WEBHOOK_URL}
+SMTP_SERVER={SMTP_SERVER}
+SMTP_PORT={SMTP_PORT}
+SMTP_USER={SMTP_USER}
+SMTP_PASS={SMTP_PASS}
+EMAIL_TO={EMAIL_TO}
+"""
+
+
+def init_config(config_file: str, manager_url: str, indexer_url: str,
+                assume_yes: bool = False) -> int:
+    """Interactively build the single config file, discovering the topology."""
+    print(f"\n  Wazuh health checker – configuration setup")
+    print(f"  Target file: {config_file}\n")
+
+    if os.path.exists(config_file) and not assume_yes:
+        if _prompt(f"  '{config_file}' already exists. Overwrite? (y/N)", "N").lower() != "y":
+            print("  Aborted; nothing was written.")
+            return 1
+
+    values = dict(_config_values)
+
+    discovered = _credentials_from_install_files()
+    if discovered:
+        print(f"  [+] Credentials found in {WAZUH_INSTALL_FILES_TAR}")
+        for key, value in discovered.items():
+            values.setdefault(key, value)
+    else:
+        print(f"  [ ] {WAZUH_INSTALL_FILES_TAR} not readable – credentials will be asked for")
+
+    if not assume_yes:
+        print()
+        values["MANAGER_USER"] = _prompt("  Manager API user", values.get("MANAGER_USER", "wazuh-wui"))
+        if not values.get("MANAGER_PASS"):
+            values["MANAGER_PASS"] = _prompt("  Manager API password", secret=True)
+        values["INDEXER_USER"] = _prompt("  Indexer user", values.get("INDEXER_USER", "admin"))
+        if not values.get("INDEXER_PASS"):
+            values["INDEXER_PASS"] = _prompt("  Indexer password", secret=True)
+
+    for key in _REQUIRED_SECRETS:
+        if not values.get(key):
+            print(f"\n  ERROR: {key} is still empty; cannot discover the topology.",
+                  file=sys.stderr)
+            return 1
+
+    print("\n  Discovering cluster topology…")
+    managers, mgr_err, mgr_clustered = _discover_manager_nodes(
+        manager_url, values["MANAGER_USER"], values["MANAGER_PASS"])
+    if mgr_err:
+        print(f"  [!] Manager nodes: {mgr_err}")
+        print(f"      Leaving MANAGER_NODES empty – fill it in by hand if this is a cluster.")
+    elif not mgr_clustered:
+        print(f"  [+] Manager nodes:  standalone (clustering disabled)")
+    else:
+        print(f"  [+] Manager nodes:  {', '.join(managers) or '(none reported)'}")
+    indexers, idx_err = _discover_indexer_nodes(
+        indexer_url, values["INDEXER_USER"], values["INDEXER_PASS"])
+    if idx_err:
+        print(f"  [!] Indexer nodes: {idx_err}")
+        print(f"      Leaving INDEXER_NODES empty – fill it in by hand if this is a cluster.")
+    else:
+        print(f"  [+] Indexer nodes:  {', '.join(indexers) or '(single node)'}")
+
+    # A single node behind the localhost defaults needs no explicit topology.
+    if len(managers) < 2:
+        managers = []
+    if len(indexers) < 2:
+        indexers = []
+
+    rendered = CONFIG_TEMPLATE.format(
+        MANAGER_USER=values.get("MANAGER_USER", ""),
+        MANAGER_PASS=values.get("MANAGER_PASS", ""),
+        INDEXER_USER=values.get("INDEXER_USER", ""),
+        INDEXER_PASS=values.get("INDEXER_PASS", ""),
+        MANAGER_NODES=",".join(managers),
+        INDEXER_NODES=",".join(indexers),
+        DASHBOARD_NODES=values.get("DASHBOARD_NODES", ""),
+        LOG_FILE=values.get("LOG_FILE", DEFAULT_LOG_FILE),
+        SLACK_WEBHOOK_URL=values.get("SLACK_WEBHOOK_URL", ""),
+        SMTP_SERVER=values.get("SMTP_SERVER", ""),
+        SMTP_PORT=values.get("SMTP_PORT", "587"),
+        SMTP_USER=values.get("SMTP_USER", ""),
+        SMTP_PASS=values.get("SMTP_PASS", ""),
+        EMAIL_TO=values.get("EMAIL_TO", ""),
+    )
+
+    directory = os.path.dirname(config_file) or "."
+    try:
+        os.makedirs(directory, exist_ok=True)
+        fd = os.open(config_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(rendered)
+        os.chmod(config_file, 0o600)
+    except OSError as exc:
+        print(f"\n  ERROR: Cannot write {config_file}: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"\n  [\u2713] Wrote {config_file} (chmod 600)")
+    print(f"      Review it, then add SLACK_WEBHOOK_URL / SMTP_* for notifications.")
+    print(f"      Nothing else needs editing – wrapper.sh sources this file.\n")
+    return 0
+
+
 def parse_args() -> argparse.Namespace:
+    # --config-file / --secrets-file are resolved first: their contents supply
+    # the defaults for every other option, so the precedence ends up being
+    # CLI flag > environment variable > config file > built-in default.
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--config-file",
+                     default=os.environ.get("HEALTH_CHECKER_CONF", DEFAULT_CONFIG_FILE),
+                     help=f"Single configuration file (default: {DEFAULT_CONFIG_FILE})")
+    pre.add_argument("--secrets-file", default=DEFAULT_SECRETS_FILE,
+                     help="Legacy credentials file, still read when present")
+    known, _ = pre.parse_known_args()
+    load_config(known.config_file, known.secrets_file)
+
     parser = argparse.ArgumentParser(
+        parents=[pre],
         description="Wazuh environment health checker – supports bare-metal, "
                     "Docker, and Kubernetes deployments."
     )
+    parser.add_argument("--init-config", action="store_true",
+                        help="Discover the cluster topology and write the "
+                             "configuration file, then exit.")
+    parser.add_argument("--yes", action="store_true",
+                        help="Non-interactive --init-config (no prompts).")
     parser.add_argument("--deploy-mode",
                         choices=["bare-metal", "docker", "kubernetes"],
-                        default="bare-metal")
-    parser.add_argument("--k8s-namespace", default=K8S_DEFAULT_NAMESPACE)
+                        default=cfg("DEPLOY_MODE", "bare-metal"))
+    parser.add_argument("--k8s-namespace", default=cfg("K8S_NAMESPACE", K8S_DEFAULT_NAMESPACE))
     parser.add_argument("--node-role",
                         choices=["all", "manager", "indexer", "dashboard"],
-                        default="all")
-    parser.add_argument("--manager-url",   default=DEFAULT_MANAGER_URL)
-    parser.add_argument("--indexer-url",   default=DEFAULT_INDEXER_URL)
-    parser.add_argument("--dashboard-url", default=DEFAULT_DASHBOARD_URL)
-    parser.add_argument("--secrets-file", default=DEFAULT_SECRETS_FILE)
-    parser.add_argument("--log-file", default=DEFAULT_LOG_FILE)
-    parser.add_argument("--disk-path",      default=DEFAULT_DISK_PATH)
-    parser.add_argument("--disk-threshold", type=int, default=DEFAULT_DISK_THRESHOLD)
-    parser.add_argument("--shard-threshold", type=int, default=DEFAULT_SHARD_THRESHOLD)
-    parser.add_argument("--manager-host", default="localhost")
-    parser.add_argument("--ports", default="1514,1515")
-    parser.add_argument("--retention-ism-days", type=int, default=90)
-    parser.add_argument("--retention-alerts-days", type=int, default=365)
-    parser.add_argument("--alerts-trend-days", type=int, default=7,
+                        default=cfg("NODE_ROLE", "all"))
+    # These default to None so that a topology declared through --*-nodes (or
+    # through the DEFAULT_*_NODES lists) fully replaces the localhost defaults
+    # instead of being probed alongside them.
+    parser.add_argument("--manager-url",   default=cfg("MANAGER_URL"),
+                        help=f"Manager API URL (default: {DEFAULT_MANAGER_URL})")
+    parser.add_argument("--indexer-url",   default=cfg("INDEXER_URL"),
+                        help=f"Indexer URL (default: {DEFAULT_INDEXER_URL})")
+    parser.add_argument("--dashboard-url", default=cfg("DASHBOARD_URL"),
+                        help=f"Dashboard URL (default: {DEFAULT_DASHBOARD_URL})")
+    parser.add_argument("--log-file", default=cfg("LOG_FILE", DEFAULT_LOG_FILE))
+    parser.add_argument("--disk-path",      default=cfg("DISK_PATH", DEFAULT_DISK_PATH))
+    parser.add_argument("--disk-threshold", type=int,
+                        default=cfg_int("DISK_THRESHOLD", DEFAULT_DISK_THRESHOLD))
+    parser.add_argument("--shard-threshold", type=int,
+                        default=cfg_int("SHARD_THRESHOLD", DEFAULT_SHARD_THRESHOLD))
+    parser.add_argument("--manager-host", default=cfg("MANAGER_HOST"),
+                        help="Host for the TCP port checks. Defaults to every "
+                             "manager node declared in the topology, or "
+                             "'localhost' for an all-in-one deployment.")
+    parser.add_argument("--ports", default=cfg("PORTS", "1514,1515"))
+    parser.add_argument("--retention-ism-days", type=int,
+                        default=cfg_int("RETENTION_ISM_DAYS", 90))
+    parser.add_argument("--retention-alerts-days", type=int,
+                        default=cfg_int("RETENTION_ALERTS_DAYS", 365))
+    parser.add_argument("--alerts-trend-days", type=int,
+                        default=cfg_int("ALERTS_TREND_DAYS", 7),
                         help="Window in days for alert trend comparison")
-    parser.add_argument("--alerts-drop-threshold", type=float, default=20.0,
+    parser.add_argument("--alerts-drop-threshold", type=float,
+                        default=cfg_float("ALERTS_DROP_THRESHOLD", 20.0),
                         help="Warn when alert drop percentage is >= this value")
-    parser.add_argument("--manager-nodes", default="",
-                        help="Comma-separated manager cluster node IPs/names")
-    parser.add_argument("--indexer-nodes", default="",
-                        help="Comma-separated indexer cluster node IPs")
+    parser.add_argument("--manager-nodes", default=cfg("MANAGER_NODES"),
+                        help="Comma-separated manager cluster nodes (IP, host:port "
+                             f"or URL). Port defaults to {MANAGER_API_PORT}.")
+    parser.add_argument("--indexer-nodes", default=cfg("INDEXER_NODES"),
+                        help="Comma-separated indexer cluster nodes (IP, host:port "
+                             f"or URL). Port defaults to {INDEXER_PORT}.")
+    parser.add_argument("--dashboard-nodes", default=cfg("DASHBOARD_NODES"),
+                        help="Comma-separated dashboard nodes (IP, host:port "
+                             f"or URL). Port defaults to {DASHBOARD_PORT}.")
     return parser.parse_args()
 
 
@@ -1442,7 +2554,16 @@ def parse_args() -> argparse.Namespace:
 # ─────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     args = parse_args()
-    secrets = _load_secrets(args.secrets_file)
+
+    if args.init_config:
+        sys.exit(init_config(
+            args.config_file,
+            (args.manager_url or DEFAULT_MANAGER_URL).rstrip("/"),
+            (args.indexer_url or DEFAULT_INDEXER_URL).rstrip("/"),
+            assume_yes=args.yes,
+        ))
+
+    secrets = _load_secrets(args.config_file, args.secrets_file)
     mgr_user = secrets["MANAGER_USER"]
     mgr_pass = secrets["MANAGER_PASS"]
     idx_user = secrets["INDEXER_USER"]
@@ -1451,7 +2572,64 @@ def main() -> None:
     mode = args.deploy_mode
     role = args.node_role
 
+    # ── Resolve the cluster topology ──────────────────────────────────────
+    # The script lives on the manager master; everything else is reached over
+    # the network using the declared node addresses. When no node is declared
+    # the localhost defaults are used, which is the all-in-one case.
+    manager_node_urls = _parse_node_list(
+        args.manager_nodes, DEFAULT_MANAGER_NODES, MANAGER_API_PORT)
+    indexer_node_urls = _parse_node_list(
+        args.indexer_nodes, DEFAULT_INDEXER_NODES, INDEXER_PORT)
+    dashboard_node_urls = _parse_node_list(
+        args.dashboard_nodes, DEFAULT_DASHBOARD_NODES, DASHBOARD_PORT)
+
+    # The manager API is always queried locally: this node is the master.
+    manager_url = (args.manager_url or DEFAULT_MANAGER_URL).rstrip("/")
+
+    indexer_urls = _resolve_endpoints(
+        args.indexer_url, indexer_node_urls, DEFAULT_INDEXER_URL)
+    dashboard_urls = _resolve_endpoints(
+        args.dashboard_url, dashboard_node_urls, DEFAULT_DASHBOARD_URL)
+
     print(f"[*] Starting Wazuh health checks (deploy-mode={mode}, node-role={role})…")
+
+    # Cluster-wide indexer checks (shards, ISM, retention, …) only need one
+    # reachable entry point; pick the first node that answers so a single dead
+    # indexer does not blank out every indexer check.
+    if len(indexer_urls) > 1:
+        indexer_url, unreachable_indexers = _first_reachable(
+            indexer_urls, _probe_indexer(idx_user, idx_pass))
+        if unreachable_indexers:
+            print(f"    [!] Indexer entry point(s) not answering: "
+                  f"{', '.join(unreachable_indexers)}")
+    else:
+        indexer_url, unreachable_indexers = indexer_urls[0], []
+
+    dashboard_url = dashboard_urls[0]
+
+    # Agents connect to every manager node, so probe 1514/1515 on all of them.
+    if args.manager_host:
+        candidate_hosts = [h.strip() for h in args.manager_host.split(",") if h.strip()]
+    elif manager_node_urls:
+        candidate_hosts = [_node_host(u) for u in manager_node_urls]
+    else:
+        candidate_hosts = ["localhost"]
+    port_hosts = list(dict.fromkeys(candidate_hosts))
+
+    topology = {
+        "manager_url":     manager_url,
+        "manager_nodes":   manager_node_urls,
+        "indexer_url":     indexer_url,
+        "indexer_nodes":   indexer_node_urls or indexer_urls,
+        "dashboard_nodes": dashboard_node_urls or dashboard_urls,
+        "port_hosts":      port_hosts,
+    }
+
+    print(f"    Manager   : {manager_url}"
+          + (f"  (+{len(manager_node_urls)} declared node(s))" if manager_node_urls else ""))
+    print(f"    Indexer   : {indexer_url}"
+          + (f"  (of {len(indexer_urls)} node(s))" if len(indexer_urls) > 1 else ""))
+    print(f"    Dashboard : {', '.join(dashboard_urls)}")
 
     checks: dict[str, dict] = {}
 
@@ -1464,19 +2642,19 @@ def main() -> None:
 
     if should_run("manager_api", role):
         print("    [1] Manager API…")
-        checks["manager_api"] = check_manager_api(args.manager_url, mgr_user, mgr_pass)
+        checks["manager_api"] = check_manager_api(manager_url, mgr_user, mgr_pass)
     else:
         checks["manager_api"] = _make_skip(role)
 
     if should_run("indexer_api", role):
         print("    [2] Indexer API…")
-        checks["indexer_api"] = check_indexer_api(args.indexer_url, idx_user, idx_pass)
+        checks["indexer_api"] = check_indexer_api(indexer_url, idx_user, idx_pass)
     else:
         checks["indexer_api"] = _make_skip(role)
 
     if should_run("dashboard", role):
         print("    [3] Dashboard…")
-        checks["dashboard"] = check_dashboard(args.dashboard_url)
+        checks["dashboard"] = check_dashboard(dashboard_url)
     else:
         checks["dashboard"] = _make_skip(role)
 
@@ -1489,47 +2667,47 @@ def main() -> None:
     if should_run("indexer_disk_space", role):
         print("    [4b] Indexer disk space (API)…")
         checks["indexer_disk_space"] = check_indexer_disk_space(
-            args.indexer_url, idx_user, idx_pass, args.disk_threshold)
+            indexer_url, idx_user, idx_pass, args.disk_threshold)
     else:
         checks["indexer_disk_space"] = _make_skip(role)
 
     if should_run("shards_per_node", role):
         print("    [5-6] Shards…")
         checks["shards_per_node"], checks["active_shards"] = check_shards(
-            args.indexer_url, idx_user, idx_pass, args.shard_threshold)
+            indexer_url, idx_user, idx_pass, args.shard_threshold)
     else:
         checks["shards_per_node"] = _make_skip(role)
         checks["active_shards"] = _make_skip(role)
 
     if should_run("jvm_options", role):
         print("    [7] JVM options (API)…")
-        checks["jvm_options"] = check_jvm_api(args.indexer_url, idx_user, idx_pass)
+        checks["jvm_options"] = check_jvm_api(indexer_url, idx_user, idx_pass)
     else:
         checks["jvm_options"] = _make_skip(role)
 
     if should_run("unassigned_shards", role):
         print("    [8] Unassigned shards…")
         checks["unassigned_shards"] = check_unassigned_shards(
-            args.indexer_url, idx_user, idx_pass)
+            indexer_url, idx_user, idx_pass)
     else:
         checks["unassigned_shards"] = _make_skip(role)
 
     if should_run("ports", role):
         print("    [9] Ports…")
         ports_to_check = [int(p.strip()) for p in args.ports.split(",") if p.strip()]
-        checks["ports"] = check_ports(args.manager_host, ports_to_check)
+        checks["ports"] = check_ports(port_hosts, ports_to_check)
     else:
         checks["ports"] = _make_skip(role)
 
     if should_run("agents", role):
         print("    [10] Agent summary…")
-        checks["agents"] = check_agents(args.manager_url, mgr_user, mgr_pass)
+        checks["agents"] = check_agents(manager_url, mgr_user, mgr_pass)
     else:
         checks["agents"] = _make_skip(role)
 
     if should_run("ilm_policies", role):
         print("    [11] ISM policies…")
-        checks["ilm_policies"] = check_ilm_policies(args.indexer_url, idx_user, idx_pass)
+        checks["ilm_policies"] = check_ilm_policies(indexer_url, idx_user, idx_pass)
     else:
         checks["ilm_policies"] = _make_skip(role)
 
@@ -1543,7 +2721,7 @@ def main() -> None:
     if should_run("retention_feasibility", role):
         print("    [13] Retention feasibility…")
         checks["retention_feasibility"] = check_retention_feasibility(
-            args.indexer_url, idx_user, idx_pass,
+            indexer_url, idx_user, idx_pass,
             args.disk_path, args.retention_ism_days, args.retention_alerts_days)
     else:
         checks["retention_feasibility"] = _make_skip(role)
@@ -1562,28 +2740,25 @@ def main() -> None:
     else:
         checks["filebeat_output"] = _make_skip(role)
 
-    manager_nodes = (
-        [ip.strip() for ip in args.manager_nodes.split(",") if ip.strip()]
-        if args.manager_nodes.strip() else DEFAULT_MANAGER_NODES
-    )
-    if manager_nodes and should_run("manager_cluster_nodes", role):
+    # ── Multi-node checks (16, 17, 19, 20, 21) ───────────────────────────
+    # They only run when the corresponding topology list is populated, so an
+    # all-in-one deployment keeps the exact same output as before.
+    manager_node_hosts = [_node_host(u) for u in manager_node_urls]
+    if manager_node_hosts and should_run("manager_cluster_nodes", role):
         print("    [16] Manager cluster nodes…")
         checks["manager_cluster_nodes"] = check_manager_cluster_nodes(
-            manager_nodes, args.manager_url, mgr_user, mgr_pass)
+            manager_node_hosts, manager_url, mgr_user, mgr_pass)
 
-    indexer_nodes = (
-        [ip.strip() for ip in args.indexer_nodes.split(",") if ip.strip()]
-        if args.indexer_nodes.strip() else DEFAULT_INDEXER_NODES
-    )
-    if indexer_nodes and should_run("indexer_nodes", role):
+    indexer_node_hosts = [_node_host(u) for u in indexer_node_urls]
+    if indexer_node_hosts and should_run("indexer_nodes", role):
         print("    [17] Indexer cluster nodes…")
         checks["indexer_nodes"] = check_indexer_nodes(
-            indexer_nodes, idx_user, idx_pass, args.indexer_url)
+            indexer_node_hosts, idx_user, idx_pass, indexer_url)
 
     if should_run("alert_volume_trend", role):
         print("    [18] Alert volume trend…")
         checks["alert_volume_trend"] = check_alert_volume_trend(
-            args.indexer_url,
+            indexer_url,
             idx_user,
             idx_pass,
             args.alerts_trend_days,
@@ -1591,6 +2766,20 @@ def main() -> None:
         )
     else:
         checks["alert_volume_trend"] = _make_skip(role)
+
+    if manager_node_urls and should_run("manager_node_endpoints", role):
+        print("    [19] Manager API per node…")
+        checks["manager_node_endpoints"] = check_manager_node_endpoints(
+            manager_node_urls, mgr_user, mgr_pass)
+
+    if indexer_node_urls and should_run("indexer_node_endpoints", role):
+        print("    [20] Indexer reachability per node…")
+        checks["indexer_node_endpoints"] = check_indexer_node_endpoints(
+            indexer_node_urls, idx_user, idx_pass)
+
+    if len(dashboard_urls) > 1 and should_run("dashboard_nodes", role):
+        print("    [21] Dashboard per node…")
+        checks["dashboard_nodes"] = check_dashboard_nodes(dashboard_urls)
 
     global_notify = any(
         c.get("notify", False) for c in checks.values()
@@ -1601,6 +2790,7 @@ def main() -> None:
         "timestamp":   datetime.now(tz=timezone.utc).astimezone().isoformat(),
         "deploy_mode": mode,
         "node_role":   role,
+        "topology":    topology,
         "checks":      checks,
         "notify":      global_notify,
     }
@@ -1624,6 +2814,10 @@ def main() -> None:
     # ── Print summary ────────────────────────────────────────────────────
     print("\n── Health Check Summary ─────────────────────────────────────────")
     print(f"   Deploy mode: {mode} | Node role: {role}")
+    if manager_node_urls or indexer_node_urls or len(dashboard_urls) > 1:
+        print(f"   Topology: {len(manager_node_urls) or 1} manager / "
+              f"{len(indexer_node_urls) or len(indexer_urls)} indexer / "
+              f"{len(dashboard_urls)} dashboard node(s)")
     STATUS_ICONS = {"ok": "✓", "warning": "⚠", "error": "✗", "skipped": "–"}
 
     labels = {}
@@ -1652,6 +2846,12 @@ def main() -> None:
     if "indexer_nodes" in checks:
         labels["indexer_nodes"] = "Indexer Nodes"
     labels["alert_volume_trend"] = "Alert Volume Trend"
+    if "manager_node_endpoints" in checks:
+        labels["manager_node_endpoints"] = "Manager API per Node"
+    if "indexer_node_endpoints" in checks:
+        labels["indexer_node_endpoints"] = "Indexer Reach. per Node"
+    if "dashboard_nodes" in checks:
+        labels["dashboard_nodes"] = "Dashboard per Node"
 
     def _reason(check: dict) -> list[str]:
         """Extract human-readable reason lines from a check result."""
@@ -1673,9 +2873,21 @@ def main() -> None:
                 f"{check['limit']} (threshold: {check.get('threshold_pct')}%)")
         if check.get("http_code") and check.get("status") != "ok":
             lines.append(f"HTTP {check['http_code']} from {check.get('url', '')}")
-        for port, state in (check.get("ports") or {}).items():
-            if state != "open":
-                lines.append(f"Port {port}: {state}")
+        if check.get("reachable") is not None and check.get("node_count") is not None:
+            lines.append(f"{check['reachable']}/{check['node_count']} node(s) reachable")
+        if check.get("managed_indices") is not None:
+            lines.append(
+                f"{check.get('policy_count', 0)} ISM policy(ies), "
+                f"{check.get('policies_with_retention', 0)} with a delete phase, "
+                f"{check['managed_indices']} managed index(es)")
+        for host, states in (check.get("hosts") or {}).items():
+            for port, state in states.items():
+                if state != "open":
+                    lines.append(f"{host} port {port}: {state}")
+        if not check.get("hosts"):
+            for port, state in (check.get("ports") or {}).items():
+                if state != "open":
+                    lines.append(f"Port {port}: {state}")
         if check.get("total") is not None:
             lines.append(
                 f"Total: {check['total']}  "
@@ -1696,9 +2908,18 @@ def main() -> None:
                 f"Drop: {drop_str} (threshold: {check.get('drop_threshold_pct')}%)")
         if check.get("policies") is not None:
             for p in check["policies"]:
-                delete_age = p.get("delete_min_age") or "no delete phase"
+                if p.get("delete_min_age"):
+                    retention = f"delete_after={p['delete_min_age']}"
+                elif p.get("delete_conditions"):
+                    retention = f"delete_on={','.join(p['delete_conditions'])}"
+                elif p.get("has_delete_phase"):
+                    retention = "delete phase without conditions"
+                else:
+                    retention = "no delete phase"
+                managed = p.get("managed_indices")
+                managed_txt = f", managed_indices={managed}" if managed is not None else ""
                 lines.append(
-                    f"{p['name']}: states={p.get('states', [])}, delete_after={delete_age}")
+                    f"{p['name']}: states={p.get('states', [])}, {retention}{managed_txt}")
         # NOTE: removed the redundant `nodes` iteration block that was
         # duplicating lines already captured by the `issues` loop above.
         for target in check.get("missing_rotation_for") or []:
@@ -1747,7 +2968,8 @@ def main() -> None:
                     "         └─ "
                     f"Manager version: {check.get('manager_version', 'unknown')} | "
                     f"UUID: {check.get('manager_uuid', 'unknown')}")
-        elif key == "alert_volume_trend":
+        elif key in ("alert_volume_trend", "ilm_policies", "manager_node_endpoints",
+                     "indexer_node_endpoints", "dashboard_nodes"):
             for reason in _reason(check):
                 print(f"         └─ {reason}")
 
