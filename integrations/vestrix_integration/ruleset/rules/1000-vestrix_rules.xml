@@ -1,0 +1,64 @@
+<group name="vestrix,physical_intrusion,">
+  <!-- Group every canonical Vestrix event without generating an alert. -->
+  <rule id="100200" level="0">
+    <decoded_as>vestrix</decoded_as>
+    <field name="source" type="pcre2">^vestrix$</field>
+    <description>Vestrix canonical SOC event</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- confidence_level is derived and validated by mapper.py per SCHEMA.md. -->
+  <rule id="100201" level="10">
+    <if_sid>100200</if_sid>
+    <field name="class" type="pcre2">^intrusion$</field>
+    <field name="confidence_level" type="pcre2">^high$</field>
+    <description>Vestrix: high-confidence physical intrusion at $(site_id)/$(zone_id), sensor $(node_id)</description>
+    <group>physical_security,intrusion_detection,</group>
+  </rule>
+
+  <!--
+    PACS fields are illustrative placeholders populated by an upstream enricher.
+    pacs_event_status=missing means its badge-correlation window has closed with
+    no match; Wazuh is not inferring absence here.
+  -->
+  <rule id="100202" level="12">
+    <if_sid>100200</if_sid>
+    <field name="class" type="pcre2">^intrusion$</field>
+    <field name="pacs_event_status" type="pcre2">^missing$</field>
+    <description>Vestrix: physical intrusion with no corresponding badge/PACS event at $(site_id)/$(zone_id)</description>
+    <group>physical_security,access_control,</group>
+  </rule>
+
+  <rule id="100203" level="12">
+    <if_sid>100200</if_sid>
+    <field name="class" type="pcre2">^sensor_tamper$</field>
+    <description>Vestrix: sensor tamper detected on $(node_id) at $(site_id)/$(zone_id)</description>
+    <group>physical_security,sensor_tamper,defense_evasion,</group>
+  </rule>
+
+  <!--
+    Correlation helper for current Wazuh built-in OpenSSH brute-force rules:
+      5712 - nonexistent-user brute force
+      5763 - repeated authentication-failure brute force
+    It is level 1 (not 0) so if_matched_sid history can retain it; no_log
+    prevents a duplicate alert. These IDs are version-dependent assumptions.
+  -->
+  <rule id="100210" level="1">
+    <if_sid>5712,5763</if_sid>
+    <description>Vestrix correlation helper: recent SSH authentication anomaly</description>
+    <options>no_log</options>
+    <group>vestrix_auth_anomaly,</group>
+  </rule>
+
+  <!--
+    This direction fires when a high-confidence Vestrix intrusion arrives within
+    120 seconds after the authentication anomaly. It is intentionally global
+    until the auth source is enriched with a Vestrix site_id/zone_id.
+  -->
+  <rule id="100211" level="14" timeframe="120">
+    <if_sid>100201</if_sid>
+    <if_matched_sid>100210</if_matched_sid>
+    <description>Vestrix: physical intrusion within 120s of an SSH authentication anomaly at $(site_id)/$(zone_id)</description>
+    <group>physical_security,authentication_failures,correlation,</group>
+  </rule>
+</group>
