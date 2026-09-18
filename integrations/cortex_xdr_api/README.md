@@ -120,6 +120,7 @@ daily index or roll over to see the change take effect.
 | `dashboards/cortex_xdr_dashboard.ndjson` | Incidents and alerts overview |
 | `dashboards/cortex_xdr_endpoints_dashboard.ndjson` | Agent inventory and protection state |
 | `dashboards/cortex_xdr_audit_dashboard.ndjson` | Console and agent audit activity |
+| `dashboards/cortex_xdr_vega_dashboard.ndjson` | Vega explorer: estate treemap, MITRE and agent-health matrices, activity clock |
 
 No decoder ships with this integration and none is needed. The collector writes NDJSON,
 logcollector reads it as `json`, and Wazuh's built-in json decoder flattens each line
@@ -241,15 +242,25 @@ explaining what it fires on and why its level is what it is.
 Import**, with "overwrite" enabled, or from the command line:
 
 ```bash
-for d in cortex_xdr_dashboard cortex_xdr_endpoints_dashboard cortex_xdr_audit_dashboard; do
+for d in cortex_xdr_dashboard cortex_xdr_endpoints_dashboard cortex_xdr_audit_dashboard cortex_xdr_vega_dashboard; do
   curl -sk -u admin:admin -X POST \
     "https://127.0.0.1/api/saved_objects/_import?overwrite=true" \
     -H "osd-xsrf:true" --form file=@dashboards/$d.ndjson
 done
 ```
 
-They reference the `wazuh-alerts-*` index pattern and render without the index mapping,
-though date histograms are more useful once it is applied.
+The first three reference the `wazuh-alerts-*` index pattern and render without the index
+mapping, though date histograms are more useful once it is applied.
+
+`cortex_xdr_vega_dashboard.ndjson` is the visual explorer, built the same way as the one
+in `m365_inventory`: vega-lite v5 for the matrices and the trend, and full Vega v5 for
+the treemap, which vega-lite cannot express. It holds an endpoint estate treemap coloured
+by protection risk, a MITRE tactic against severity matrix, an agent version against
+content status matrix, a stacked alert trend, the noisiest hosts split by severity, a
+console activity clock by hour and weekday, and agent report outcomes. Every panel
+declares `%context%` and `%timefield%`, so the filter bar and the time picker apply to
+them as they do to the other dashboards. These panels count documents rather than
+aggregating numerically, so they work without the index mapping too.
 
 ---
 
