@@ -37,10 +37,11 @@ DEFAULT_LOG_FILE = "/var/ossec/logs/cortex_xdr.log"
 DEFAULT_LOCK_FILE = "/var/ossec/var/run/cortex_xdr.lock"
 STATE_VERSION = 1
 
-# The 5.x docs and the tenant console give /XDR/public/v1; long-standing field
-# clients use /public_api/v1. Tenants answer on one or the other, so try both
-# and cache the winner in the state file rather than making it a support call.
-BASE_PATHS = ["XDR/public/v1", "public_api/v1"]
+# The 5.x docs and the tenant console give /XDR/public/v1, but a 5.0 EU tenant
+# serves incidents on /public_api/v1 and answers the documented prefix with a
+# 500. The working one is therefore tried first, and both are kept because only
+# the tenant can settle it.
+BASE_PATHS = ["public_api/v1", "XDR/public/v1"]
 
 # Documented per-request cap for get_incidents. Asking for more is rejected.
 PAGE_SIZE = 100
@@ -115,32 +116,55 @@ def headers(cfg):
 def api_call(session, cfg, endpoint, request_data):
     """POST to the tenant, resolving the base path on first use.
 
-    ponytail: the fallback exists because the docs and the field disagree on
-    the prefix. Once state records a working one, later runs try it first and
-    this costs nothing.
+    The base path is resolved once and then cached in the state file, so this is
+    a plain call on every run after the first.
     """
-    bases = [cfg["base_path"]] if cfg["base_path"] else BASE_PATHS
+    if not cfg["base_path"]:
+        cfg["base_path"] = resolve_base_path(cfg)
+
+    url = "https://{}/{}/{}/".format(cfg["fqdn"], cfg["base_path"], endpoint)
+    response = session.post(url, headers=headers(cfg),
+                            json={"request_data": request_data}, timeout=TIMEOUT)
+    if response.status_code in (401, 403):
+        raise credentials_error(response.status_code, cfg)
+    response.raise_for_status()
+    return response.json()
+
+
+def credentials_error(status, cfg):
+    return SystemExit(
+        "Cortex XDR rejected the credentials ({}). Check the API key, that "
+        "x-xdr-auth-id is {}, and that the key's role can read incidents."
+        .format(status, cfg["api_key_id"]))
+
+
+def resolve_base_path(cfg):
+    """Find the API prefix this tenant answers on.
+
+    A wrong prefix does not 404. A 5.0 EU tenant returns 500 for the prefix its
+    own console documents, so anything that is not a 200 means "try the next
+    one". Deliberately not using the retry session: retrying a 500 that only
+    means "wrong prefix" would burn three backoffs per candidate.
+    """
+    probe = {"request_data": {"search_from": 0, "search_to": 1}}
     tried = []
-    for base in bases:
-        url = "https://{}/{}/{}/".format(cfg["fqdn"], base, endpoint)
-        response = session.post(url, headers=headers(cfg),
-                                json={"request_data": request_data}, timeout=TIMEOUT)
-        if response.status_code == 404:
-            # Wrong prefix for this tenant. A real missing incident is not a 404
-            # here; get_incidents answers 200 with an empty list.
-            tried.append(url)
-            log.debug("404 on %s, trying the next base path", url)
+    for base in BASE_PATHS:
+        url = "https://{}/{}/incidents/get_incidents/".format(cfg["fqdn"], base)
+        try:
+            response = requests.post(url, headers=headers(cfg), json=probe, timeout=TIMEOUT)
+        except requests.RequestException as exc:
+            tried.append("{} ({})".format(base, exc.__class__.__name__))
             continue
         if response.status_code in (401, 403):
-            raise SystemExit(
-                "Cortex XDR rejected the credentials ({}). Check the API key, that "
-                "x-xdr-auth-id is {}, and that the key's role can read incidents."
-                .format(response.status_code, cfg["api_key_id"]))
-        response.raise_for_status()
-        cfg["base_path"] = base
-        return response.json()
-
-    raise SystemExit("No Cortex XDR base path answered; tried: {}".format(", ".join(tried)))
+            # The credentials are the problem, not the prefix. Say so rather
+            # than reporting every path as dead.
+            raise credentials_error(response.status_code, cfg)
+        if response.status_code == 200:
+            log.info("resolved Cortex XDR base path: %s", base)
+            return base
+        tried.append("{} (HTTP {})".format(base, response.status_code))
+    raise SystemExit("No Cortex XDR base path answered on {}; tried: {}".format(
+        cfg["fqdn"], ", ".join(tried)))
 
 
 def fetch_incidents(session, cfg, since_ms):
@@ -206,10 +230,16 @@ def prune(value):
 
 def build_event(incident, collected_at):
     """One incident becomes one Wazuh event under the cortex.* namespace."""
+    # incident_name comes back empty on every incident from a 5.0 tenant while
+    # description always carries the human-readable summary. Falling back keeps
+    # one field that rules and dashboards can always render; without it every
+    # alert description ends in a bare colon.
+    name = incident.get("incident_name") or incident.get("description")
+
     body = {
         "event_type": "incident",
         "incident_id": str(incident.get("incident_id") or ""),
-        "incident_name": incident.get("incident_name"),
+        "incident_name": name,
         "description": incident.get("description"),
         "status": incident.get("status"),
         "severity": incident.get("severity"),
@@ -338,6 +368,13 @@ def selftest():
     assert prune({"a": None, "b": "", "c": 0, "d": {"e": None}, "f": [None]}) == {"c": 0}
     assert epoch_ms_to_iso(1745080427000) == "2025-04-19T16:33:47.000Z"
     assert epoch_ms_to_iso(None) is None and epoch_ms_to_iso(0) is None
+
+    # A 5.0 tenant sends description but never incident_name, so the rules would
+    # render a bare colon without this fallback.
+    named = build_event({"incident_id": 9, "description": "Evasion technique on host1"}, "x")
+    assert named["cortex"]["incident_name"] == "Evasion technique on host1"
+    both = build_event({"incident_id": 9, "incident_name": "Real name", "description": "d"}, "x")
+    assert both["cortex"]["incident_name"] == "Real name"
 
     event = build_event(incidents[2], "2026-09-18T00:00:00Z")
     assert event["cortex"]["is_resolved"] == "true"
