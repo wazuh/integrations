@@ -1,0 +1,90 @@
+<!--
+  Cortex XDR incident ingestion. Install in /var/ossec/etc/rules/ or paste under
+  Management -> Rules -> Custom rules, then restart the manager: this version has
+  no runtime ruleset reload.
+
+  Uses IDs 101100 to 101121. Confirm they are unused first with:
+    grep -rhoE 'rule id="1011[0-9]{2}"' /var/ossec/etc/rules/ /var/ossec/ruleset/rules/
+
+  No decoder ships with this integration and none is needed. The collector writes
+  NDJSON, logcollector reads it with <log_format>json</log_format>, and the
+  built-in json decoder flattens each line into the cortex.* fields used below.
+-->
+<group name="cortex_xdr,">
+
+  <!-- Anchor. Level 0: never alerts on its own, it only gives the rules below a
+       cheap parent so they are not evaluated against every JSON event. -->
+  <rule id="101100" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^cortex_xdr$</field>
+    <description>Cortex XDR: base event</description>
+  </rule>
+
+  <!-- Every incident. Level 3 is the floor to reach the indexer, so this is the
+       row the dashboards count even when no severity rule below applies. -->
+  <rule id="101101" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^incident$</field>
+    <description>Cortex XDR incident $(cortex.incident_id): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Severity ladder.
+
+       Each rule carries is_resolved ^false$ and a closed-ended severity match, so
+       exactly one of 101110-101113 and 101120 can fire per event. That matters
+       because Wazuh picks the highest-level match rather than the first: without
+       the is_resolved guard a critical incident closed as a false positive would
+       still alert at level 12 every time an analyst touched it and bumped its
+       modification_time. -->
+  <rule id="101110" level="3">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^low$</field>
+    <description>Cortex XDR low severity incident: $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101111" level="6">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^medium$</field>
+    <description>Cortex XDR medium severity incident: $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101112" level="10">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^high$</field>
+    <description>Cortex XDR high severity incident on $(cortex.host_count) host(s): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101113" level="12">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^critical$</field>
+    <description>Cortex XDR CRITICAL incident on $(cortex.host_count) host(s): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Closed incidents stay visible for reporting but must not page anyone. This
+       covers all seven resolved_* statuses, which is why the collector emits the
+       is_resolved boolean instead of making the rule prefix-match a status. -->
+  <rule id="101120" level="3">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^true$</field>
+    <description>Cortex XDR incident closed as $(cortex.status): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Unassigned and serious. Parented on 101112 so it inherits the high branch
+       and cannot fire for a resolved or low severity incident. -->
+  <rule id="101121" level="12" frequency="4" timeframe="600">
+    <if_matched_sid>101112</if_matched_sid>
+    <description>Cortex XDR: 4 or more high severity incidents in 10 minutes</description>
+    <options>no_full_log</options>
+  </rule>
+
+</group>
