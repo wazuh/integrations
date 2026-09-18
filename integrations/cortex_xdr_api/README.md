@@ -9,7 +9,9 @@ different rule IDs, no shared files.
 
 ## Compatibility
 
-Tested with Cortex XDR 5.0 (EU tenant) and Wazuh 4.14.7.
+Tested end to end against a live Cortex XDR 5.0 EU tenant and Wazuh 4.14.7: 125 incidents
+pulled across two pages, rules verified for every severity branch, and alerts confirmed
+in `alerts.json`.
 
 ## What this collects
 
@@ -130,7 +132,20 @@ Five minutes is a sensible interval. Incidents are low volume and the collector 
 only for what changed since its watermark, so a shorter interval mostly costs API
 quota. There is no benefit to going below one minute.
 
-**4. Load the rules.**
+**4. Create the log file before restarting the manager.**
+
+```bash
+sudo touch /var/ossec/logs/cortex_xdr.log
+sudo chmod 640 /var/ossec/logs/cortex_xdr.log
+```
+
+logcollector attaches to a tailed file at its end. If the file does not exist when the
+manager starts, logcollector retries, and by the time the collector's first run creates
+it the events already written sit behind the read position, so that first batch is
+skipped in silence. Creating it empty first leaves nothing to skip. This is the most
+likely reason a correct install looks like it produces no alerts on day one.
+
+**5. Load the rules.**
 
 ```bash
 sudo cp ruleset/rules/cortex_xdr_rules.xml /var/ossec/etc/rules/
@@ -170,6 +185,23 @@ decoration: Wazuh alerts on the highest-level matching rule rather than the firs
 without it a critical incident closed as a false positive would alert at level 12
 again every time an analyst touched it and bumped its `modification_time`.
 
+## Event shape
+
+Each line is one incident under the `cortex.*` namespace. Two fields exist because the
+live API disagreed with its own documentation:
+
+- `cortex.incident_name` falls back to the API's `description`. A 5.0 tenant returned an
+  empty `incident_name` on all 125 incidents tested, which would otherwise leave every
+  alert description ending in a bare colon.
+- `cortex.is_resolved` is the string `"true"` or `"false"`, derived from whether the
+  status begins with `resolved`. The live tenant returned `resolved_other` and
+  `resolved_true_positive`, neither of which appears in the documented status list, so
+  the rules match this boolean rather than enumerating status strings that turn out to
+  be incomplete.
+
+Fields the API omits are dropped rather than emitted as null, because analysisd
+stringifies decoded JSON and a null the index mapping rejects discards the whole alert.
+
 ## Testing
 
 The collector has an offline self-check covering the watermark, deduplication and
@@ -207,13 +239,18 @@ does the same for one run without touching the file.
 
 ## Base path
 
-Cortex XDR 5.x documentation and the tenant console give the API prefix as
-`https://api-{fqdn}/XDR/public/v1/{endpoint}/`, while long-standing field clients use
-`https://api-{fqdn}/public_api/v1/{endpoint}/`. Tenants answer on one or the other.
+Cortex XDR 5.x documentation and the tenant console both give the API prefix as
+`https://api-{fqdn}/XDR/public/v1/{endpoint}/`. A 5.0 EU tenant does not serve incidents
+there. It answers on `https://api-{fqdn}/public_api/v1/{endpoint}/`, and returns
+**HTTP 500, not 404**, for the prefix its own console documents.
 
-The collector tries the documented prefix first, falls back to the other on a 404, and
-records the one that worked in `state.json` so later runs go straight to it. Set
-`base_path` in the config only to pin it explicitly.
+The collector therefore probes `public_api/v1` first, treats any non-200 as "wrong
+prefix, try the next one", and records the winner in `state.json` so later runs go
+straight to it. Set `base_path` in the config only to pin it explicitly.
+
+That 500 is the reason resolution cannot just look for a 404, and the reason it runs
+outside the retrying session: retrying a 500 that only means "wrong prefix" would burn
+three backoffs per candidate before failing.
 
 ## Scope
 
@@ -234,6 +271,7 @@ Add them when someone has a concrete use case that the incident object cannot an
 | `Cortex XDR rejected the credentials (403)` | Key is valid but its role cannot read incidents |
 | `No Cortex XDR base path answered` | Wrong tenant FQDN, or a network path that cannot reach it |
 | Collector runs, no alerts | Rules not loaded, or the manager was not restarted after copying them |
+| First batch never alerts, later ones do | The log file did not exist when the manager started. See install step 4 |
 | Nothing after the first run | Normal. Only incidents modified since the watermark are emitted |
 | `Another collector run holds the lock` | A previous run is still going. Lower the interval or raise the timeout |
 
