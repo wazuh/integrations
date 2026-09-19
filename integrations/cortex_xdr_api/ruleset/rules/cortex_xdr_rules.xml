@@ -1,0 +1,239 @@
+<!--
+  Cortex XDR ingestion. Install in /var/ossec/etc/rules/, then restart the manager:
+  Wazuh 4.14 has no runtime ruleset reload.
+
+  IDs 101100-101199. Confirm they are free first:
+    grep -rhoE 'rule id="1011[0-9]{2}"' /var/ossec/etc/rules/ /var/ossec/ruleset/rules/
+
+  No decoder is needed: the collector writes NDJSON and the built-in json decoder
+  flattens it into the cortex.* fields used below. Field values were taken from a
+  live 5.0 tenant, not from the documentation.
+-->
+<group name="cortex_xdr,">
+
+  <rule id="101100" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^cortex_xdr$</field>
+    <description>Cortex XDR: base event</description>
+  </rule>
+
+  <!-- ============================ INCIDENTS ============================ -->
+
+  <rule id="101101" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^incident$</field>
+    <description>Cortex XDR incident $(cortex.incident_id): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- The is_resolved guard is load-bearing: Wazuh alerts on the highest-level
+       match, so without it a critical incident closed as a false positive would
+       alert at level 12 every time an analyst bumped its modification_time. -->
+  <rule id="101110" level="3">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^low$</field>
+    <description>Cortex XDR low severity incident: $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101111" level="6">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^medium$</field>
+    <description>Cortex XDR medium severity incident: $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101112" level="10">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^high$</field>
+    <description>Cortex XDR high severity incident on $(cortex.host_count) host(s): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101113" level="12">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^false$</field>
+    <field name="cortex.severity">^critical$</field>
+    <description>Cortex XDR CRITICAL incident on $(cortex.host_count) host(s): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Covers every resolved_* status, including ones absent from the docs. -->
+  <rule id="101120" level="3">
+    <if_sid>101101</if_sid>
+    <field name="cortex.is_resolved">^true$</field>
+    <description>Cortex XDR incident closed as $(cortex.status): $(cortex.incident_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101121" level="12" frequency="4" timeframe="600">
+    <if_matched_sid>101112</if_matched_sid>
+    <description>Cortex XDR: 4 or more high severity incidents in 10 minutes</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ============================== ALERTS ============================= -->
+
+  <rule id="101130" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^alert$</field>
+    <description>Cortex XDR alert on $(cortex.host_name): $(cortex.name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101131" level="5">
+    <if_sid>101130</if_sid>
+    <field name="cortex.severity">^medium$</field>
+    <description>Cortex XDR medium alert on $(cortex.host_name): $(cortex.name) [$(cortex.category)]</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101132" level="10">
+    <if_sid>101130</if_sid>
+    <field name="cortex.severity">^high$</field>
+    <description>Cortex XDR high alert on $(cortex.host_name): $(cortex.name) [$(cortex.category)]</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101133" level="12">
+    <if_sid>101130</if_sid>
+    <field name="cortex.severity">^critical$</field>
+    <description>Cortex XDR CRITICAL alert on $(cortex.host_name): $(cortex.name) [$(cortex.category)]</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- A detection Cortex did not block still reached the endpoint, so it
+       outranks the blocked case. Level 11 is deliberate: at 8 this rule was
+       dead, because Wazuh takes the highest match and 101132 already fires at
+       10 for the same event. Critical stays with 101133 at 12. -->
+  <rule id="101134" level="11">
+    <if_sid>101130</if_sid>
+    <field name="cortex.action">^DETECTED$</field>
+    <field name="cortex.severity">^high|^critical</field>
+    <description>Cortex XDR detected but did not block on $(cortex.host_name): $(cortex.name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ============================ ENDPOINTS ============================ -->
+  <!-- The collector only emits an endpoint when a tracked field changes, so
+       these do not fire on agent heartbeats. -->
+
+  <rule id="101140" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^endpoint$</field>
+    <description>Cortex XDR endpoint $(cortex.endpoint_name): $(cortex.changed_fields)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101141" level="5">
+    <if_sid>101140</if_sid>
+    <field name="cortex.state_changed">^true$</field>
+    <field name="cortex.endpoint_status">^DISCONNECTED$</field>
+    <description>Cortex XDR agent disconnected: $(cortex.endpoint_name) ($(cortex.operating_system))</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Isolation and loss of protection matter on the baseline pass too, so
+       neither is gated on state_changed. -->
+  <rule id="101142" level="10">
+    <if_sid>101140</if_sid>
+    <field name="cortex.is_isolated">^AGENT_ISOLATED$</field>
+    <description>Cortex XDR endpoint is ISOLATED: $(cortex.endpoint_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101143" level="10">
+    <if_sid>101140</if_sid>
+    <field name="cortex.operational_status">^UNPROTECTED$</field>
+    <description>Cortex XDR endpoint UNPROTECTED: $(cortex.endpoint_name) ($(cortex.operating_system))</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101144" level="6">
+    <if_sid>101140</if_sid>
+    <field name="cortex.operational_status">^PARTIALLY_PROTECTED$</field>
+    <description>Cortex XDR endpoint only partially protected: $(cortex.endpoint_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101145" level="5">
+    <if_sid>101140</if_sid>
+    <field name="cortex.state_changed">^true$</field>
+    <field name="cortex.content_status">^OUTDATED$</field>
+    <description>Cortex XDR agent content outdated: $(cortex.endpoint_name) (content $(cortex.content_version))</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101146" level="5">
+    <if_sid>101140</if_sid>
+    <field name="cortex.scan_status">^SCAN_STATUS_ERROR$</field>
+    <description>Cortex XDR endpoint scan failed: $(cortex.endpoint_name)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ====================== MANAGEMENT AUDIT LOG ====================== -->
+
+  <rule id="101150" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^audit_management$</field>
+    <description>Cortex XDR console: $(cortex.AUDIT_DESCRIPTION)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101151" level="8">
+    <if_sid>101150</if_sid>
+    <field name="cortex.AUDIT_RESULT">^FAIL</field>
+    <description>Cortex XDR console action FAILED for $(cortex.AUDIT_OWNER_NAME): $(cortex.AUDIT_DESCRIPTION)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- API key creation grants programmatic access to the tenant. -->
+  <rule id="101152" level="10">
+    <if_sid>101150</if_sid>
+    <field name="cortex.AUDIT_ENTITY">^API_KEY$</field>
+    <description>Cortex XDR API key change by $(cortex.AUDIT_OWNER_NAME): $(cortex.AUDIT_DESCRIPTION)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101153" level="10">
+    <if_sid>101150</if_sid>
+    <field name="cortex.severity">^high$|^critical$</field>
+    <description>Cortex XDR high severity console action: $(cortex.AUDIT_DESCRIPTION)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ======================== AGENT AUDIT REPORTS ====================== -->
+
+  <rule id="101160" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^audit_agent$</field>
+    <description>Cortex XDR agent report on $(cortex.ENDPOINTNAME): $(cortex.DESCRIPTION)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- An agent whose service stopped is no longer protecting the endpoint. -->
+  <rule id="101161" level="10">
+    <if_sid>101160</if_sid>
+    <field name="cortex.TYPE">^Agent Service$</field>
+    <field name="cortex.SUBTYPE">^Stop$</field>
+    <description>Cortex XDR agent service STOPPED on $(cortex.ENDPOINTNAME)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101162" level="6">
+    <if_sid>101160</if_sid>
+    <field name="cortex.RESULT">^Fail</field>
+    <description>Cortex XDR agent action failed on $(cortex.ENDPOINTNAME): $(cortex.DESCRIPTION)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101163" level="12" frequency="8" timeframe="600">
+    <if_matched_sid>101161</if_matched_sid>
+    <description>Cortex XDR: agent service stopped on 8 or more endpoints in 10 minutes</description>
+    <options>no_full_log</options>
+  </rule>
+
+</group>
