@@ -1,0 +1,6 @@
+.env
+backend/sessions/
+backend/wizard_history/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
