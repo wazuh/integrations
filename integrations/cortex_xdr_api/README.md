@@ -117,9 +117,9 @@ daily index or roll over to see the change take effect.
 | `cortex_xdr.py` | `/var/ossec/wodles/cortex_xdr/` on the manager |
 | `ruleset/rules/cortex_xdr_rules.xml` | `/var/ossec/etc/rules/`. Required: without it nothing reaches the indexer |
 | `cortex_xdr_index_mapping.json` | Merged into the alerts index template. Required for date and numeric panels |
-| `dashboards/cortex_xdr_dashboard.ndjson` | Incidents and alerts overview |
-| `dashboards/cortex_xdr_endpoints_dashboard.ndjson` | Agent inventory and protection state |
-| `dashboards/cortex_xdr_audit_dashboard.ndjson` | Console and agent audit activity |
+| `dashboards/cortex_xdr_dashboard.ndjson` | Incidents and alerts: KPIs, severity and status donuts, MITRE sunburst, detection clock |
+| `dashboards/cortex_xdr_endpoints_dashboard.ndjson` | Endpoints: KPIs, estate sunburst, connectivity and content donuts, version and policy matrices |
+| `dashboards/cortex_xdr_audit_dashboard.ndjson` | Audit: KPIs, entity donuts, administrator matrices, agent service stops by day |
 | `dashboards/cortex_xdr_vega_dashboard.ndjson` | Vega explorer: estate treemap, MITRE and agent-health matrices, activity clock |
 
 No decoder ships with this integration and none is needed. The collector writes NDJSON,
@@ -249,18 +249,23 @@ for d in cortex_xdr_dashboard cortex_xdr_endpoints_dashboard cortex_xdr_audit_da
 done
 ```
 
-The first three reference the `wazuh-alerts-*` index pattern and render without the index
-mapping, though date histograms are more useful once it is applied.
+All four are Vega dashboards: vega-lite v5 for donuts, matrices and bars, full Vega v5
+for the KPI tiles, sunbursts and treemap, which vega-lite cannot express. They count and
+bucket keyword values rather than aggregating numerically, so they render without the
+index mapping. Three behaviours are deliberate and worth knowing:
 
-`cortex_xdr_vega_dashboard.ndjson` is the visual explorer, built the same way as the one
-in `m365_inventory`: vega-lite v5 for the matrices and the trend, and full Vega v5 for
-the treemap, which vega-lite cannot express. It holds an endpoint estate treemap coloured
-by protection risk, a MITRE tactic against severity matrix, an agent version against
-content status matrix, a stacked alert trend, the noisiest hosts split by severity, a
-console activity clock by hour and weekday, and agent report outcomes. Every panel
-declares `%context%` and `%timefield%`, so the filter bar and the time picker apply to
-them as they do to the other dashboards. These panels count documents rather than
-aggregating numerically, so they work without the index mapping too.
+- Panels about current state (open incidents, endpoint protection, versions, policies)
+  ignore the time picker and use each incident's or endpoint's most recent document. The
+  collector only re-emits one when it changes, so an incident opened weeks ago and never
+  touched is still open and must still count. They are bounded by index retention instead.
+- Panels about when something happened in Cortex (detection clock, intake, console
+  activity, agent stops) bucket on the Cortex timestamp, not on Wazuh's `timestamp`, which
+  is ingestion time. Otherwise the first collection's backlog lands in a single bar.
+- Colour legends list only values present in the data, in severity or state order.
+
+There is no separate filter panel. The dashboard search bar and "Add filter" apply to
+every panel, because each one declares `%context%`. Input controls were tried and
+removed: they filter on keyword values, which misbehaved against the numeric panels.
 
 ---
 
