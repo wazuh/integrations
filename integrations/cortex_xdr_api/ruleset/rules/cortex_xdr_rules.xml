@@ -236,4 +236,25 @@
     <options>no_full_log</options>
   </rule>
 
+
+  <!-- ===================== VULNERABILITY ASSESSMENT ===================== -->
+  <!-- One event per CVE and per endpoint in each daily snapshot. Level 3 only,
+       on purpose: they exist for the dashboards, and escalating them would
+       raise over a thousand critical alerts every morning for a backlog that
+       did not change overnight. -->
+
+  <rule id="101170" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^vuln_cve$</field>
+    <description>Cortex XDR vulnerability $(cortex.cve) ($(cortex.severity)) on $(cortex.affected_hosts_count) endpoint(s)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101171" level="3">
+    <if_sid>101100</if_sid>
+    <field name="cortex.event_type">^vuln_endpoint$</field>
+    <description>Cortex XDR vulnerability status of $(cortex.endpoint_name): $(cortex.cve_count) CVEs, $(cortex.severity)</description>
+    <options>no_full_log</options>
+  </rule>
+
 </group>

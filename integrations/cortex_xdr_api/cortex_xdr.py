@@ -21,11 +21,13 @@ Tested against Cortex XDR 5.0 and Wazuh 4.14.7.
 
 import argparse
 import fcntl
+import gzip
 import hashlib
 import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -71,7 +73,7 @@ COLLECTORS = {
         "version": "v1", "endpoint": "incidents/get_incidents",
         "filter_field": "modification_time", "record_time": "modification_time",
         "reply_key": "incidents", "id_fields": ("incident_id",), "event_type": "incident",
-        "time_fields": ("creation_time", "modification_time"),
+        "time_fields": ("creation_time", "modification_time", "resolved_timestamp"),
     },
     "alerts": {
         "version": "v2", "endpoint": "alerts/get_alerts_multi_events",
@@ -117,6 +119,42 @@ COLLECTORS = {
 # telemetry rather than security signal. Enable it deliberately.
 DEFAULT_COLLECT = ["incidents", "alerts", "endpoints", "audit_management"]
 
+# Vulnerability assessment. The REST vulnerability endpoints need the Cloud
+# Posture Management add-on and answer 500 without it; the va_* XQL datasets
+# behind the console's Vulnerability Assessment dashboard need nothing extra.
+# XQL is asynchronous, so these run as a full snapshot on their own schedule
+# rather than through the watermark loop. A snapshot rather than a watermark
+# because nearly every CVE's modification_date moves on each daily
+# recalculation, and because only a snapshot shows a remediated CVE leaving.
+# Opt-in: a snapshot is one event per CVE, about 16,000 on a 480-endpoint tenant.
+XQL_COLLECTORS = {
+    "vuln_cves": {
+        "dataset": "va_cves", "event_type": "vuln_cve",
+        "fields": ("name", "severity", "severity_score", "affected_hosts_count",
+                   "affected_products", "os_type", "type", "is_excluded",
+                   "exploitability_score", "impact_score", "modification_date",
+                   "publication_date", "description"),
+        "time_fields": ("modification_date", "publication_date"),
+    },
+    "vuln_endpoints": {
+        "dataset": "va_endpoints", "event_type": "vuln_endpoint",
+        # cves is read only to count it: the full list reaches 75 KB on one
+        # endpoint, past what analysisd accepts.
+        "fields": ("endpoint_id", "endpoint_name", "endpoint_type", "os_type",
+                   "severity", "severity_score", "cves", "last_calculation_time",
+                   "last_report_time"),
+        "time_fields": ("last_calculation_time", "last_report_time"),
+    },
+}
+ALL_COLLECTORS = sorted(list(COLLECTORS) + list(XQL_COLLECTORS))
+DEFAULT_SNAPSHOT_HOURS = 24
+DEFAULT_XQL_TIMEOUT = 300
+DEFAULT_WRITE_RATE = 500
+# Hours to resolve an incident, per severity. Cortex does not expose its own SLA
+# settings through the API, so they are configured here and stamped on every
+# incident event, where the dashboards read them.
+DEFAULT_SLA_HOURS = {"critical": 4, "high": 8, "medium": 24, "low": 120}
+
 log = logging.getLogger(INTEGRATION_NAME)
 
 
@@ -141,10 +179,10 @@ def load_config(path):
     cfg.setdefault("collect", list(DEFAULT_COLLECT))
     cfg.setdefault("lookback_hours_by_collector", {})
 
-    unknown = [c for c in cfg["collect"] if c not in COLLECTORS]
+    unknown = [c for c in cfg["collect"] if c not in ALL_COLLECTORS]
     if unknown:
         raise SystemExit("config: unknown collect entries {}; valid values are {}".format(
-            unknown, sorted(COLLECTORS)))
+            unknown, ALL_COLLECTORS))
     if not cfg["collect"]:
         raise SystemExit("config: 'collect' is empty, nothing to do")
 
@@ -153,6 +191,22 @@ def load_config(path):
         if name not in COLLECTORS:
             raise SystemExit("config: unknown collector '{}' in lookback_hours_by_collector".format(name))
         cfg["lookback_hours_by_collector"][name] = _bounded_hours(hours)
+
+    try:
+        cfg["vuln_snapshot_hours"] = max(1, min(int(cfg.get("vuln_snapshot_hours", DEFAULT_SNAPSHOT_HOURS)), 24 * 7))
+        cfg["xql_timeout_seconds"] = max(30, int(cfg.get("xql_timeout_seconds", DEFAULT_XQL_TIMEOUT)))
+        cfg["write_rate_eps"] = max(50, int(cfg.get("write_rate_eps", DEFAULT_WRITE_RATE)))
+    except (TypeError, ValueError):
+        raise SystemExit("config: vuln_snapshot_hours, xql_timeout_seconds and write_rate_eps must be numbers")
+
+    sla = dict(DEFAULT_SLA_HOURS)
+    sla.update(cfg.get("sla_hours") or {})
+    try:
+        cfg["sla_hours"] = {k: float(sla[k]) for k in DEFAULT_SLA_HOURS}
+    except (TypeError, ValueError):
+        raise SystemExit("config: sla_hours values must be numbers of hours, got {!r}".format(sla))
+    if any(v <= 0 for v in cfg["sla_hours"].values()):
+        raise SystemExit("config: sla_hours values must be above zero")
 
     cfg["page_size"] = max(1, min(int(cfg["page_size"]), PAGE_SIZE))
 
@@ -367,7 +421,7 @@ def normalize_severity(name, record):
     return lowered if lowered in VALID_SEVERITIES else lowered
 
 
-def build_event(name, record, collected_at):
+def build_event(name, record, collected_at, sla_hours=None):
     """One API record becomes one Wazuh event under the cortex.* namespace.
 
     Every field the API returns is carried through rather than allowlisted, so
@@ -404,6 +458,9 @@ def build_event(name, record, collected_at):
         # match this instead of enumerating statuses.
         status = str(record.get("status") or "")
         body["is_resolved"] = str(status.startswith("resolved")).lower()
+        sla = (sla_hours or DEFAULT_SLA_HOURS).get(severity)
+        if sla:
+            body["sla_hours"] = sla
 
     event = normalize({
         "integration": INTEGRATION_NAME,
@@ -481,15 +538,136 @@ def drop_already_seen(spec, records, watermark, boundary_ids):
             if not (record_time(spec, r) == watermark and record_id(spec, r) in boundary_ids)]
 
 
-def write_events(path, events):
-    """Append NDJSON and fsync, so a crash cannot leave a torn line."""
+def xql_time_to_iso(value):
+    """XQL returns times as epoch milliseconds or as '2026-09-29 07:43:39 UTC'."""
+    if isinstance(value, (int, float)):
+        return epoch_ms_to_iso(value)
+    if isinstance(value, str) and value.endswith(" UTC"):
+        try:
+            dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S UTC")
+        except ValueError:
+            return value
+        return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    return value
+
+
+def xql_rows(session, cfg, query):
+    """Run an XQL query and return every row.
+
+    Up to about a thousand rows come back inline; beyond that the reply holds a
+    stream_id and the rows arrive gzipped as NDJSON from a separate endpoint.
+    """
+    qid = api_call(session, cfg, "v1", "xql/start_xql_query", {"query": query}).get("reply")
+    if not qid:
+        raise RuntimeError("XQL did not return a query id")
+    deadline = time.monotonic() + cfg["xql_timeout_seconds"]
+    while True:
+        reply = api_call(session, cfg, "v1", "xql/get_query_results",
+                         {"query_id": qid, "pending_flag": True, "format": "json"}).get("reply", {})
+        status = reply.get("status")
+        if status != "PENDING":
+            break
+        if time.monotonic() > deadline:
+            raise RuntimeError("XQL query still pending after %ds" % cfg["xql_timeout_seconds"])
+        time.sleep(3)
+    if status != "SUCCESS":
+        raise RuntimeError("XQL query ended %s: %s" % (status, str(reply)[:300]))
+    log.debug("XQL %d rows, remaining daily quota %s", reply.get("number_of_results") or 0,
+              reply.get("remaining_quota"))
+
+    results = reply.get("results") or {}
+    if "data" in results:
+        return results["data"] or []
+    url = "https://{}/{}/v1/xql/get_query_results_stream/".format(cfg["fqdn"], cfg["base_prefix"])
+    response = session.post(url, headers=headers(cfg), timeout=(10, cfg["xql_timeout_seconds"]),
+                            json={"request_data": {"stream_id": results.get("stream_id"),
+                                                   "is_gzip_compressed": True}})
+    response.raise_for_status()
+    raw = response.content
+    try:
+        raw = gzip.decompress(raw)
+    except OSError:
+        pass  # served uncompressed
+    return [json.loads(line) for line in raw.decode("utf-8").splitlines() if line.strip()]
+
+
+def build_xql_event(name, row, snapshot_id, collected_at):
+    spec = XQL_COLLECTORS[name]
+    body = dict(row)
+    if name == "vuln_cves":
+        body["cve"] = body.pop("name", None)
+    if name == "vuln_endpoints":
+        cves = body.pop("cves", None) or []
+        # The dataset reports an endpoint with nothing as ["No CVEs Found"].
+        body["cve_count"] = len([c for c in cves if str(c).upper().startswith("CVE-")])
+    for field in ("affected_hosts_count",):
+        if field in body:
+            try:
+                body[field] = int(body[field])
+            except (TypeError, ValueError):
+                pass
+    for field in ("severity_score", "exploitability_score", "impact_score"):
+        if field in body:
+            try:
+                body[field] = float(body[field])
+            except (TypeError, ValueError):
+                pass
+    for field in spec["time_fields"]:
+        if field in body:
+            body[field] = xql_time_to_iso(body[field])
+    if isinstance(body.get("severity"), str):
+        body["severity"] = body["severity"].lower()
+    body["event_type"] = spec["event_type"]
+    body["snapshot_id"] = snapshot_id
+    event = normalize({"integration": INTEGRATION_NAME, "collector_version": COLLECTOR_VERSION,
+                       "collected_at": collected_at, "cortex": body})
+    return enforce_size(event, name)
+
+
+def collect_xql(session, cfg, name, state, now, emit):
+    """Take a full snapshot of one XQL dataset, if one is due."""
+    spec = XQL_COLLECTORS[name]
+    slice_ = dict(state.get(name) or {})
+    last = slice_.get("last_snapshot")
+    if last:
+        age = now - datetime.strptime(last, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        if age < timedelta(hours=cfg["vuln_snapshot_hours"]):
+            log.info("%s: last snapshot %s, next due in %d minutes", name, last,
+                     (timedelta(hours=cfg["vuln_snapshot_hours"]) - age).total_seconds() // 60)
+            return slice_
+
+    if not cfg["base_prefix"]:
+        cfg["base_prefix"] = resolve_base_prefix(cfg)
+    rows = xql_rows(session, cfg, "dataset = %s | fields %s" % (spec["dataset"], ", ".join(spec["fields"])))
+    # Minute resolution, sortable as text: dashboards pick the latest snapshot
+    # by taking the highest snapshot_id.
+    snapshot_id = now.strftime("%Y-%m-%dT%H:%M")
+    collected_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    emit([build_xql_event(name, r, snapshot_id, collected_at) for r in rows])
+    log.info("%s: snapshot %s, %d rows", name, snapshot_id, len(rows))
+    return {"last_snapshot": collected_at, "rows": len(rows)}
+
+
+def write_events(path, events, rate=None):
+    """Append NDJSON and fsync, so a crash cannot leave a torn line.
+
+    With `rate`, at most that many lines are written per second. logcollector
+    forwards lines through a queue of 1,024 messages by default and drops what
+    does not fit, and a 16,000-line vulnerability snapshot written in one go
+    lost 2,674 lines that way. Incremental polls are far below the rate, so
+    they are written at once.
+    """
     if not events:
         return
+    step = rate if rate and len(events) > rate else len(events)
     with open(path, "a", encoding="utf-8") as fh:
-        for event in events:
-            fh.write(json.dumps(event, separators=(",", ":")) + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
+        for start in range(0, len(events), step):
+            if start:
+                time.sleep(1)
+            for event in events[start:start + step]:
+                fh.write(json.dumps(event, separators=(",", ":")) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
 
 
 def acquire_lock(path):
@@ -529,7 +707,7 @@ def collect(session, cfg, name, state, now, emit):
                  epoch_ms_to_iso(watermark), len(fresh))
 
     collected_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    emit([build_event(name, r, collected_at) for r in fresh])
+    emit([build_event(name, r, collected_at, cfg.get("sla_hours")) for r in fresh])
 
     new_watermark, new_boundary = advance_watermark(spec, records, watermark)
     if not records:
@@ -622,6 +800,55 @@ def selftest():
     b = record_id(agent, {"ENDPOINTID": "a", "TIMESTAMP": 1, "DESCRIPTION": "y"})
     assert a != b and len(a) == 32
 
+    # Vulnerability rows: both XQL time formats, counts not lists, and a
+    # "No CVEs Found" endpoint counting zero.
+    assert xql_time_to_iso("2026-09-29 07:43:39 UTC") == "2026-09-29T07:43:39.000Z"
+    assert xql_time_to_iso(1790667456000) == epoch_ms_to_iso(1790667456000)
+    cve = build_xql_event("vuln_cves", {"name": "CVE-2026-81955", "severity": "CRITICAL",
+                                        "affected_hosts_count": "343", "severity_score": "9.8",
+                                        "modification_date": "2026-09-29 07:43:39 UTC"}, "2026-09-29T12:00", "x")
+    assert cve["cortex"]["cve"] == "CVE-2026-81955" and "name" not in cve["cortex"]
+    assert cve["cortex"]["affected_hosts_count"] == 343 and cve["cortex"]["severity"] == "critical"
+    assert cve["cortex"]["modification_date"] == "2026-09-29T07:43:39.000Z"
+    assert cve["cortex"]["event_type"] == "vuln_cve" and cve["cortex"]["snapshot_id"] == "2026-09-29T12:00"
+    ep = build_xql_event("vuln_endpoints", {"endpoint_name": "CHICAGO", "severity": "CRITICAL",
+                                            "cves": ["CVE-1", "CVE-2", "CVE-3"]}, "s", "x")
+    assert ep["cortex"]["cve_count"] == 3 and "cves" not in ep["cortex"]
+    clean = build_xql_event("vuln_endpoints", {"endpoint_name": "DESK", "severity": "NONE",
+                                               "cves": ["No CVEs Found"]}, "s", "x")
+    assert clean["cortex"]["cve_count"] == 0 and clean["cortex"]["severity"] == "none"
+    # A snapshot inside the interval must not reach the API: session is None
+    # here, so any call would raise.
+    now = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
+    cfg = {"vuln_snapshot_hours": 24}
+    kept = collect_xql(None, cfg, "vuln_cves", {"vuln_cves": {"last_snapshot": "2026-09-29T06:00:00Z"}},
+                       now, lambda e: None)
+    assert kept == {"last_snapshot": "2026-09-29T06:00:00Z"}
+
+    # Large batches are paced, small ones are not: count the sleeps.
+    import tempfile
+    slept = []
+    real_sleep, time.sleep = time.sleep, lambda n: slept.append(n)
+    try:
+        with tempfile.NamedTemporaryFile("r+", suffix=".log") as fh:
+            write_events(fh.name, [{"i": i} for i in range(1200)], rate=500)
+            assert sum(1 for _ in open(fh.name)) == 1200 and len(slept) == 2, slept
+            slept.clear()
+            write_events(fh.name, [{"i": i} for i in range(40)], rate=500)
+            assert not slept
+    finally:
+        time.sleep = real_sleep
+
+    # SLA hours come from config, fall back to the defaults, and follow severity.
+    tuned = build_event("incidents", {"incident_id": 1, "severity": "high"}, "x",
+                        {"critical": 2, "high": 6, "medium": 24, "low": 120})
+    assert tuned["cortex"]["sla_hours"] == 6
+    assert build_event("incidents", {"incident_id": 1, "severity": "low"}, "x")["cortex"]["sla_hours"] == 120
+
+    # The incident resolution time reaches the index as ISO too.
+    res = build_event("incidents", {"incident_id": 1, "resolved_timestamp": 1788190202000}, "x")
+    assert res["cortex"]["resolved_timestamp"] == epoch_ms_to_iso(1788190202000)
+
     print("selftest ok")
 
 
@@ -652,10 +879,10 @@ def main():
     cfg = load_config(args.config)
     if args.collect:
         cfg["collect"] = [c.strip() for c in args.collect.split(",") if c.strip()]
-        unknown = [c for c in cfg["collect"] if c not in COLLECTORS]
+        unknown = [c for c in cfg["collect"] if c not in ALL_COLLECTORS]
         if unknown:
             raise SystemExit("--collect: unknown {}; valid values are {}".format(
-                unknown, sorted(COLLECTORS)))
+                unknown, ALL_COLLECTORS))
 
     state = {} if args.no_state else load_state(cfg["state_file"])
     if state.get("base_prefix"):
@@ -664,7 +891,8 @@ def main():
         # A forced window means every collector starts from it.
         for name in cfg["collect"]:
             state[name] = {"watermark": None, "boundary_ids": []}
-            cfg["lookback_hours_by_collector"][name] = _bounded_hours(args.since_hours)
+            if name in COLLECTORS:
+                cfg["lookback_hours_by_collector"][name] = _bounded_hours(args.since_hours)
 
     lock = None if args.stdout else acquire_lock(cfg["lock_file"])
     session = build_session()
@@ -678,15 +906,16 @@ def main():
             for event in events:
                 print(json.dumps(event, separators=(",", ":")))
         else:
-            write_events(cfg["log_file"], events)
+            write_events(cfg["log_file"], events, cfg["write_rate_eps"])
 
     try:
         new_state = {"version": STATE_VERSION}
-        new_state.update({k: v for k, v in state.items() if k in COLLECTORS})
+        new_state.update({k: v for k, v in state.items() if k in ALL_COLLECTORS})
         for name in cfg["collect"]:
             try:
                 # Per collector, so one failing data set cannot lose the others.
-                new_state[name] = collect(session, cfg, name, state, now, emit)
+                run = collect_xql if name in XQL_COLLECTORS else collect
+                new_state[name] = run(session, cfg, name, state, now, emit)
             except SystemExit:
                 raise
             except Exception as exc:
