@@ -50,6 +50,8 @@ Tested end to end against a live Cortex XDR 5.0 EU tenant and Wazuh 4.14.7.
 | `endpoints` | `endpoints/get_endpoint` | `cortex.event_type: endpoint` | yes |
 | `audit_management` | `audits/management_logs` | `cortex.event_type: audit_management` | yes |
 | `audit_agents` | `audits/agents_reports` | `cortex.event_type: audit_agent` | no |
+| `vuln_cves` | XQL dataset `va_cves` | `cortex.event_type: vuln_cve` | no |
+| `vuln_endpoints` | XQL dataset `va_endpoints` | `cortex.event_type: vuln_endpoint` | no |
 
 Each data set keeps its own watermark, so one can be added or removed without
 disturbing the others.
@@ -57,6 +59,28 @@ disturbing the others.
 `audit_agents` is off by default. It returned 175,914 records on a 700-agent tenant and
 is agent telemetry rather than security signal, so enable it deliberately and give it a
 short `lookback_hours`.
+
+`vuln_cves` and `vuln_endpoints` are the Vulnerability Assessment data behind the Cortex
+console's dashboard of that name, and reproduce its figures exactly. They work differently
+from the other data sets:
+
+- They are read through XQL, not a REST endpoint. The REST vulnerability endpoints need
+  the Cloud Posture Management add-on and answer 500 without it; the `va_cves` and
+  `va_endpoints` datasets need nothing extra.
+- They are a full snapshot every `vuln_snapshot_hours` (24 by default), not a watermark.
+  Cortex recalculates nearly every CVE daily, so an incremental pull would fetch
+  everything anyway, and only a snapshot shows a remediated CVE disappearing. Every event
+  carries a `snapshot_id`, and the dashboards read the newest one.
+- A snapshot is large: one event per CVE, 16,250 on a 480-endpoint tenant, plus one per
+  endpoint. That is why they are opt-in. The snapshot is written at `write_rate_eps`
+  lines per second (500 by default), because Wazuh's log collector forwards through a
+  1,024-message queue and silently dropped 2,674 CVEs when a snapshot was written in one
+  go. A snapshot of that size takes about 70 seconds, within the wodle timeout below.
+- An endpoint's full CVE list is not kept, only `cve_count`: the list reaches 75 KB on a
+  single endpoint, past what analysisd accepts. Per-CVE host lists are dropped the same
+  way, keeping `affected_hosts_count`.
+- Their rules alert at level 3 only. A snapshot holds over a thousand critical CVEs, and
+  escalating those would raise the same alerts every morning.
 
 Every field the API returns is carried through rather than allowlisted, so a new rule
 can use any field without the collector needing a change. Two exceptions: the per-alert
@@ -91,24 +115,54 @@ reads, and never writes to or acknowledges anything in the tenant.
 
 ### Initial Wazuh Configuration
 
-Merge `cortex_xdr_index_mapping.json` into the Wazuh alerts index template. Without it
-every field still arrives, but as `keyword`, so date histograms and numeric
-aggregations on Cortex fields do not work.
+The dashboards work without any index mapping, so this step is optional. It makes Cortex
+dates, numbers and booleans real `date`, `long`, `double` and `boolean` fields, which
+you want for Discover, sorting and any visualization you build yourself.
+
+`cortex_xdr_index_mapping.json` lists only the fields whose type changes. Every other
+Cortex field is a string, which Wazuh's template already maps to `keyword` dynamically,
+so listing those would add nothing. Addresses are deliberately left as `keyword` too:
+typing them as `ip` made term aggregations fail outright while older, keyword-typed
+indices were still within retention.
+
+On the manager, merge it into the template file Filebeat loads, and push it:
 
 ```bash
-# 1. Back up the template first.
-curl -sk -u admin:admin "https://127.0.0.1:9200/_template/wazuh" > /tmp/wazuh-template.backup.json
-
-# 2. Merge the cortex block into mappings.properties.data.properties, then
-# 3. push the template back to the indexer.
+sudo cp /etc/filebeat/wazuh-template.json /etc/filebeat/wazuh-template.json.bak
+sudo /var/ossec/framework/python/bin/python3 - <<'PY'
+import json
+p = "/etc/filebeat/wazuh-template.json"
+t = json.load(open(p))
+data = t["mappings"]["properties"]["data"].setdefault("properties", {})
+data.update(json.load(open("cortex_xdr_index_mapping.json")))
+json.dump(t, open(p, "w"), indent=2)
+PY
+sudo filebeat setup --index-management -E output.logstash.enabled=false
 ```
 
-The mapping uses `ignore_malformed` on every date, numeric and ip field. That matters:
-without it a single unparseable value causes the indexer to reject the whole alert
-rather than just that field.
+Run it from the folder holding `cortex_xdr_index_mapping.json`. A Wazuh upgrade replaces
+`wazuh-template.json`, so repeat this after upgrading.
 
-The template applies to indices created after it is pushed, so either wait for the next
-daily index or roll over to see the change take effect.
+The template only applies to indices created after it is pushed, so from the next daily
+index on, new data is typed correctly. Existing indices keep their old types. That is
+safe, since the dashboards are built to work across both. To retype existing data as
+well, reindex each past daily index into a new name under the same pattern, check the
+counts match, and only then delete the original:
+
+```bash
+SRC=wazuh-alerts-4.x-2026.09.26
+curl -sk -u admin:<password> -X POST "https://localhost:9200/_reindex?refresh=true&wait_for_completion=true" \
+  -H "Content-Type: application/json" -d "{\"source\":{\"index\":\"$SRC\"},\"dest\":{\"index\":\"$SRC-remapped\"}}"
+curl -sk -u admin:<password> "https://localhost:9200/$SRC/_count"
+curl -sk -u admin:<password> "https://localhost:9200/$SRC-remapped/_count"
+# only once both counts match:
+curl -sk -u admin:<password> -X DELETE "https://localhost:9200/$SRC"
+```
+
+Do not reindex today's index, since it is still being written to; it rolls over at
+midnight UTC. The copy keeps matching `wazuh-alerts-*`, so dashboards and searches pick it
+up without changes. Afterwards, refresh the field list under Dashboards Management >
+Index patterns > `wazuh-alerts-*`, so Discover knows the new types.
 
 ### Using the Integration Files
 
@@ -116,11 +170,13 @@ daily index or roll over to see the change take effect.
 |---|---|
 | `cortex_xdr.py` | `/var/ossec/wodles/cortex_xdr/` on the manager |
 | `ruleset/rules/cortex_xdr_rules.xml` | `/var/ossec/etc/rules/`. Required: without it nothing reaches the indexer |
-| `cortex_xdr_index_mapping.json` | Merged into the alerts index template. Required for date and numeric panels |
+| `cortex_xdr_index_mapping.json` | Merged into the alerts index template. Optional, see above |
 | `dashboards/cortex_xdr_dashboard.ndjson` | Incidents and alerts: KPIs, severity and status donuts, MITRE sunburst, detection clock |
 | `dashboards/cortex_xdr_endpoints_dashboard.ndjson` | Endpoints: KPIs, estate sunburst, connectivity and content donuts, version and policy matrices |
 | `dashboards/cortex_xdr_audit_dashboard.ndjson` | Audit: KPIs, entity donuts, administrator matrices, agent service stops by day |
 | `dashboards/cortex_xdr_vega_dashboard.ndjson` | Vega explorer: estate treemap, MITRE and agent-health matrices, activity clock |
+| `dashboards/cortex_xdr_vuln_dashboard.ndjson` | Vulnerability Assessment: the four Cortex console donuts, plus severity by application, exposure, snapshot trend and CVSS spread |
+| `dashboards/cortex_xdr_lifecycle_dashboard.ndjson` | Incident lifecycle for management: MTTR against SLA, created and resolved per day, a timeline of every recent incident, backlog aging |
 
 No decoder ships with this integration and none is needed. The collector writes NDJSON,
 logcollector reads it as `json`, and Wazuh's built-in json decoder flattens each line
@@ -242,14 +298,15 @@ explaining what it fires on and why its level is what it is.
 Import**, with "overwrite" enabled, or from the command line:
 
 ```bash
-for d in cortex_xdr_dashboard cortex_xdr_endpoints_dashboard cortex_xdr_audit_dashboard cortex_xdr_vega_dashboard; do
+for d in cortex_xdr_dashboard cortex_xdr_endpoints_dashboard cortex_xdr_audit_dashboard \
+         cortex_xdr_vega_dashboard cortex_xdr_vuln_dashboard cortex_xdr_lifecycle_dashboard; do
   curl -sk -u admin:admin -X POST \
     "https://127.0.0.1/api/saved_objects/_import?overwrite=true" \
     -H "osd-xsrf:true" --form file=@dashboards/$d.ndjson
 done
 ```
 
-All four are Vega dashboards: vega-lite v5 for donuts, matrices and bars, full Vega v5
+All six are Vega dashboards: vega-lite v5 for donuts, matrices and bars, full Vega v5
 for the KPI tiles, sunbursts and treemap, which vega-lite cannot express. They count and
 bucket keyword values rather than aggregating numerically, so they render without the
 index mapping. Three behaviours are deliberate and worth knowing:
@@ -262,6 +319,23 @@ index mapping. Three behaviours are deliberate and worth knowing:
   activity, agent stops) bucket on the Cortex timestamp, not on Wazuh's `timestamp`, which
   is ingestion time. Otherwise the first collection's backlog lands in a single bar.
 - Colour legends list only values present in the data, in severity or state order.
+
+The incident lifecycle dashboard needs two more things said:
+
+- SLA targets are set in the collector's `config.json` as `sla_hours`, not in the
+  dashboards. Cortex does not expose its own SLA settings through the API, so the
+  collector stamps each incident with its severity's target and every lifecycle panel
+  reads it from the data. The defaults are 4 hours for critical, 8 for high, 24 for
+  medium and 120 for low, matching the Cortex MTTR widget; change them in the config and
+  new incidents carry the new targets, with no dashboard edit. The MTTR panel shows the
+  target from the newest incident of each severity.
+- Cortex reports when an incident was created and when it was resolved
+  (`resolved_timestamp`), so time to resolve and MTTR are exact. It does not report when
+  an incident was assigned, neither in the incident nor in the audit log. "Time to assign"
+  is therefore observed by the collector: the first poll in which an incident it had seen
+  unassigned has an assignee. It is accurate to one poll interval, covers only incidents
+  first seen unassigned, and reads `n/a` until such an incident exists. MTTR and the SLA
+  figures cover incidents resolved in the last 30 days.
 
 There is no separate filter panel. The dashboard search bar and "Add filter" apply to
 every panel, because each one declares `%context%`. Input controls were tried and
@@ -284,6 +358,10 @@ removed: they filter on keyword values, which misbehaved against the numeric pan
 | `base_prefix` | auto | API prefix. Leave unset, see [API Notes](#api-notes) |
 | `log_file` | `/var/ossec/logs/cortex_xdr.log` | NDJSON output |
 | `state_file` | `/var/ossec/wodles/cortex_xdr/state.json` | Watermarks and endpoint snapshot |
+| `vuln_snapshot_hours` | `24` | How often the vulnerability snapshot runs. 1 to 168 |
+| `xql_timeout_seconds` | `300` | How long to wait for an XQL query to finish |
+| `write_rate_eps` | `500` | Lines per second when writing a large batch. Lower it if `ossec.log` reports "message queue is full" |
+| `sla_hours` | `{"critical": 4, "high": 8, "medium": 24, "low": 120}` | Hours to resolve per severity, used by the lifecycle dashboard. Partial overrides keep the other defaults |
 
 Command line flags, all intended for testing rather than the wodle:
 
@@ -292,7 +370,7 @@ Command line flags, all intended for testing rather than the wodle:
 | `--collect a,b` | Override the configured data sets for one run |
 | `--stdout` | Print events instead of writing the log file |
 | `--no-state` | Do not read or write state |
-| `--since-hours N` | Ignore every watermark and look back N hours |
+| `--since-hours N` | Ignore every watermark and look back N hours; also forces a vulnerability snapshot |
 | `--selftest` | Run internal checks and exit. Needs no credentials and no network |
 | `-v` | Request-level logging |
 
@@ -405,6 +483,7 @@ aggregations see a plain value, and leaves genuine multi-value lists alone.
 | One data set missing, others fine | Check `ossec.log`. A failing collector is logged and skipped so it cannot take the others down |
 | `Another collector run holds the lock` | A previous run is still going. Raise `timeout` or lengthen the interval |
 | Date panels empty, other panels fine | The index mapping was not merged, so date fields are `keyword` |
+| Vulnerability snapshot counts short of the Cortex console | `ossec.log` shows "message queue is full": lower `write_rate_eps` |
 
 The collector logs to stderr, which the wodle captures into `/var/ossec/logs/ossec.log`.
 Add `-v` to the `<command>` for request-level detail.
