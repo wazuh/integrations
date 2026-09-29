@@ -1,0 +1,172 @@
+{
+  "collected_at": {
+    "type": "date"
+  },
+  "cortex": {
+    "properties": {
+      "state_changed": {
+        "type": "boolean"
+      },
+      "truncated": {
+        "type": "boolean"
+      },
+      "is_resolved": {
+        "type": "boolean"
+      },
+      "creation_time": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "modification_time": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "alert_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "low_severity_alert_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "med_severity_alert_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "high_severity_alert_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "host_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "user_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "detection_timestamp": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "local_insert_ts": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "event_timestamp": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "agent_host_boot_time": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "causality_actor_process_execution_time": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "starred": {
+        "type": "boolean"
+      },
+      "is_whitelisted": {
+        "type": "boolean"
+      },
+      "attempt_counter": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "action_local_port": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "action_remote_port": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "actor_process_os_pid": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "os_actor_process_os_pid": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "first_seen": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "last_seen": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "install_date": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "content_release_timestamp": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "last_content_update_time": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "AUDIT_ID": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "AUDIT_INSERT_TIME": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "TIMESTAMP": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "RECEIVEDTIME": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "severity_score": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "exploitability_score": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "impact_score": {
+        "type": "double",
+        "ignore_malformed": true
+      },
+      "affected_hosts_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "cve_count": {
+        "type": "long",
+        "ignore_malformed": true
+      },
+      "resolved_timestamp": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "modification_date": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "publication_date": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "last_calculation_time": {
+        "type": "date",
+        "ignore_malformed": true
+      },
+      "last_report_time": {
+        "type": "date",
+        "ignore_malformed": true
+      }
+    }
+  }
+}
