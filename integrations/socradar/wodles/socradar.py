@@ -9,9 +9,10 @@ Features:
   - Epoch time based start_date / end_date
   - Full reverse pagination (last page → first page)
   - Chronological output (oldest alarms first)
-  - Deduplication via state file
+  - Deduplication via state file (seen_alarms, aged by alarm creation date)
   - 1-minute incremental window plus periodic catch-up (fetch_overlap_seconds)
-  - Uncapped lookback/catch-up bounded per tick (max_catchup_pages + window_resume)
+  - Hourly backfill of up to the last 5 days, not earlier than the initial lookback
+  - Uncapped lookback/catch-up/backfill bounded per tick (max_catchup_pages + window_resume)
   - Runs every 1 minute via Wazuh wodle command
 
 Pagination Logic:
@@ -23,7 +24,7 @@ Pagination Logic:
     4. Emit in that order → oldest first, newest last
 
 Author: SOCRadar Integration Team
-Version: 1.0.4
+Version: 1.1.0
 """
 
 import json
@@ -37,8 +38,16 @@ import urllib.error
 import urllib.parse
 from datetime import datetime, timezone
 
-VERSION = "1.0.4"
+VERSION = "1.1.0"
 USER_AGENT = f"wazuh-socradar-integration/{VERSION}"
+
+# Hourly scan of up to the last 5 days, never earlier than the initial lookback.
+# Not user-configurable: the interval and the cap are different numbers, so
+# fetch_overlap_seconds cannot express this.
+BACKFILL_INTERVAL_SECONDS = 3600
+BACKFILL_LOOKBACK_SECONDS = 5 * 86400
+# Keep seen ids at least as long as the backfill can still return them.
+SEEN_RETENTION_SECONDS = BACKFILL_LOOKBACK_SECONDS + 2 * 86400
 
 
 # ---------------------------------------------------------------------------
@@ -124,14 +133,86 @@ def save_state(state):
 SEEN_CACHE_MAX = 50000
 
 
+def _parse_alarm_date_epoch(value, fallback):
+    """Parse SOCRadar alarm `date` (creation time) to a UTC epoch.
+
+    The API sends "YYYY-MM-DD HH:MM:SS" with no timezone. Those timestamps
+    match the manager clock used for start_date/end_date, so they are UTC.
+    Unparsable values fall back to `fallback` so the id is kept, not dropped.
+    """
+    if value is None or isinstance(value, bool):
+        return int(fallback)
+    if isinstance(value, (int, float)):
+        return int(value)
+    s = str(value).strip()
+    if not s:
+        return int(fallback)
+    if s.isdigit():
+        return int(s)
+    s = s.replace("T", " ")
+    if s.endswith("Z"):
+        s = s[:-1]
+    for fmt, width in (("%Y-%m-%d %H:%M:%S", 19), ("%Y-%m-%d", 10)):
+        try:
+            dt = datetime.strptime(s[:width], fmt)
+            return int(dt.replace(tzinfo=timezone.utc).timestamp())
+        except ValueError:
+            continue
+    return int(fallback)
+
+
+def _load_seen(state, now):
+    """Return {str(alarm_id): creation_epoch}.
+
+    Prefers seen_alarms. A legacy seen_alarm_ids list is migrated with `now`
+    as the date so those ids expire after the retention window, not at once.
+    """
+    seen = {}
+    raw = state.get("seen_alarms") if isinstance(state, dict) else None
+    if isinstance(raw, dict) and raw:
+        for key, value in raw.items():
+            if key is None:
+                continue
+            try:
+                seen[str(key)] = int(value)
+            except (TypeError, ValueError):
+                seen[str(key)] = int(now)
+        return seen
+    ids = state.get("seen_alarm_ids") if isinstance(state, dict) else None
+    if isinstance(ids, list):
+        for alarm_id in ids:
+            if alarm_id is None:
+                continue
+            seen[str(alarm_id)] = int(now)
+    return seen
+
+
 def persist_seen(state, seen):
-    """Write seen_alarm_ids only. Does not set last_run or last_catchup."""
-    seen_list = list(seen)
-    if len(seen_list) > SEEN_CACHE_MAX:
-        seen_list = seen_list[-SEEN_CACHE_MAX:]
-        seen.clear()
-        seen.update(dict.fromkeys(seen_list))
-    state["seen_alarm_ids"] = seen_list
+    """Write seen_alarms and a seen_alarm_ids mirror.
+
+    Does not set last_run, last_catchup, or last_backfill. Drops ids whose
+    creation date is older than the backfill window plus two days, then
+    enforces SEEN_CACHE_MAX by dropping the oldest dates.
+    """
+    now = now_epoch()
+    cutoff = now - SEEN_RETENTION_SECONDS
+    pruned = {}
+    for key, value in seen.items():
+        if key is None:
+            continue
+        try:
+            epoch = int(value)
+        except (TypeError, ValueError):
+            epoch = now
+        if epoch >= cutoff:
+            pruned[str(key)] = epoch
+    if len(pruned) > SEEN_CACHE_MAX:
+        ordered = sorted(pruned.items(), key=lambda item: item[1])
+        pruned = dict(ordered[-SEEN_CACHE_MAX:])
+    seen.clear()
+    seen.update(pruned)
+    state["seen_alarms"] = dict(seen)
+    state["seen_alarm_ids"] = list(seen.keys())
     save_state(state)
 
 
@@ -1088,25 +1169,34 @@ def _enqueue_failed_pages(
 
 
 def _emit_unseen(incidents, seen):
-    """Emit alerts for alarm_ids not already in seen. Returns new emit count."""
+    """Emit alerts for alarm_ids not already in seen. Returns new emit count.
+
+    Keys are strings. The stored value is the alarm creation epoch so the
+    cache can drop ids the hourly backfill can no longer return.
+    """
     new_count = 0
+    now = now_epoch()
     for incident in incidents:
         if not isinstance(incident, dict):
             continue
         alarm_id = incident.get("alarm_id")
-        if alarm_id is not None and alarm_id not in seen:
-            if _should_log("DEBUG"):
-                log(
-                    "DEBUG",
-                    "Emitting new incident | "
-                    f"alarm_id={alarm_id} "
-                    f"risk={incident.get('alarm_risk_level')} "
-                    f"status={incident.get('status')} "
-                    f"date={incident.get('date')}"
-                )
-            emit_alert(incident)
-            seen[alarm_id] = True
-            new_count += 1
+        if alarm_id is None:
+            continue
+        key = str(alarm_id)
+        if key in seen:
+            continue
+        if _should_log("DEBUG"):
+            log(
+                "DEBUG",
+                "Emitting new incident | "
+                f"alarm_id={alarm_id} "
+                f"risk={incident.get('alarm_risk_level')} "
+                f"status={incident.get('status')} "
+                f"date={incident.get('date')}"
+            )
+        emit_alert(incident)
+        seen[key] = _parse_alarm_date_epoch(incident.get("date"), now)
+        new_count += 1
     return new_count
 
 
@@ -1209,7 +1299,7 @@ def _window_resume(state, config):
         return None
     if next_page < 2 or start_epoch <= 0 or end_epoch <= start_epoch or total_pages < 2:
         return None
-    if kind not in ("lookback", "catchup"):
+    if kind not in ("lookback", "catchup", "backfill"):
         return None
     saved_fp = raw.get("fingerprint") or ""
     current_fp = _params_fingerprint(config)
@@ -1231,11 +1321,55 @@ def _stamp_last_catchup(state, end_epoch):
     state["last_catchup_iso"] = datetime.fromtimestamp(end_epoch, tz=timezone.utc).isoformat()
 
 
+def _stamp_last_backfill(state, end_epoch):
+    end_epoch = int(end_epoch)
+    state["last_backfill_epoch"] = end_epoch
+    state["last_backfill_iso"] = datetime.fromtimestamp(end_epoch, tz=timezone.utc).isoformat()
+
+
+def _stamp_backfill_floor(state, start_epoch):
+    """Earliest creation time a backfill may request. Set once, on first lookback."""
+    if state.get("backfill_floor_epoch"):
+        return
+    start_epoch = int(start_epoch)
+    state["backfill_floor_epoch"] = start_epoch
+    state["backfill_floor_iso"] = datetime.fromtimestamp(start_epoch, tz=timezone.utc).isoformat()
+
+
+def _backfill_start(state, end_epoch):
+    """now − 5 days, but not earlier than the initial-lookback floor.
+
+    No floor (an upgrade that already has last_run) keeps the full 5 days.
+    """
+    start = int(end_epoch) - BACKFILL_LOOKBACK_SECONDS
+    floor = state.get("backfill_floor_epoch")
+    if not floor:
+        return start
+    try:
+        return max(start, int(floor))
+    except (TypeError, ValueError):
+        return start
+
+
+def _backfill_due(state, end_epoch, is_first_run):
+    """Hourly 5-day scan. Skipped on the first run (lookback covers that tick)."""
+    if is_first_run:
+        return False
+    last_backfill = state.get("last_backfill_epoch")
+    if not last_backfill:
+        return True
+    try:
+        return (end_epoch - int(last_backfill)) >= BACKFILL_INTERVAL_SECONDS
+    except (TypeError, ValueError):
+        return True
+
+
 def _apply_resume_result(state, resume, resume_out, page1_ok):
     """Persist or clear window_resume.
 
     Lookback does not rewrite last_run (stamped when page 1 first succeeded).
-    Catch-up stamps last_catchup to the original window end when drain finishes.
+    Catch-up stamps last_catchup, and backfill stamps last_backfill, to the
+    original window end when the drain finishes.
     """
     if resume_out:
         state["window_resume"] = resume_out
@@ -1245,6 +1379,8 @@ def _apply_resume_result(state, resume, resume_out, page1_ok):
         return
     if resume.get("kind") == "catchup":
         _stamp_last_catchup(state, resume.get("end_epoch"))
+    elif resume.get("kind") == "backfill":
+        _stamp_last_backfill(state, resume.get("end_epoch"))
 
 
 def _live_incremental(config, state, end_epoch, sleep_s, seen, max_retry_pages, timeout_seconds=None):
@@ -1311,8 +1447,8 @@ def main():
         f"{datetime.fromtimestamp(start_epoch, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} -> "
         f"{datetime.fromtimestamp(end_epoch, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Deduplicate against seen alarm IDs (dict preserves insertion order)
-    seen = dict.fromkeys(state.get("seen_alarm_ids", []))
+    # Deduplicate against seen alarm IDs. Values are creation epochs.
+    seen = _load_seen(state, end_epoch)
     new_count = 0
     total_fetched = 0
 
@@ -1490,6 +1626,7 @@ def main():
             total_fetched += inc_fetched
             if page1_ok:
                 _stamp_last_run(state, end_epoch)
+                _stamp_backfill_floor(state, start_epoch)
             if resume_out:
                 state["window_resume"] = resume_out
             persist_seen(state, seen)
@@ -1503,8 +1640,20 @@ def main():
                 _stamp_last_run(state, end_epoch)
             persist_seen(state, seen)
 
+            # One uncapped window per tick keeps the run under the modulesd
+            # timeout. A due backfill wins: its window contains the catch-up
+            # window, and catch-up may be due on every tick when overlap <= 60.
+            backfill_pending = (
+                _backfill_due(state, end_epoch, is_first_run)
+                and not state.get("window_resume")
+            )
+
             # 3) Periodic catch-up: now − overlap → now (same process; not every tick)
-            if _catchup_due(state, end_epoch, overlap, is_first_run) and not state.get("window_resume"):
+            if (
+                _catchup_due(state, end_epoch, overlap, is_first_run)
+                and not state.get("window_resume")
+                and not backfill_pending
+            ):
                 catchup_start = end_epoch - overlap
                 last_catchup = state.get("last_catchup_epoch")
                 log(
@@ -1533,6 +1682,49 @@ def main():
                     _stamp_last_catchup(state, end_epoch)
                 persist_seen(state, seen)
 
+            # 4) Hourly backfill: up to now − 5 days → now, never before the
+            #    initial lookback. Skipped while a resume is in progress.
+            if backfill_pending:
+                backfill_start = _backfill_start(state, end_epoch)
+                last_backfill = state.get("last_backfill_epoch")
+                floor = state.get("backfill_floor_epoch")
+                if backfill_start >= end_epoch:
+                    log(
+                        "INFO",
+                        f"Backfill fetch skipped | floor={floor} "
+                        f"{backfill_start} -> {end_epoch}",
+                    )
+                    _stamp_last_backfill(state, end_epoch)
+                    persist_seen(state, seen)
+                else:
+                    log(
+                        "INFO",
+                        f"Backfill fetch | last={last_backfill} "
+                        f"lookback_seconds={BACKFILL_LOOKBACK_SECONDS} "
+                        f"floor={floor} "
+                        f"{backfill_start} -> {end_epoch}",
+                    )
+                    bf_new, bf_fetched, bf_page1_ok, resume_out = _ingest_time_window(
+                        config,
+                        state,
+                        backfill_start,
+                        end_epoch,
+                        page_sleep_seconds,
+                        seen,
+                        max_retry_pages,
+                        apply_max_pages=False,
+                        page_budget=page_budget,
+                        timeout_seconds=catchup_http_timeout,
+                        kind="backfill",
+                    )
+                    new_count += bf_new
+                    total_fetched += bf_fetched
+                    if resume_out:
+                        state["window_resume"] = resume_out
+                    elif bf_page1_ok:
+                        _stamp_last_backfill(state, end_epoch)
+                    persist_seen(state, seen)
+
         state["last_fetch_new"] = new_count
         state["last_fetch_total"] = total_fetched
         persist_seen(state, seen)
@@ -1541,7 +1733,7 @@ def main():
         log(
             "INFO",
             f"Done | New: {new_count}, Total: {total_fetched}, "
-            f"Cache: {len(state.get('seen_alarm_ids') or [])}, RetryQueue: {q_len}",
+            f"Cache: {len(seen)}, RetryQueue: {q_len}",
         )
     finally:
         # Exception-path flush only. Does not run on modulesd SIGKILL.

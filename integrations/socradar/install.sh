@@ -32,7 +32,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 echo -e "${BLUE}"
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║         SOCRadar Native Integration for Wazuh               ║"
-echo "║                    Installer v1.0.0                         ║"
+echo "║                    Installer v1.1.0                         ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
