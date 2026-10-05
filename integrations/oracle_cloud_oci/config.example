@@ -1,0 +1,25 @@
+# OCI API-key credentials for the Wazuh collector.
+#
+# Install to /var/ossec/wodles/oci/config with 0600 permissions:
+#   sudo install -m 0600 -o root -g root config.example /var/ossec/wodles/oci/config
+#
+# Generate the key pair and read the fingerprint/OCIDs from the Console under
+# Identity > Users > <collector user> > API Keys.
+#
+# Prefer --auth instance_principal instead of this file when the collector runs
+# on an OCI compute instance: it removes the private key from disk entirely.
+
+[DEFAULT]
+user=ocid1.user.oc1..aaaaaaaaEXAMPLE
+fingerprint=2f:31:ae:1a:5f:e4:a5:5b:6a:15:9c:8a:1c:7f:1d:53
+key_file=/var/ossec/wodles/oci/oci_api_key.pem
+tenancy=ocid1.tenancy.oc1..aaaaaaaaEXAMPLE
+region=us-ashburn-1
+
+# Optional: only needed if you pass --profile READONLY.
+# [READONLY]
+# user=ocid1.user.oc1..aaaaaaaaEXAMPLE2
+# fingerprint=...
+# key_file=/var/ossec/wodles/oci/oci_api_key_ro.pem
+# tenancy=ocid1.tenancy.oc1..aaaaaaaaEXAMPLE
+# region=us-ashburn-1

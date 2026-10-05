@@ -1,0 +1,14 @@
+[Unit]
+Description=Poll Oracle Cloud Infrastructure logs for Wazuh
+Requires=wazuh-oci-logs.service
+
+[Timer]
+# Connector Hub batches on its own schedule, so polling faster than a minute
+# rarely helps. Raise this if your bucket or stream is low volume.
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=15s
+Unit=wazuh-oci-logs.service
+
+[Install]
+WantedBy=timers.target
