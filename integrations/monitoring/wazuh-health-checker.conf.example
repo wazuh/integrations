@@ -7,17 +7,35 @@
 # Any value can be overridden at run time by an environment variable of the same
 # name, or by the matching monitoring.py command-line flag.
 
+# Quote values holding spaces or shell characters ($ ! ` " '), e.g.
+#     INDEXER_PASS='my$ecret!'
+
 # ── Credentials ──────────────────────────────────────────────────────────────
+# MANAGER_*: the Wazuh API user the dashboard uses (normally wazuh-wui; see
+#            /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml).
+# INDEXER_*: the user you log in to the Wazuh dashboard with (normally admin).
 MANAGER_USER=wazuh-wui
 MANAGER_PASS=<MANAGER_API_PASSWORD>
 INDEXER_USER=admin
 INDEXER_PASS=<INDEXER_PASSWORD>
 
-# ── Cluster topology ─────────────────────────────────────────────────────────
+# ── Deployment ───────────────────────────────────────────────────────────────
+# all-in-one  – manager, indexer and dashboard on this server. The node lists
+#               below are ignored and the multi-node checks do not run.
+# distributed – a component on another server, or a manager/indexer cluster.
+DEPLOYMENT=all-in-one
+
+# Where each service answers from this server. Leave empty for localhost; a
+# service that refuses localhost is then looked up on this server's own IPs.
+MANAGER_URL=
+INDEXER_URL=
+DASHBOARD_URL=
+
+# ── Cluster topology (DEPLOYMENT=distributed only) ───────────────────────────
 # Comma-separated. Each entry may be an IP, host:port, or a full URL.
-# Leave every list empty for an all-in-one deployment.
-# Include the local manager master in MANAGER_NODES: checks 16 and 17 verify
-# that each declared node is still present in the cluster.
+# MANAGER_NODES: only for a manager CLUSTER - include the local master too, as
+# checks 16 and 19 verify each declared node is still in the cluster. Leave it
+# empty for a single manager.
 MANAGER_NODES=
 INDEXER_NODES=
 DASHBOARD_NODES=

@@ -15,9 +15,9 @@ from email.mime.multipart import MIMEMultipart
 # this file also keeps it out of the repository.
 SMTP_SERVER  = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT    = int(os.environ.get("SMTP_PORT") or 587)
-SMTP_USER    = os.environ.get("SMTP_USER", "<SENDER_EMAIL>")
-SMTP_PASS    = os.environ.get("SMTP_PASS", "<APP_PASSWORD>")
-DESTINATARIO = os.environ.get("EMAIL_TO", "<RECEIPIENT_EMAIL>")
+SMTP_USER    = os.environ.get("SMTP_USER", "")
+SMTP_PASS    = os.environ.get("SMTP_PASS", "")
+DESTINATARIO = os.environ.get("EMAIL_TO", "")
 LOG_PATH     = os.environ.get("LOG_FILE", "/var/log/health-checker.json")
 HOSTNAME     = socket.gethostname()
 
@@ -51,6 +51,9 @@ def _get_environment_identity(checks: dict) -> tuple[str, str]:
 
 
 def send_email_notification():
+    if not (SMTP_SERVER and SMTP_USER and DESTINATARIO):
+        print("Email: SMTP_SERVER / SMTP_USER / EMAIL_TO are not configured, skipping.")
+        return
     try:
         # 1. Read last JSON line
         with open(LOG_PATH, 'r') as f:

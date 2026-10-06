@@ -122,13 +122,42 @@ Everything the integration needs lives in **one file**, `/etc/wazuh-health-check
 
 This will:
 
-1. read the credentials `wazuh-install.sh` generated, from `/root/wazuh-install-files.tar`, when that file is still present — otherwise prompt for them;
-2. discover the cluster topology through `GET /cluster/nodes` (manager) and `_cat/nodes` (indexer);
-3. write `/etc/wazuh-health-checker.conf` with `chmod 600`.
+1. **locate each service** — `localhost` first, then the address the service is bound to (`network.host` in `opensearch.yml`, `server.host`, the API `host`) and the server's own IPs. An indexer bound only to the server IP refuses connections to `localhost`; it is now found and written to `INDEXER_URL`;
+2. **verify the credentials against the live APIs** before writing anything. Known values are tried first (environment, the existing file, the dashboard's `wazuh.yml` for the manager API, `/root/wazuh-install-files.tar` when it still exists); if none works, it asks for **both** the user and the password, up to three times;
+3. discover the cluster topology through `GET /cluster/nodes` (manager) and `_cat/nodes` (indexer), and **ask for the deployment type** (`all-in-one` or `distributed`), proposing the one it detected;
+4. write `/etc/wazuh-health-checker.conf` with `chmod 600`, every value shell-quoted.
 
-Then review the file and fill in the notification settings. Add `--yes` to run it without prompts.
+The credentials it asks for are the ones every customer has:
 
-A standalone manager is detected and reported as such — clustering being disabled is not an error, and the node lists are simply left empty.
+| Prompt | What to enter |
+|--------|---------------|
+| Manager API | The Wazuh API user the dashboard uses, normally `wazuh-wui`. Its password is in `/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml`; on an all-in-one server it is read from there automatically. |
+| Indexer | The user and password you log in to the Wazuh dashboard with, normally `admin`. |
+
+Then review the file and fill in the notification settings. Add `--yes` to run it without prompts — pass the credentials as environment variables, and the run fails without writing anything if they do not authenticate:
+
+```bash
+INDEXER_USER=admin INDEXER_PASS='<dashboard login password>' \
+  /var/ossec/framework/python/bin/python3 ./monitoring.py --init-config --yes
+```
+
+`--manager-url`, `--indexer-url`, `--dashboard-url` and `--deployment` pin a value instead of detecting it.
+
+A standalone manager is detected and reported as such — clustering being disabled is not an error, and `MANAGER_NODES` is left empty.
+
+#### Deployment type
+
+| `DEPLOYMENT` | Meaning |
+|--------------|---------|
+| `all-in-one` | Manager, indexer and dashboard on this server. The `*_NODES` lists are ignored (a note says so) and checks 16, 17, 19, 20 and 21 do not run. |
+| `distributed` | A component on another server, or a manager/indexer cluster. The node lists drive the multi-node checks. |
+| *(unset)* | Inferred from the node lists, as in previous versions: any list set means `distributed`. |
+
+`MANAGER_NODES` is only for a manager **cluster**. On a single manager — even in a distributed deployment — leave it empty: check 16 reports a standalone manager as OK, and errors with an explanation if several nodes are declared while clustering is disabled.
+
+#### Values with special characters
+
+`wrapper.sh` reads the file with bash, so quote values that hold spaces or shell characters (`` $ ! ` " ' ``), e.g. `INDEXER_PASS='my$ecret!'`. `--init-config` does this for you, and `monitoring.py` reads quotes and trailing `# comments` exactly as bash does.
 
 An annotated template is shipped as `wazuh-health-checker.conf.example`.
 
@@ -149,8 +178,9 @@ Existing installations keep working untouched: when the new file is absent, the 
 |-----|---------|
 | `MANAGER_USER` / `MANAGER_PASS` | Wazuh Manager API credentials |
 | `INDEXER_USER` / `INDEXER_PASS` | Wazuh Indexer credentials |
-| `MANAGER_NODES` / `INDEXER_NODES` / `DASHBOARD_NODES` | Comma-separated cluster topology. Empty = all-in-one |
-| `MANAGER_URL` / `INDEXER_URL` / `DASHBOARD_URL` | Override the localhost defaults |
+| `DEPLOYMENT` | `all-in-one` or `distributed` — see *Deployment type* |
+| `MANAGER_NODES` / `INDEXER_NODES` / `DASHBOARD_NODES` | Comma-separated cluster topology (`distributed` only) |
+| `MANAGER_URL` / `INDEXER_URL` / `DASHBOARD_URL` | Where each service answers from this server. Unset = `localhost`, falling back to the server's own address when a service refuses `localhost` |
 | `LOG_FILE` | Result log, read by both notifiers |
 | `SLACK_WEBHOOK_URL` | Slack webhook |
 | `SMTP_SERVER` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `EMAIL_TO` | Email notifications |
@@ -188,7 +218,7 @@ Default ports are `55000` for the Manager API, `9200` for the Indexer and `443` 
 
 #### Scenario A — all-in-one
 
-Manager, indexer and dashboard on a single server. Leave every node list empty; the localhost defaults are used.
+Manager, indexer and dashboard on a single server. Set `DEPLOYMENT=all-in-one` and leave every node list empty. A service bound to the server IP instead of `localhost` is found automatically.
 
 ```bash
 python3 /opt/scripts/monitoring.py
@@ -289,6 +319,7 @@ python3 /opt/scripts/monitoring.py \
 | `--manager-url` | `https://localhost:55000` | Wazuh Manager API URL of this (master) node |
 | `--indexer-url` | `https://localhost:9200` | Indexer URL. Ignored when `--indexer-nodes` is set, unless given explicitly |
 | `--dashboard-url` | `https://localhost:443` | Dashboard URL. Ignored when `--dashboard-nodes` is set, unless given explicitly |
+| `--deployment` | *(inferred)* | `all-in-one` or `distributed` |
 | `--secrets-file` | `/etc/health-checker.secrets` | Path to credentials file |
 | `--disk-path` | `/` | Filesystem path to check |
 | `--disk-threshold` | `75` | Disk usage % that triggers alert |

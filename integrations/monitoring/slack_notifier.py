@@ -12,8 +12,7 @@ import sys
 # Values come from /etc/wazuh-health-checker.conf, which wrapper.sh sources and
 # exports. The literals below are only the fallback when this script is run on
 # its own, outside the wrapper.
-SLACK_WEBHOOK_URL = os.environ.get(
-    "SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/....../......")
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 #N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "")
 LOG_PATH = os.environ.get("LOG_FILE", "/var/log/health-checker.json")
 HOSTNAME = socket.gethostname()
@@ -48,6 +47,9 @@ def _get_environment_identity(checks: dict) -> tuple[str, str]:
 
 
 def send_notifications():
+    if not SLACK_WEBHOOK_URL.startswith("https://"):
+        print("Slack: SLACK_WEBHOOK_URL is not configured, skipping.")
+        return
     try:
         # 1. Read last log line
         with open(LOG_PATH, 'r') as f:
@@ -137,6 +139,12 @@ def send_notifications():
 
         # 5. Send to Slack
         resp = requests.post(SLACK_WEBHOOK_URL, json=slack_payload, timeout=10)
+        if resp.status_code != 200:
+            # Slack answers 4xx with a reason (invalid_token, no_service, …);
+            # the message used to say "sent" whatever the answer was.
+            print(f"❌ Slack rejected the notification: HTTP {resp.status_code} "
+                  f"{resp.text.strip()[:200]}")
+            return
 
         # A n8n 
         # requests.post(N8N_WEBHOOK_URL, json={

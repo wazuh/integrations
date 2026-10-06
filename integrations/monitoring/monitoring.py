@@ -91,6 +91,39 @@ Examples:
         --k8s-namespace wazuh
 
 Changelog:
+    2026-10-06 – Matías Mercado <matias.mercado@wazuh.com>
+        Fixes from a customer rollout (WS-41317, all-in-one 4.14.7 with the
+        indexer bound to the server IP), where --init-config could not produce
+        a working file:
+          * New DEPLOYMENT setting (--deployment): all-in-one | distributed.
+            --init-config detects it and asks to confirm. all-in-one ignores the
+            *_NODES lists and skips the multi-node checks; unset keeps the old
+            inference from the node lists.
+          * Checks 16 and 19 failed with a bare "HTTP 400" when MANAGER_NODES was
+            set on a standalone manager: /cluster/nodes and /cluster/local/info
+            answer 400 (error 3013) when clustering is disabled. A single
+            declared node on a standalone manager is now OK; several are an
+            error that says what to change.
+          * Services were only looked for on localhost. An indexer with
+            network.host set to the server IP refuses localhost, so every
+            indexer check failed. Each service is now located (localhost, its
+            configured bind address, the server IPs), at run time and by
+            --init-config, which writes MANAGER_URL / INDEXER_URL /
+            DASHBOARD_URL - it used to discard --*-url instead of saving them.
+          * --init-config never asked for a password already present in the old
+            file, so a stale one was reused and every check got HTTP 401.
+            Credentials are now verified against the live APIs before anything
+            is written, and the user is asked for both user and password when
+            no known pair works. The manager API pair is read from the
+            dashboard's wazuh.yml when available; the indexer prompt asks for
+            the dashboard login, which customers always have.
+          * Values are written shell-quoted and read the way bash reads them,
+            so passwords with $ ! ` or quotes, and trailing "# comments", no
+            longer differ between wrapper.sh and a direct run.
+          * slack_notifier.py printed "Notification sent" whatever Slack
+            answered; it now reports the HTTP error. Both notifiers skip a
+            channel that is not configured instead of failing on placeholders.
+
     2026-09-13 – Matías Mercado <matias.mercado@wazuh.com>
         Fixes found while validating the integration against a real 2-manager +
         2-indexer Wazuh 4.14.7 cluster:
@@ -175,6 +208,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -209,6 +243,32 @@ REQUEST_TIMEOUT = 10
 MANAGER_API_PORT   = 55000
 INDEXER_PORT       = 9200
 DASHBOARD_PORT     = 443
+
+# Deployment type (DEPLOYMENT / --deployment):
+#   all-in-one  – manager, indexer and dashboard on this server. The node lists
+#                 are ignored and the multi-node checks (16, 17, 19-21) do not run.
+#   distributed – any component on another server, or a manager/indexer cluster.
+# Left unset, it is inferred from the node lists, as older versions did.
+DEPLOYMENT_TYPES = ("all-in-one", "distributed")
+
+# Where each local service may be bound when it is not listening on localhost.
+# A service bound to the host IP only (network.host: "10.0.0.5") refuses
+# connections to localhost, which used to break every check against it.
+LOCAL_BIND_SETTINGS = {
+    "manager":   ("/var/ossec/api/configuration/api.yaml", "host"),
+    "indexer":   ("/etc/wazuh-indexer/opensearch.yml", "network.host"),
+    "dashboard": ("/etc/wazuh-dashboard/opensearch_dashboards.yml", "server.host"),
+}
+
+# The Wazuh API credentials the dashboard uses (normally wazuh-wui).
+WAZUH_DASHBOARD_API_CONF = "/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml"
+
+MANAGER_CREDENTIALS_HINT = (
+    "Use the Wazuh API user the dashboard connects with (normally wazuh-wui).\n"
+    f"      Its password is in {WAZUH_DASHBOARD_API_CONF} on the dashboard server.")
+INDEXER_CREDENTIALS_HINT = (
+    "Use the same user and password you log in to the Wazuh dashboard with\n"
+    "      (normally admin) - they are the indexer API credentials.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -415,6 +475,77 @@ def _probe_indexer(user: str, password: str):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Local endpoint resolution
+# ─────────────────────────────────────────────────────────────────────────────
+LOCALHOST_NAMES = ("localhost", "127.0.0.1", "::1")
+
+
+def _tcp_open(host: str, port: int, timeout: float = 2.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _local_addresses() -> list[str]:
+    """Every IPv4 address of this host, as `hostname -I` reports them."""
+    addresses: list[str] = []
+    try:
+        out = subprocess.run(["hostname", "-I"], capture_output=True,
+                             text=True, timeout=5).stdout
+        addresses += [a for a in out.split() if ":" not in a]
+    except Exception:
+        pass
+    try:
+        addresses.append(socket.gethostbyname(socket.gethostname()))
+    except OSError:
+        pass
+    return [a for a in dict.fromkeys(addresses) if not a.startswith("127.")]
+
+
+def _configured_bind_hosts(service: str) -> list[str]:
+    """Addresses a local service is configured to listen on, if it says so."""
+    path, key = LOCAL_BIND_SETTINGS[service]
+    try:
+        with open(path) as f:
+            text = f.read()
+    except OSError:
+        return []
+    m = re.search(rf"^\s*{re.escape(key)}\s*:\s*(.+?)\s*$", text, re.MULTILINE)
+    if not m:
+        return []
+    hosts = [h.strip().strip("'\"") for h in m.group(1).strip("[]").split(",")]
+    # Wildcards and OpenSearch special values (_local_, _site_ …) are not
+    # addresses we can connect to.
+    return [h for h in hosts
+            if h and h not in ("0.0.0.0", "::") and not h.startswith("_")]
+
+
+def _is_local_host(host: str) -> bool:
+    return host in LOCALHOST_NAMES or host in _local_addresses()
+
+
+def _resolve_local_url(default_url: str, service: str) -> tuple[str, str | None]:
+    """Find where a service of THIS host actually answers.
+
+    Tries localhost first, then the address the service is configured to bind
+    to, then every address of the host. Returns (url, note); the note explains
+    a fallback away from localhost and is None when localhost answered.
+    """
+    scheme, _, rest = default_url.partition("://")
+    port = int(rest.rsplit(":", 1)[1])
+    candidates = ["localhost", *_configured_bind_hosts(service), *_local_addresses()]
+    for host in dict.fromkeys(candidates):
+        if _tcp_open(host, port):
+            url = f"{scheme}://{host}:{port}"
+            if host == "localhost":
+                return url, None
+            return url, f"localhost:{port} refused the connection, using {host}"
+    return default_url, None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Container exec abstractions
 # ─────────────────────────────────────────────────────────────────────────────
 def _docker_find_container(image_pattern: str) -> str | None:
@@ -521,6 +652,34 @@ _REQUIRED_SECRETS = ("MANAGER_USER", "MANAGER_PASS", "INDEXER_USER", "INDEXER_PA
 _config_values: dict[str, str] = {}
 
 
+def _parse_shell_value(raw: str) -> str:
+    """Read a value the way bash does when wrapper.sh sources the file.
+
+    Both readers have to agree: wrapper.sh exports what bash parsed, and that
+    environment outranks the file, so a value bash reads differently (a quoted
+    password, a trailing "# comment") used to work through the wrapper and fail
+    when monitoring.py was run on its own - or the other way round.
+    """
+    raw = raw.strip()
+    # Drop a trailing comment: an unquoted '#' at the start of a word.
+    quote, prev = None, "="      # what precedes the value in KEY=value
+    for i, ch in enumerate(raw):
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "#" and prev.isspace():
+            raw = raw[:i].rstrip()
+            break
+        prev = ch
+    try:
+        return " ".join(shlex.split(raw))
+    except ValueError:
+        # Unbalanced quotes: keep the old, literal behaviour.
+        return raw.strip('"').strip("'")
+
+
 def _read_kv_file(path: str) -> dict[str, str]:
     """Parse a KEY=VALUE file. Blank lines and '#' comments are ignored, and a
     leading 'export ' is tolerated so the same file can be sourced by a shell."""
@@ -540,7 +699,7 @@ def _read_kv_file(path: str) -> dict[str, str]:
                           file=sys.stderr)
                     continue
                 key, _, value = line.partition("=")
-                values[key.strip()] = value.strip().strip('"').strip("'")
+                values[key.strip()] = _parse_shell_value(value)
     except PermissionError:
         print(f"ERROR: Cannot read {path}. Run as root.", file=sys.stderr)
         sys.exit(1)
@@ -631,6 +790,30 @@ def _get_manager_token(url: str, user: str, password: str) -> tuple[str | None, 
         return None, "Request timed out"
     except Exception as exc:
         return None, str(exc)
+
+
+API_ERROR_CLUSTER_DISABLED = 3013   # "Cluster is not running"
+
+
+def _api_error_code(resp) -> int | None:
+    try:
+        return resp.json().get("error")
+    except (ValueError, AttributeError):
+        return None
+
+
+def _manager_cluster_enabled(url: str, token: str) -> bool | None:
+    """True/False from GET /cluster/status, or None when it cannot be told."""
+    try:
+        resp = requests.get(f"{url}/cluster/status",
+                            headers={"Authorization": f"Bearer {token}"},
+                            verify=False, timeout=REQUEST_TIMEOUT)
+        if resp.status_code == 200:
+            enabled = resp.json().get("data", {}).get("enabled", "no")
+            return str(enabled).lower() in ("yes", "true")
+    except Exception:
+        pass
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1928,6 +2111,19 @@ def check_manager_cluster_nodes(
         return _make_check("error", True,
                            details=f"Authentication failed: {err}", url=url)
 
+    # A standalone manager answers /cluster/nodes with HTTP 400 (error 3013),
+    # which used to surface as a bare "HTTP 400". Say what is actually wrong.
+    if _manager_cluster_enabled(url, token) is False:
+        if len(expected_nodes) <= 1:
+            return _make_check("ok", False, node_count=1, expected=expected_nodes,
+                               details="Clustering is disabled: standalone manager")
+        return _make_check(
+            "error", True, expected=expected_nodes,
+            details=(f"MANAGER_NODES declares {len(expected_nodes)} nodes but "
+                     "clustering is disabled on this manager. For a single "
+                     "manager, set DEPLOYMENT=all-in-one or leave MANAGER_NODES "
+                     "empty."))
+
     endpoint = f"{url}/cluster/nodes"
     try:
         resp = requests.get(endpoint,
@@ -2097,6 +2293,10 @@ def check_manager_node_endpoints(node_urls: list[str], user: str,
                     entry["node_name"] = items[0].get("node")
                     entry["node_type"] = items[0].get("type")
                     entry["cluster"] = items[0].get("cluster")
+            elif _api_error_code(resp) == API_ERROR_CLUSTER_DISABLED:
+                # The API answered and authenticated; the node just is not
+                # clustered, which check 16 reports on its own.
+                entry["node_type"] = "standalone"
             else:
                 entry["error"] = f"HTTP {resp.status_code} on /cluster/local/info"
                 issues.append(f"{label}: HTTP {resp.status_code} on /cluster/local/info")
@@ -2323,15 +2523,9 @@ def _discover_manager_nodes(url: str, user: str,
         return [], err, False
 
     headers = {"Authorization": f"Bearer {token}"}
-    try:
-        status = requests.get(f"{url}/cluster/status", headers=headers,
-                              verify=False, timeout=REQUEST_TIMEOUT)
-        if status.status_code == 200:
-            enabled = status.json().get("data", {}).get("enabled", "no")
-            if str(enabled).lower() not in ("yes", "true"):
-                return [], None, False
-    except Exception:
-        pass  # fall through and let /cluster/nodes report the real problem
+    # None (unknown) falls through and lets /cluster/nodes report the problem.
+    if _manager_cluster_enabled(url, token) is False:
+        return [], None, False
 
     endpoint = f"{url}/cluster/nodes"
     try:
@@ -2345,8 +2539,8 @@ def _discover_manager_nodes(url: str, user: str,
             payload = resp.json()
         except ValueError:
             pass
-        # 3013 = cluster disabled; treat it as standalone rather than an error.
-        if payload.get("error") == 3013:
+        # Cluster disabled: treat it as standalone rather than an error.
+        if payload.get("error") == API_ERROR_CLUSTER_DISABLED:
             return [], None, False
         detail = payload.get("detail") or f"HTTP {resp.status_code}"
         return [], f"{detail} ({endpoint})", True
@@ -2377,6 +2571,142 @@ def _prompt(label: str, current: str = "", secret: bool = False) -> str:
     return value or current
 
 
+def _credentials_from_dashboard_conf(path: str = WAZUH_DASHBOARD_API_CONF) -> list[tuple[str, str]]:
+    """(username, password) pairs the dashboard uses for the Wazuh API.
+
+    Present whenever the dashboard runs on this server, which covers every
+    all-in-one installation - including those where the installer's tar is gone.
+    """
+    try:
+        with open(path) as f:
+            text = f.read()
+    except OSError:
+        return []
+    pairs: list[tuple[str, str]] = []
+    user = None
+    for line in text.splitlines():
+        m = re.match(r"\s*(username|password)\s*:\s*(.*?)\s*$", line)
+        if not m:
+            continue
+        value = _parse_shell_value(m.group(2))
+        if m.group(1) == "username":
+            user = value
+        elif user is not None:
+            pairs.append((user, value))
+            user = None
+    return pairs
+
+
+def _manager_auth_error(url: str, user: str, password: str) -> str | None:
+    _token, err = _get_manager_token(url, user, password)
+    return err
+
+
+def _indexer_auth_error(url: str, user: str, password: str) -> str | None:
+    try:
+        resp = requests.get(f"{url}/", auth=(user, password),
+                            verify=False, timeout=REQUEST_TIMEOUT)
+    except Exception as exc:
+        return f"{_short_error(exc)} ({url})"
+    if resp.status_code == 200:
+        return None
+    return f"HTTP {resp.status_code} from {url}/"
+
+
+def _obtain_credentials(service: str, url: str, user_key: str, pass_key: str,
+                        default_user: str, candidates: list[tuple[str, str, str]],
+                        check, hint: str, assume_yes: bool) -> tuple[str, str] | None:
+    """Return a user/password pair that was VERIFIED against the live API.
+
+    Known pairs (environment, existing file, dashboard config, installer tar)
+    are tried first. When none of them works, the user is asked - for the user
+    AND the password, every time: a stale password kept from an old file is
+    exactly what made the previous version write a configuration that failed.
+    """
+    tried: set[tuple[str, str]] = set()
+    last_err = None
+    for source, user, password in candidates:
+        if not user or not password or (user, password) in tried:
+            continue
+        tried.add((user, password))
+        last_err = check(url, user, password)
+        if last_err is None:
+            print(f"  [+] {service} credentials: OK – user '{user}' (from {source})")
+            return user, password
+        print(f"  [!] {service} credentials from {source} rejected: {last_err}")
+        if "HTTP 401" not in last_err:
+            break   # not an authentication problem: asking again will not help
+
+    if last_err and "HTTP 401" not in last_err:
+        print(f"  [✗] {service} at {url} is not usable: {last_err}\n"
+              f"      Pass the right address with --{service.split()[0].lower()}-url.",
+              file=sys.stderr)
+        return None
+    if assume_yes:
+        print(f"  [✗] No working {service} credentials. Provide {user_key} and "
+              f"{pass_key} as environment variables.\n      {hint}", file=sys.stderr)
+        return None
+
+    print(f"\n  {service} credentials ({url})\n      {hint}")
+    user = next((u for _s, u, _p in candidates if u), default_user)
+    for _attempt in range(3):
+        user = _prompt(f"  {service} user", user)
+        password = _prompt(f"  {service} password", secret=True)
+        err = check(url, user, password)
+        if err is None:
+            print(f"  [+] {service} credentials: OK – user '{user}'")
+            return user, password
+        print(f"  [!] {err}")
+        if "HTTP 401" not in err:
+            break
+        print("      Wrong user or password, try again.")
+    print(f"  [✗] Could not verify the {service} credentials; nothing was written.",
+          file=sys.stderr)
+    return None
+
+
+def _resolve_init_url(explicit: str | None, current: str | None,
+                      default_url: str, service: str, label: str) -> str:
+    if explicit:
+        url = explicit.rstrip("/")
+    elif current:
+        url = current.rstrip("/")
+    else:
+        url, note = _resolve_local_url(default_url, service)
+        if note:
+            print(f"  [+] {label}: {note}")
+    print(f"  [+] {label:<10} {url}")
+    return url
+
+
+def _ask_deployment(suggested: str, assume_yes: bool) -> str:
+    if assume_yes:
+        return suggested
+    print("\n  Deployment type:\n"
+          "      all-in-one  – manager, indexer and dashboard on this server\n"
+          "      distributed – a component on another server, or a cluster")
+    while True:
+        answer = _prompt("  Deployment type (all-in-one/distributed)", suggested).lower()
+        for choice in DEPLOYMENT_TYPES:
+            if choice.startswith(answer[:1]) and answer:
+                return choice
+        print("      Answer 'all-in-one' or 'distributed'.")
+
+
+def _ask_node_list(label: str, current: list[str], assume_yes: bool) -> list[str]:
+    if assume_yes:
+        return current
+    answer = _prompt(f"  {label} (comma-separated, '-' for none)", ",".join(current))
+    if answer.strip() == "-":
+        return []
+    return [n.strip() for n in answer.split(",") if n.strip()]
+
+
+def _shell_value(value: str) -> str:
+    """Quote a value so `source` in wrapper.sh reads it back unchanged."""
+    return shlex.quote(value) if value else ""
+
+
 CONFIG_TEMPLATE = """\
 # ─────────────────────────────────────────────────────────────────────────────
 # Wazuh health checker – single configuration file
@@ -2386,18 +2716,34 @@ CONFIG_TEMPLATE = """\
 #
 # Any value can be overridden at run time by an environment variable of the same
 # name, or by the matching monitoring.py command-line flag.
+# Quote values holding spaces or shell characters ($ ! ` " '), e.g.
+#     INDEXER_PASS='my$ecret!'
 
 # ── Credentials ──────────────────────────────────────────────────────────────
+# MANAGER_*: the Wazuh API user the dashboard uses (normally wazuh-wui; see
+#            {WAZUH_DASHBOARD_API_CONF}).
+# INDEXER_*: the user you log in to the Wazuh dashboard with (normally admin).
 MANAGER_USER={MANAGER_USER}
 MANAGER_PASS={MANAGER_PASS}
 INDEXER_USER={INDEXER_USER}
 INDEXER_PASS={INDEXER_PASS}
 
-# ── Cluster topology ─────────────────────────────────────────────────────────
+# ── Deployment ───────────────────────────────────────────────────────────────
+# all-in-one  – manager, indexer and dashboard on this server. The node lists
+#               below are ignored and the multi-node checks do not run.
+# distributed – a component on another server, or a manager/indexer cluster.
+DEPLOYMENT={DEPLOYMENT}
+
+# Where each service answers from this server.
+MANAGER_URL={MANAGER_URL}
+INDEXER_URL={INDEXER_URL}
+DASHBOARD_URL={DASHBOARD_URL}
+
+# ── Cluster topology (DEPLOYMENT=distributed only) ───────────────────────────
 # Comma-separated. Each entry may be an IP, host:port, or a full URL.
-# Leave every list empty for an all-in-one deployment.
-# Include the local manager master in MANAGER_NODES: checks 16 and 17 verify
-# that each declared node is still present in the cluster.
+# MANAGER_NODES: only for a manager CLUSTER - include the local master too, as
+# checks 16 and 19 verify each declared node is still in the cluster. Leave it
+# empty for a single manager.
 MANAGER_NODES={MANAGER_NODES}
 INDEXER_NODES={INDEXER_NODES}
 DASHBOARD_NODES={DASHBOARD_NODES}
@@ -2425,10 +2771,17 @@ SMTP_PASS={SMTP_PASS}
 EMAIL_TO={EMAIL_TO}
 """
 
+_INIT_CONFIG_KEYS = (*_REQUIRED_SECRETS, "DEPLOYMENT", "MANAGER_URL", "INDEXER_URL",
+                     "DASHBOARD_URL", "MANAGER_NODES", "INDEXER_NODES",
+                     "DASHBOARD_NODES", "LOG_FILE", "SLACK_WEBHOOK_URL",
+                     "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "EMAIL_TO")
 
-def init_config(config_file: str, manager_url: str, indexer_url: str,
+
+def init_config(config_file: str, manager_url: str | None, indexer_url: str | None,
+                dashboard_url: str | None, deployment: str | None,
                 assume_yes: bool = False) -> int:
-    """Interactively build the single config file, discovering the topology."""
+    """Build the single config file: verified credentials, the address each
+    service answers on, the deployment type and the discovered topology."""
     print(f"\n  Wazuh health checker – configuration setup")
     print(f"  Target file: {config_file}\n")
 
@@ -2437,79 +2790,128 @@ def init_config(config_file: str, manager_url: str, indexer_url: str,
             print("  Aborted; nothing was written.")
             return 1
 
-    values = dict(_config_values)
+    file_values = dict(_config_values)
+    values = dict(file_values)
     # Environment variables outrank the file. On a step-by-step installation
     # there is no /root/wazuh-install-files.tar, so the environment is the only
     # non-interactive source of credentials - which is what --yes relies on.
-    for key in (*_REQUIRED_SECRETS, "MANAGER_NODES", "INDEXER_NODES",
-                "DASHBOARD_NODES", "LOG_FILE", "SLACK_WEBHOOK_URL",
-                "SMTP_SERVER", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "EMAIL_TO"):
-        env_value = os.environ.get(key)
-        if env_value:
-            values[key] = env_value
+    env_values = {k: os.environ[k] for k in _INIT_CONFIG_KEYS if os.environ.get(k)}
+    values.update(env_values)
 
-    discovered = _credentials_from_install_files()
-    if discovered:
-        print(f"  [+] Credentials found in {WAZUH_INSTALL_FILES_TAR}")
-        for key, value in discovered.items():
-            values.setdefault(key, value)
-    else:
-        print(f"  [ ] {WAZUH_INSTALL_FILES_TAR} not readable – credentials will be asked for")
+    # ── Where each service answers ────────────────────────────────────────
+    # localhost first, then the address the service is bound to: an indexer
+    # with network.host set to the host IP refuses localhost connections.
+    print("  Locating the services…")
+    manager_url = _resolve_init_url(manager_url, values.get("MANAGER_URL"),
+                                    DEFAULT_MANAGER_URL, "manager", "Manager")
+    indexer_url = _resolve_init_url(indexer_url, values.get("INDEXER_URL"),
+                                    DEFAULT_INDEXER_URL, "indexer", "Indexer")
+    dashboard_url = _resolve_init_url(dashboard_url, values.get("DASHBOARD_URL"),
+                                      DEFAULT_DASHBOARD_URL, "dashboard", "Dashboard")
 
-    if not assume_yes:
-        print()
-        values["MANAGER_USER"] = _prompt("  Manager API user", values.get("MANAGER_USER", "wazuh-wui"))
-        if not values.get("MANAGER_PASS"):
-            values["MANAGER_PASS"] = _prompt("  Manager API password", secret=True)
-        values["INDEXER_USER"] = _prompt("  Indexer user", values.get("INDEXER_USER", "admin"))
-        if not values.get("INDEXER_PASS"):
-            values["INDEXER_PASS"] = _prompt("  Indexer password", secret=True)
+    # ── Credentials, verified against the live APIs ───────────────────────
+    install_files = _credentials_from_install_files()
+    dashboard_pairs = _credentials_from_dashboard_conf()
 
-    for key in _REQUIRED_SECRETS:
-        if not values.get(key):
-            print(f"\n  ERROR: {key} is still empty; cannot discover the topology.",
-                  file=sys.stderr)
-            return 1
+    def known(user_key: str, pass_key: str) -> list[tuple[str, str, str]]:
+        found = []
+        if user_key in env_values or pass_key in env_values:
+            found.append(("environment", values.get(user_key, ""), values.get(pass_key, "")))
+        if file_values.get(pass_key):
+            found.append((os.path.basename(config_file) + " / legacy secrets",
+                          file_values.get(user_key, ""), file_values[pass_key]))
+        if install_files.get(pass_key):
+            found.append((WAZUH_INSTALL_FILES_TAR, install_files[user_key],
+                          install_files[pass_key]))
+        return found
 
+    print("\n  Checking credentials…")
+    manager_candidates = known("MANAGER_USER", "MANAGER_PASS") + [
+        (WAZUH_DASHBOARD_API_CONF, u, p) for u, p in dashboard_pairs]
+    manager = _obtain_credentials(
+        "Manager API", manager_url, "MANAGER_USER", "MANAGER_PASS", "wazuh-wui",
+        manager_candidates, _manager_auth_error, MANAGER_CREDENTIALS_HINT, assume_yes)
+    if manager is None:
+        return 1
+    indexer = _obtain_credentials(
+        "Indexer", indexer_url, "INDEXER_USER", "INDEXER_PASS", "admin",
+        known("INDEXER_USER", "INDEXER_PASS"), _indexer_auth_error,
+        INDEXER_CREDENTIALS_HINT, assume_yes)
+    if indexer is None:
+        return 1
+    values["MANAGER_USER"], values["MANAGER_PASS"] = manager
+    values["INDEXER_USER"], values["INDEXER_PASS"] = indexer
+
+    # ── Topology and deployment type ──────────────────────────────────────
     print("\n  Discovering cluster topology…")
     managers, mgr_err, mgr_clustered = _discover_manager_nodes(
-        manager_url, values["MANAGER_USER"], values["MANAGER_PASS"])
+        manager_url, *manager)
     if mgr_err:
         print(f"  [!] Manager nodes: {mgr_err}")
-        print(f"      Leaving MANAGER_NODES empty – fill it in by hand if this is a cluster.")
     elif not mgr_clustered:
         print(f"  [+] Manager nodes:  standalone (clustering disabled)")
     else:
         print(f"  [+] Manager nodes:  {', '.join(managers) or '(none reported)'}")
-    indexers, idx_err = _discover_indexer_nodes(
-        indexer_url, values["INDEXER_USER"], values["INDEXER_PASS"])
+    indexers, idx_err = _discover_indexer_nodes(indexer_url, *indexer)
     if idx_err:
         print(f"  [!] Indexer nodes: {idx_err}")
-        print(f"      Leaving INDEXER_NODES empty – fill it in by hand if this is a cluster.")
     else:
-        print(f"  [+] Indexer nodes:  {', '.join(indexers) or '(single node)'}")
+        print(f"  [+] Indexer nodes:  {', '.join(indexers) or '(none reported)'}")
 
-    # A single node behind the localhost defaults needs no explicit topology.
-    if len(managers) < 2:
-        managers = []
-    if len(indexers) < 2:
-        indexers = []
+    remote = [label for label, url in (("indexer", indexer_url),
+                                       ("dashboard", dashboard_url))
+              if not _is_local_host(_node_host(url))]
+    if mgr_clustered or len(indexers) > 1 or remote:
+        suggested = "distributed"
+    else:
+        suggested = "all-in-one"
+    print(f"  [+] Detected deployment: {suggested}"
+          + (f" ({', '.join(remote)} on another server)" if remote else ""))
+    deployment = deployment or _ask_deployment(
+        values.get("DEPLOYMENT") if values.get("DEPLOYMENT") in DEPLOYMENT_TYPES
+        else suggested, assume_yes)
+
+    if deployment == "all-in-one":
+        managers = indexers = dashboards = []
+    else:
+        # The manager list is only meaningful for a manager cluster: a
+        # standalone manager answers the cluster endpoints with HTTP 400.
+        if not mgr_clustered:
+            managers = []
+        if len(indexers) < 2 and not remote:
+            indexers = []
+        dashboards = [n for n in (values.get("DASHBOARD_NODES") or "").split(",") if n]
+        if not dashboards and "dashboard" in remote:
+            dashboards = [_node_host(dashboard_url)]
+        if not assume_yes:
+            print()
+            managers = _ask_node_list("Manager cluster nodes", managers, assume_yes)
+            indexers = _ask_node_list("Indexer nodes", indexers, assume_yes)
+            dashboards = _ask_node_list("Dashboard nodes", dashboards, assume_yes)
+        if len(managers) == 1:
+            print("  [!] A single manager needs no MANAGER_NODES; leaving it empty.")
+            managers = []
 
     rendered = CONFIG_TEMPLATE.format(
-        MANAGER_USER=values.get("MANAGER_USER", ""),
-        MANAGER_PASS=values.get("MANAGER_PASS", ""),
-        INDEXER_USER=values.get("INDEXER_USER", ""),
-        INDEXER_PASS=values.get("INDEXER_PASS", ""),
-        MANAGER_NODES=",".join(managers),
-        INDEXER_NODES=",".join(indexers),
-        DASHBOARD_NODES=values.get("DASHBOARD_NODES", ""),
-        LOG_FILE=values.get("LOG_FILE", DEFAULT_LOG_FILE),
-        SLACK_WEBHOOK_URL=values.get("SLACK_WEBHOOK_URL", ""),
-        SMTP_SERVER=values.get("SMTP_SERVER", ""),
-        SMTP_PORT=values.get("SMTP_PORT", "587"),
-        SMTP_USER=values.get("SMTP_USER", ""),
-        SMTP_PASS=values.get("SMTP_PASS", ""),
-        EMAIL_TO=values.get("EMAIL_TO", ""),
+        WAZUH_DASHBOARD_API_CONF=WAZUH_DASHBOARD_API_CONF,
+        MANAGER_USER=_shell_value(values["MANAGER_USER"]),
+        MANAGER_PASS=_shell_value(values["MANAGER_PASS"]),
+        INDEXER_USER=_shell_value(values["INDEXER_USER"]),
+        INDEXER_PASS=_shell_value(values["INDEXER_PASS"]),
+        DEPLOYMENT=deployment,
+        MANAGER_URL=_shell_value(manager_url),
+        INDEXER_URL=_shell_value(indexer_url),
+        DASHBOARD_URL=_shell_value(dashboard_url),
+        MANAGER_NODES=_shell_value(",".join(managers)),
+        INDEXER_NODES=_shell_value(",".join(indexers)),
+        DASHBOARD_NODES=_shell_value(",".join(dashboards)),
+        LOG_FILE=_shell_value(values.get("LOG_FILE", DEFAULT_LOG_FILE)),
+        SLACK_WEBHOOK_URL=_shell_value(values.get("SLACK_WEBHOOK_URL", "")),
+        SMTP_SERVER=_shell_value(values.get("SMTP_SERVER", "")),
+        SMTP_PORT=_shell_value(values.get("SMTP_PORT", "587")),
+        SMTP_USER=_shell_value(values.get("SMTP_USER", "")),
+        SMTP_PASS=_shell_value(values.get("SMTP_PASS", "")),
+        EMAIL_TO=_shell_value(values.get("EMAIL_TO", "")),
     )
 
     directory = os.path.dirname(config_file) or "."
@@ -2523,7 +2925,7 @@ def init_config(config_file: str, manager_url: str, indexer_url: str,
         print(f"\n  ERROR: Cannot write {config_file}: {exc}", file=sys.stderr)
         return 1
 
-    print(f"\n  [\u2713] Wrote {config_file} (chmod 600)")
+    print(f"\n  [✓] Wrote {config_file} (chmod 600) – DEPLOYMENT={deployment}")
     print(f"      Review it, then add SLACK_WEBHOOK_URL / SMTP_* for notifications.")
     print(f"      Nothing else needs editing – wrapper.sh sources this file.\n")
     return 0
@@ -2552,6 +2954,11 @@ def parse_args() -> argparse.Namespace:
                              "configuration file, then exit.")
     parser.add_argument("--yes", action="store_true",
                         help="Non-interactive --init-config (no prompts).")
+    parser.add_argument("--deployment", choices=DEPLOYMENT_TYPES,
+                        default=cfg("DEPLOYMENT"),
+                        help="all-in-one: everything on this server, node lists "
+                             "ignored. distributed: components on other servers "
+                             "or a cluster. Inferred from the node lists if unset.")
     parser.add_argument("--deploy-mode",
                         choices=["bare-metal", "docker", "kubernetes"],
                         default=cfg("DEPLOY_MODE", "bare-metal"))
@@ -2608,10 +3015,17 @@ def main() -> None:
     args = parse_args()
 
     if args.init_config:
+        # Only an explicit CLI flag pins an address here; values already in
+        # the file or the environment are picked up inside init_config.
+        cli = sys.argv[1:]
+        def flag(name: str, value):
+            return value if any(a == name or a.startswith(name + "=") for a in cli) else None
         sys.exit(init_config(
             args.config_file,
-            (args.manager_url or DEFAULT_MANAGER_URL).rstrip("/"),
-            (args.indexer_url or DEFAULT_INDEXER_URL).rstrip("/"),
+            flag("--manager-url", args.manager_url),
+            flag("--indexer-url", args.indexer_url),
+            flag("--dashboard-url", args.dashboard_url),
+            flag("--deployment", args.deployment),
             assume_yes=args.yes,
         ))
 
@@ -2635,15 +3049,40 @@ def main() -> None:
     dashboard_node_urls = _parse_node_list(
         args.dashboard_nodes, DEFAULT_DASHBOARD_NODES, DASHBOARD_PORT)
 
+    deployment = args.deployment or (
+        "distributed" if (manager_node_urls or indexer_node_urls or dashboard_node_urls)
+        else "all-in-one")
+    notes: list[str] = []
+    if deployment == "all-in-one" and (
+            manager_node_urls or indexer_node_urls or dashboard_node_urls):
+        notes.append("DEPLOYMENT=all-in-one: ignoring the *_NODES lists")
+        manager_node_urls, indexer_node_urls, dashboard_node_urls = [], [], []
+
+    def local_default(default_url: str, service: str) -> str:
+        # A service bound to the host IP only refuses localhost connections;
+        # find where it really answers instead of failing every check on it.
+        url, note = _resolve_local_url(default_url, service)
+        if note:
+            notes.append(f"{service}: {note}")
+        return url
+
     # The manager API is always queried locally: this node is the master.
-    manager_url = (args.manager_url or DEFAULT_MANAGER_URL).rstrip("/")
+    manager_url = (args.manager_url
+                   or local_default(DEFAULT_MANAGER_URL, "manager")).rstrip("/")
 
     indexer_urls = _resolve_endpoints(
-        args.indexer_url, indexer_node_urls, DEFAULT_INDEXER_URL)
+        args.indexer_url, indexer_node_urls,
+        DEFAULT_INDEXER_URL if (args.indexer_url or indexer_node_urls)
+        else local_default(DEFAULT_INDEXER_URL, "indexer"))
     dashboard_urls = _resolve_endpoints(
-        args.dashboard_url, dashboard_node_urls, DEFAULT_DASHBOARD_URL)
+        args.dashboard_url, dashboard_node_urls,
+        DEFAULT_DASHBOARD_URL if (args.dashboard_url or dashboard_node_urls)
+        else local_default(DEFAULT_DASHBOARD_URL, "dashboard"))
 
-    print(f"[*] Starting Wazuh health checks (deploy-mode={mode}, node-role={role})…")
+    print(f"[*] Starting Wazuh health checks (deployment={deployment}, "
+          f"deploy-mode={mode}, node-role={role})…")
+    for note in notes:
+        print(f"    [i] {note}")
 
     # Cluster-wide indexer checks (shards, ISM, retention, …) only need one
     # reachable entry point; pick the first node that answers so a single dead
@@ -2665,10 +3104,11 @@ def main() -> None:
     elif manager_node_urls:
         candidate_hosts = [_node_host(u) for u in manager_node_urls]
     else:
-        candidate_hosts = ["localhost"]
+        candidate_hosts = [_node_host(manager_url)]
     port_hosts = list(dict.fromkeys(candidate_hosts))
 
     topology = {
+        "deployment":      deployment,
         "manager_url":     manager_url,
         "manager_nodes":   manager_node_urls,
         "indexer_url":     indexer_url,
@@ -2865,7 +3305,7 @@ def main() -> None:
 
     # ── Print summary ────────────────────────────────────────────────────
     print("\n── Health Check Summary ─────────────────────────────────────────")
-    print(f"   Deploy mode: {mode} | Node role: {role}")
+    print(f"   Deployment: {deployment} | Deploy mode: {mode} | Node role: {role}")
     if manager_node_urls or indexer_node_urls or len(dashboard_urls) > 1:
         print(f"   Topology: {len(manager_node_urls) or 1} manager / "
               f"{len(indexer_node_urls) or len(indexer_urls)} indexer / "
