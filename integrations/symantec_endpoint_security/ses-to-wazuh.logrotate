@@ -1,0 +1,9 @@
+# /etc/logrotate.d/ses-to-wazuh
+/var/log/symantec-ses/events.json {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+}
