@@ -1,0 +1,289 @@
+<!--
+  Symantec Endpoint Security (cloud) rules for Wazuh - <match> edition
+  File: /var/ossec/etc/rules/symantec_ses_rules.xml   (on the Wazuh MANAGER)
+
+  Every condition is a <match type="pcre2"> run against the raw JSON line
+  (full_log), so these rules work with the plain collector output: they do
+  NOT need the flat ses_* fields. MITRE techniques are read straight from
+  "attacks":[{"technique_uid":...}] and EDR rule names from
+  "edr_enriched_data":[{"rule_name":...}]. Requires Wazuh 4.3+ (pcre2 match).
+
+  Descriptions are fixed text (no field placeholders); the full event is
+  still in each alert's full_log for the details.
+
+  Wazuh evaluates sibling rules in order and uses the FIRST one that matches,
+  so rules are ordered from most to least important.
+
+  How the patterns read the JSON
+    "key":\s*value          top-level keys (type_id, severity_id, type,
+                            device_name) appear once per event, so a plain
+                            key:value pattern is enough.
+    "process":\s*\{IN"file":\s*\{IN"name":\s*"x.exe"
+                            IN = (?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{...\})*?
+                            skips keys of the same object (and flat nested
+                            objects) without leaving it, so actor.file.name
+                            and process.file.name cannot be confused even
+                            though both are just "name" in the raw JSON.
+    "cmd_line":\s*"(?:[^"\\]|\\.)*?PATTERN
+                            PATTERN must sit inside that one string value.
+    ^(?=.*?A)(?=.*?B)       one <match> holding several conditions (AND).
+                            Never put two <match> tags in one rule.
+  Raw JSON escapes backslashes and quotes, so C:\Users\x is C:\\Users\\x
+  and a quoted exe path is \"C:\\...\\vssadmin.exe\" in the text the
+  patterns see. Hence \\\\ for one path backslash and (?:\\")? after .exe.
+
+  Tiers:
+    10-13  Real threats: Symantec detections/incidents/high severity, attack patterns
+    5-9    Worth a look: remediation actions, suspicious-but-often-legit activity
+    3-4    Context: EDR telemetry tagged with MITRE techniques (searchable, low noise)
+    0      Ignored: Symantec agent's own activity
+-->
+
+<group name="symantec_ses,">
+
+  <!-- ================= BASE: every SES event ================= -->
+  <!-- Level 3 = every event shows in the dashboard. Set to 0 to keep only
+       events matched by the rules below (recommended with all event types on). -->
+  <rule id="110500" level="3">
+    <decoded_as>json</decoded_as>
+    <match type="pcre2">"integration":\s*"symantec_ses"</match>
+    <description>Symantec SES: endpoint event received</description>
+  </rule>
+
+
+  <!-- ================= TIER 1: real threats ================= -->
+
+  <!-- Severity set by Symantec itself (ICD schema: 1 info, 2 warning, 3 minor,
+       4 major, 5 critical, 6 fatal). Your sample is all 1; detections are higher. -->
+  <rule id="110501" level="13">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"severity_id":\s*"?[56]\b</match>
+    <description>Symantec SES: critical-severity event reported by Symantec</description>
+    <group>symantec_ses_severity,</group>
+  </rule>
+
+  <rule id="110502" level="12">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"type":\s*"INCIDENT_CREAT</match>
+    <description>Symantec SES: new incident opened in the Symantec console</description>
+    <group>symantec_ses_incident,</group>
+  </rule>
+
+  <!-- type_id 8001 AND actor is an Office app AND child is a shell/LOLBin -->
+  <rule id="110503" level="12">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)^(?=.*?"type_id":\s*"?(?:8001)\b)(?=.*?"actor":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"file":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"name":\s*"(?:winword|excel|powerpnt|outlook|onenote|msaccess|mspub|visio)\.exe")(?=.*?"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"file":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"name":\s*"(?:powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32|certutil|bitsadmin|wmic)\.exe")</match>
+    <description>Symantec SES: Office application launched a shell or script host (possible malicious document)</description>
+    <mitre><id>T1204</id><id>T1566</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+  <rule id="110504" level="12">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"cmd_line":\s*"(?:[^"\\]|\\.)*?(?:vssadmin(?:\.exe)?(?:\\")?\s+delete\s+shadows|wmic(?:\.exe)?(?:\\")?\s+shadowcopy\s+delete|bcdedit(?:\.exe)?(?:\\")?\s(?:[^"\\]|\\.)*?recoveryenabled\s+no|wbadmin(?:\.exe)?(?:\\")?\s+delete\s+(?:catalog|systemstatebackup))</match>
+    <description>Symantec SES: shadow copy or backup deletion command (possible ransomware)</description>
+    <mitre><id>T1490</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+  <rule id="110505" level="12">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"cmd_line":\s*"(?:[^"\\]|\\.)*?(?:sekurlsa|lsadump|comsvcs(?:\.dll)?[, ]+#?(?:minidump|24)|procdump(?:64)?(?:\.exe)?(?:\\")?\s(?:[^"\\]|\\.)*?lsass|reg(?:\.exe)?(?:\\")?\s+save\s+hklm\\\\(?:sam|system|security))</match>
+    <description>Symantec SES: credential dumping command targeting LSASS or the SAM/SYSTEM/SECURITY hives</description>
+    <mitre><id>T1003</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+  <rule id="110506" level="12">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"(?:T1003|T1486|T1490)[".]</match>
+    <description>Symantec SES: high-risk technique tagged (credential dumping, data encryption or recovery inhibition)</description>
+    <mitre><id>T1003</id><id>T1486</id><id>T1490</id></mitre>
+    <group>symantec_ses_mitre,</group>
+  </rule>
+
+  <rule id="110507" level="11">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"severity_id":\s*"?[4]\b</match>
+    <description>Symantec SES: major-severity event reported by Symantec</description>
+    <group>symantec_ses_severity,</group>
+  </rule>
+
+  <!-- Detection event types (seen in your console's Event Type ID list) -->
+  <rule id="110508" level="10">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"type_id":\s*"?(?:8025|8026|8027)\b</match>
+    <description>Symantec SES: threat detection reported by Symantec</description>
+    <group>symantec_ses_detection,</group>
+  </rule>
+
+  <!-- process is powershell/pwsh AND its command line is encoded or download-and-run -->
+  <rule id="110509" level="10">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)^(?=.*?"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"file":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"name":\s*"(?:powershell|pwsh)\.exe")(?=.*?"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"cmd_line":\s*"(?:[^"\\]|\\.)*?(?:\s-(?:e|ec|enc|encodedcommand)\s|frombase64string|downloadstring|downloadfile|invoke-expression|\biex\b|net\.webclient|invoke-webrequest(?:[^"\\]|\\.)*?\|\s*iex))</match>
+    <description>Symantec SES: PowerShell run with an encoded command or download-and-execute code</description>
+    <mitre><id>T1059</id><id>T1027</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+  <rule id="110510" level="10">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"cmd_line":\s*"(?:[^"\\]|\\.)*?(?:certutil(?:\.exe)?(?:\\")?\s(?:[^"\\]|\\.)*?-(?:urlcache|decode|encode)|bitsadmin(?:\.exe)?(?:\\")?\s(?:[^"\\]|\\.)*?/transfer|mshta(?:\.exe)?(?:\\")?\s(?:[^"\\]|\\.)*?(?:https?:|javascript:|vbscript:)|regsvr32(?:\.exe)?(?:\\")?\s(?:[^"\\]|\\.)*?/i:https?|rundll32(?:\.exe)?(?:\\")?\s(?:[^"\\]|\\.)*?javascript:)</match>
+    <description>Symantec SES: Windows system binary abused to download or run code (LOLBin)</description>
+    <mitre><id>T1218</id><id>T1105</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+  <rule id="110511" level="10">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"cmd_line":\s*"(?:[^"\\]|\\.)*?(?:wevtutil(?:\.exe)?(?:\\")?\s+(?:cl|clear-log)\s|clear-eventlog|remove-eventlog)</match>
+    <description>Symantec SES: Windows event log cleared from the command line</description>
+    <mitre><id>T1070</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+
+  <!-- ================= TIER 2: worth a look ================= -->
+
+  <rule id="110520" level="8">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"severity_id":\s*"?[3]\b</match>
+    <description>Symantec SES: minor-severity event reported by Symantec</description>
+    <group>symantec_ses_severity,</group>
+  </rule>
+
+  <!-- Symantec took a remediation action -->
+  <rule id="110521" level="8">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"type_id":\s*"?(?:8043|8044|8046|8047|8048)\b</match>
+    <description>Symantec SES: Symantec took a remediation action on the endpoint</description>
+    <group>symantec_ses_response,</group>
+  </rule>
+
+  <!-- type_id 8001 AND process.file is unsigned AND runs from a user-writable folder.
+       signature_level_id 0 = unsigned in your sample (60 = Microsoft, 40 = other signed). -->
+  <rule id="110522" level="7">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)^(?=.*?"type_id":\s*"?(?:8001)\b)(?=.*?"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"file":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"signature_level_id":\s*"?0\b)(?=.*?"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"file":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"folder":\s*"(?:[^"\\]|\\.)*?(?:\\\\(?:temp|tmp|downloads|desktop)(?:\\\\|")|\\\\appdata\\\\|\\\\users\\\\public(?:\\\\|")))</match>
+    <description>Symantec SES: unsigned program launched from a user-writable folder</description>
+    <mitre><id>T1204</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+  <rule id="110523" level="6">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"process":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"cmd_line":\s*"(?:[^"\\]|\\.)*?(?:schtasks(?:\.exe)?(?:\\")?\s+/create|\bsc(?:\.exe)?(?:\\")?\s+(?:\\\\\\\\\S+\s+)?create\s|new-service\s|register-scheduledtask)</match>
+    <description>Symantec SES: scheduled task or service created from the command line</description>
+    <mitre><id>T1053</id><id>T1543</id></mitre>
+    <group>symantec_ses_process,</group>
+  </rule>
+
+  <rule id="110524" level="6">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"type":\s*"INCIDENT</match>
+    <description>Symantec SES: existing Symantec incident updated</description>
+    <group>symantec_ses_incident,</group>
+  </rule>
+
+  <rule id="110525" level="5">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"severity_id":\s*"?[2]\b</match>
+    <description>Symantec SES: warning-severity event reported by Symantec</description>
+    <group>symantec_ses_severity,</group>
+  </rule>
+
+  <rule id="110526" level="5">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"rule_name":\s*"[^"]*WinEvntLogSetng</match>
+    <description>Symantec SES: Windows Event Log settings modified</description>
+    <mitre><id>T1562</id></mitre>
+    <group>symantec_ses_edr,</group>
+  </rule>
+
+
+  <!-- ================= IGNORE: Symantec agent's own activity ================= -->
+  <!-- In your sample ccSvcHst.exe triggers T1105/T1560/T1497 while updating definitions. -->
+  <rule id="110530" level="0">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">(?i)"actor":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"file":\s*\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+"|\{(?:[^{}"]++|"(?:[^"\\]++|\\.)*+")*+\})*?"name":\s*"(?:ccsvchst|sepwscsvc64|sepwscsvc|smc|sesclu)\.exe"</match>
+    <description>Symantec SES: Symantec agent self-activity (ignored)</description>
+    <group>symantec_ses_self,</group>
+  </rule>
+
+
+  <!-- ================= TIER 3: EDR telemetry with MITRE context ================= -->
+  <!-- Symantec tags lots of normal activity with techniques (Adobe reading the
+       credential vault, Chrome updates editing services). Low levels on purpose;
+       the MITRE tags still populate Wazuh's MITRE ATT&CK dashboard.
+       [".] after the ID also catches sub-techniques such as T1547.001. -->
+
+  <rule id="110540" level="5">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"(?:T1547)[".]</match>
+    <description>Symantec SES: autostart or persistence location modified</description>
+    <mitre><id>T1547</id></mitre>
+    <group>symantec_ses_mitre,</group>
+  </rule>
+
+  <rule id="110541" level="5">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"(?:T1555)[".]</match>
+    <description>Symantec SES: stored credentials accessed by a process</description>
+    <mitre><id>T1555</id></mitre>
+    <group>symantec_ses_mitre,</group>
+  </rule>
+
+  <rule id="110542" level="5">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"(?:T1055)[".]</match>
+    <description>Symantec SES: possible process injection</description>
+    <mitre><id>T1055</id></mitre>
+    <group>symantec_ses_mitre,</group>
+  </rule>
+
+  <rule id="110543" level="5">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"(?:T1036|T1564)[".]</match>
+    <description>Symantec SES: masquerading or hidden file activity</description>
+    <mitre><id>T1036</id><id>T1564</id></mitre>
+    <group>symantec_ses_mitre,</group>
+  </rule>
+
+  <rule id="110544" level="4">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"(?:T1018|T1069|T1087|T1482)[".]</match>
+    <description>Symantec SES: domain or account discovery query</description>
+    <mitre><id>T1087</id><id>T1069</id><id>T1018</id><id>T1482</id></mitre>
+    <group>symantec_ses_mitre,symantec_ses_ad_discovery,</group>
+  </rule>
+
+  <rule id="110545" level="4">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"(?:T1543|T1574|T1112)[".]</match>
+    <description>Symantec SES: service, DLL search order or registry modification</description>
+    <mitre><id>T1543</id><id>T1574</id><id>T1112</id></mitre>
+    <group>symantec_ses_mitre,</group>
+  </rule>
+
+  <rule id="110546" level="3">
+    <if_sid>110500</if_sid>
+    <match type="pcre2">"technique_uid":\s*"T\d</match>
+    <description>Symantec SES: endpoint activity tagged with a MITRE ATTACK technique</description>
+    <group>symantec_ses_mitre,</group>
+  </rule>
+
+
+  <!-- ================= CORRELATION ================= -->
+  <!-- Many domain enumeration events from one machine in 10 minutes looks like
+       AD reconnaissance (BloodHound-style). Domain controllers query LDAP all the
+       time, so they are excluded: adjust the pattern to match your DC names. -->
+  <rule id="110560" level="10" frequency="10" timeframe="600">
+    <if_matched_sid>110544</if_matched_sid>
+    <same_field>device_name</same_field>
+    <match type="pcre2" negate="yes">(?i)"device_name":\s*"EXAMPLE-DC\d*"</match>
+    <description>Symantec SES: burst of domain discovery from a single host in 10 minutes (possible AD reconnaissance)</description>
+    <mitre><id>T1087</id><id>T1069</id><id>T1482</id></mitre>
+    <group>symantec_ses_correlation,</group>
+  </rule>
+
+</group>
