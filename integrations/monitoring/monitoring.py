@@ -2763,6 +2763,8 @@ LOG_FILE={LOG_FILE}
 #K8S_NAMESPACE=wazuh
 
 # ── Notifications (used by slack_notifier.py / email_notifier.py) ────────────
+# Optional. Leave empty to disable: each notifier skips itself when its
+# settings are missing, and the results stay in LOG_FILE.
 SLACK_WEBHOOK_URL={SLACK_WEBHOOK_URL}
 SMTP_SERVER={SMTP_SERVER}
 SMTP_PORT={SMTP_PORT}
@@ -2926,7 +2928,8 @@ def init_config(config_file: str, manager_url: str | None, indexer_url: str | No
         return 1
 
     print(f"\n  [✓] Wrote {config_file} (chmod 600) – DEPLOYMENT={deployment}")
-    print(f"      Review it, then add SLACK_WEBHOOK_URL / SMTP_* for notifications.")
+    print(f"      Review it. Notifications are optional: set SLACK_WEBHOOK_URL and/or SMTP_*")
+    print(f"      to enable them; empty values make the notifiers skip themselves.")
     print(f"      Nothing else needs editing – wrapper.sh sources this file.\n")
     return 0
 

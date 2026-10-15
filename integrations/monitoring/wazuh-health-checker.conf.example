@@ -55,6 +55,8 @@ LOG_FILE=/var/log/health-checker.json
 #K8S_NAMESPACE=wazuh
 
 # ── Notifications (used by slack_notifier.py / email_notifier.py) ────────────
+# Optional. Leave empty to disable: each notifier skips itself when its
+# settings are missing, and the results stay in LOG_FILE.
 SLACK_WEBHOOK_URL=
 SMTP_SERVER=smtp.gmail.com
 SMTP_PORT=587

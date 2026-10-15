@@ -29,8 +29,8 @@ The script is installed on a **single server — the Wazuh Manager master node**
 * Credentials that are valid on every node of the deployment
 * `systemctl` available (required for Filebeat service check)
 * `filebeat` in PATH (required for output connectivity check)
-* A Slack webhook URL (for Slack notifications)
-* SMTP credentials (for email notifications)
+* *Optional:* a Slack webhook URL (for Slack notifications)
+* *Optional:* SMTP credentials (for email notifications)
 
 ---
 
@@ -49,7 +49,29 @@ monitoring/
 └── health-checker.secrets  # Credentials file (chmod 600, root-owned)
 ```
 
-**1. Copy scripts to the server:**
+**1. Download the scripts to the server:**
+
+Only four files are needed — there is no need to clone the whole `integrations` repository. Run as root on the Wazuh Manager master node:
+
+```bash
+mkdir -p /opt/scripts
+BASE=https://raw.githubusercontent.com/wazuh/integrations/main/integrations/monitoring
+for f in monitoring.py slack_notifier.py email_notifier.py wrapper.sh; do
+  curl -fsSL -o /opt/scripts/$f "$BASE/$f" || echo "Failed to download $f"
+done
+```
+
+If the server has no Internet access, run the same commands on another machine and copy the four files to `/opt/scripts/` (e.g. with `scp`).
+
+Alternatively, with `git`, a sparse checkout fetches only the `monitoring` folder:
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/wazuh/integrations.git /tmp/integrations
+git -C /tmp/integrations sparse-checkout set integrations/monitoring
+cp /tmp/integrations/integrations/monitoring/{monitoring.py,slack_notifier.py,email_notifier.py,wrapper.sh} /opt/scripts/
+```
+
+If you already have a full clone of the repository, copy the files from it instead:
 
 ```bash
 cp monitoring.py slack_notifier.py email_notifier.py wrapper.sh /opt/scripts/
@@ -95,9 +117,11 @@ chown root:root /etc/health-checker.secrets
 
 > **The recommended path is `--init-config`** — see *Configuration* below. It writes a single file holding the credentials, the topology and the notification settings, so none of the steps above have to be done by hand.
 
-**5. Configure notification settings:**
+**5. *(Optional)* Configure notifications:**
 
-Add them to the same configuration file — nothing is edited in the Python code:
+Notifications are not required. Without them the script runs every check and writes the result to `/var/log/health-checker.json`; `wrapper.sh` runs each notifier, and a notifier that is not configured prints a `skipping` line and does nothing. Configure Slack, email, both or none.
+
+To enable them, add the settings to the same configuration file — nothing is edited in the Python code:
 
 ```sh
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
@@ -134,7 +158,7 @@ The credentials it asks for are the ones every customer has:
 | Manager API | The Wazuh API user the dashboard uses, normally `wazuh-wui`. Its password is in `/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml`; on an all-in-one server it is read from there automatically. |
 | Indexer | The user and password you log in to the Wazuh dashboard with, normally `admin`. |
 
-Then review the file and fill in the notification settings. Add `--yes` to run it without prompts — pass the credentials as environment variables, and the run fails without writing anything if they do not authenticate:
+Then review the file and, optionally, fill in the notification settings (see step 5 above). Add `--yes` to run it without prompts — pass the credentials as environment variables, and the run fails without writing anything if they do not authenticate:
 
 ```bash
 INDEXER_USER=admin INDEXER_PASS='<dashboard login password>' \
@@ -284,8 +308,8 @@ The resolved topology is recorded in each log entry under `"topology"`.
 `wrapper.sh` orchestrates the full workflow in sequence:
 
 1. **`monitoring.py`** connects to the Wazuh stack, runs all checks, and appends a JSON result to `/var/log/health-checker.json`.
-2. **`slack_notifier.py`** reads the last log entry and posts a Slack message for any check with `notify: true`.
-3. **`email_notifier.py`** reads the same log entry and sends an HTML email report with the flagged issues.
+2. **`slack_notifier.py`** *(optional)* reads the last log entry and posts a Slack message for any check with `notify: true`. Skipped when `SLACK_WEBHOOK_URL` is empty.
+3. **`email_notifier.py`** *(optional)* reads the same log entry and sends an HTML email report with the flagged issues. Skipped when `SMTP_USER` or `EMAIL_TO` is empty.
 
 **Run manually:**
 
@@ -431,7 +455,7 @@ bash /opt/scripts/wrapper.sh
 cat /var/log/health-checker.json | tail -1 | python3 -m json.tool
 ```
 
-**2. Verify a Slack notification is received** by temporarily lowering a threshold (e.g., set `--disk-threshold 1`) and re-running:
+**2. *(Only if notifications are configured)* Verify a Slack notification is received** by temporarily lowering a threshold (e.g., set `--disk-threshold 1`) and re-running:
 
 ```bash
 python3 /opt/scripts/monitoring.py --disk-threshold 1
