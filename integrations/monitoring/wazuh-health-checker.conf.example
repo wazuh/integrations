@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Wazuh health checker – single configuration file
+# ─────────────────────────────────────────────────────────────────────────────
+# Read by monitoring.py and sourced by wrapper.sh, which exports every value so
+# the notifier scripts see them too. Keep this file root-owned and chmod 600.
+#
+# Any value can be overridden at run time by an environment variable of the same
+# name, or by the matching monitoring.py command-line flag.
+
+# Quote values holding spaces or shell characters ($ ! ` " '), e.g.
+#     INDEXER_PASS='my$ecret!'
+
+# ── Credentials ──────────────────────────────────────────────────────────────
+# MANAGER_*: the Wazuh API user the dashboard uses (normally wazuh-wui; see
+#            /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml).
+# INDEXER_*: the user you log in to the Wazuh dashboard with (normally admin).
+MANAGER_USER=wazuh-wui
+MANAGER_PASS=<MANAGER_API_PASSWORD>
+INDEXER_USER=admin
+INDEXER_PASS=<INDEXER_PASSWORD>
+
+# ── Deployment ───────────────────────────────────────────────────────────────
+# all-in-one  – manager, indexer and dashboard on this server. The node lists
+#               below are ignored and the multi-node checks do not run.
+# distributed – a component on another server, or a manager/indexer cluster.
+DEPLOYMENT=all-in-one
+
+# Where each service answers from this server. Leave empty for localhost; a
+# service that refuses localhost is then looked up on this server's own IPs.
+MANAGER_URL=
+INDEXER_URL=
+DASHBOARD_URL=
+
+# ── Cluster topology (DEPLOYMENT=distributed only) ───────────────────────────
+# Comma-separated. Each entry may be an IP, host:port, or a full URL.
+# MANAGER_NODES: only for a manager CLUSTER - include the local master too, as
+# checks 16 and 19 verify each declared node is still in the cluster. Leave it
+# empty for a single manager.
+MANAGER_NODES=
+INDEXER_NODES=
+DASHBOARD_NODES=
+
+# ── Paths and thresholds ─────────────────────────────────────────────────────
+LOG_FILE=/var/log/health-checker.json
+#DISK_PATH=/
+#DISK_THRESHOLD=75
+#SHARD_THRESHOLD=80
+#RETENTION_ISM_DAYS=90
+#RETENTION_ALERTS_DAYS=365
+#ALERTS_TREND_DAYS=7
+#ALERTS_DROP_THRESHOLD=20
+#PORTS=1514,1515
+#DEPLOY_MODE=bare-metal
+#NODE_ROLE=all
+#K8S_NAMESPACE=wazuh
+
+# ── Notifications (used by slack_notifier.py / email_notifier.py) ────────────
+# Optional. Leave empty to disable: each notifier skips itself when its
+# settings are missing, and the results stay in LOG_FILE.
+SLACK_WEBHOOK_URL=
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+EMAIL_TO=
