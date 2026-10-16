@@ -1,0 +1,35 @@
+[Unit]
+Description=Forward Oracle Cloud Infrastructure logs into Wazuh
+Documentation=https://github.com/wazuh/integrations/tree/main/integrations/oracle_cloud_oci
+After=network-online.target wazuh-manager.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+
+# Object Storage source. Swap the ExecStart below for the Streaming variant if
+# Connector Hub delivers to a stream instead.
+ExecStart=/var/ossec/wodles/oci/oci-logs.py \
+    --source objectstorage \
+    --bucket wazuh-oci-logs \
+    --config-file /var/ossec/wodles/oci/config \
+    --output analysisd \
+    --state-file /var/ossec/var/run/oci-logs.state \
+    --log-level INFO
+
+# Streaming source:
+# ExecStart=/var/ossec/wodles/oci/oci-logs.py \
+#     --source streaming \
+#     --stream-id ocid1.stream.oc1.iad.EXAMPLE \
+#     --config-file /var/ossec/wodles/oci/config \
+#     --output analysisd \
+#     --log-level INFO
+
+# The collector only needs to read OCI and write to the Wazuh queue socket.
+PrivateTmp=yes
+ProtectSystem=full
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

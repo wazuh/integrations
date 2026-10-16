@@ -1,0 +1,374 @@
+<!--
+  Oracle Cloud Infrastructure (OCI) rules for Wazuh.
+
+  Consumes events produced by oci-logs.py. No custom decoder is required: the
+  events are JSON, so Wazuh's built-in JSON decoder parses them and every field
+  below is addressable as-is.
+
+  Rule ID range: 112000-112099
+-->
+
+<group name="oci,">
+
+  <rule id="112000" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">^oci$</field>
+    <description>Oracle Cloud Infrastructure log received.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ==================================================================
+       Audit (control plane). Covers every OCI service, including the ones
+       with no data-plane service log: DRG, Block Storage, ADB/ATP, APEX,
+       Data Integration and Integration Service.
+       ================================================================== -->
+
+  <rule id="112001" level="3">
+    <if_sid>112000</if_sid>
+    <field name="oci.log_type">^audit$</field>
+    <description>OCI Audit: $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1078.004</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112002" level="5">
+    <if_sid>112001</if_sid>
+    <field name="oci.status">^4\d\d$|^5\d\d$</field>
+    <description>OCI Audit: API call $(action) failed with status $(status).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Nested under 112002, not beside it: analysisd takes the first matching
+       sibling and descends into that one, so a 403 would never reach a rule
+       that sat next to the broader 4xx/5xx match. -->
+  <rule id="112003" level="8">
+    <if_sid>112002</if_sid>
+    <field name="oci.status">^401$|^403$</field>
+    <description>OCI Audit: $(srcuser) was denied permission to run $(action).</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112004" level="10" frequency="8" timeframe="300">
+    <if_matched_sid>112003</if_matched_sid>
+    <same_source_ip />
+    <description>OCI Audit: repeated authorization failures from $(srcip). Possible privilege probing.</description>
+    <mitre>
+      <id>T1078</id>
+      <id>T1580</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Gate for the per-service rules below. analysisd does not evaluate
+       siblings in file order, so "was this call denied?" cannot be settled by
+       rule placement. Splitting success from failure on oci.status makes 112002
+       and 112019 mutually exclusive, and stops a service rule from reporting a
+       change that was actually refused. negate does not match a missing field,
+       which is why the collector always emits oci.status. -->
+
+  <rule id="112019" level="0">
+    <if_sid>112001</if_sid>
+    <field name="oci.status" negate="yes">^4\d\d$|^5\d\d$</field>
+    <description>OCI Audit: API call succeeded.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- IAM -->
+
+  <rule id="112005" level="10">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^identityControlPlane$</field>
+    <field name="oci.action">^Create|^Update|^Delete|^Add|^Remove</field>
+    <description>OCI IAM: identity object modified - $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112006" level="12">
+    <if_sid>112005</if_sid>
+    <field name="oci.action">Policy$|^DeleteUser$|^DeleteGroup$</field>
+    <description>OCI IAM: policy or principal deleted - $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1098</id>
+      <id>T1531</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Networking: VCN and DRG -->
+
+  <rule id="112007" level="10">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^virtualNetwork$</field>
+    <field name="oci.action">SecurityList$|NetworkSecurityGroup$|SecurityRules$|RouteTable$</field>
+    <description>OCI VCN: network filtering changed - $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1562.007</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112008" level="7">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^virtualNetwork$</field>
+    <field name="oci.action">Drg</field>
+    <description>OCI DRG: $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112009" level="12">
+    <if_sid>112008</if_sid>
+    <field name="oci.action">^Delete</field>
+    <description>OCI DRG: gateway or attachment deleted - $(oci.resource_name) by $(srcuser). Hybrid connectivity may be down.</description>
+    <mitre>
+      <id>T1531</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Block Storage -->
+
+  <rule id="112010" level="5">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^blockstorage$</field>
+    <description>OCI Block Storage: $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112011" level="10">
+    <if_sid>112010</if_sid>
+    <field name="oci.action">^Delete</field>
+    <description>OCI Block Storage: volume or backup deleted - $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Object Storage control plane -->
+
+  <rule id="112012" level="12">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^objectstorage$</field>
+    <field name="oci.action">^DeleteBucket$</field>
+    <description>OCI Object Storage: bucket $(oci.resource_name) deleted by $(srcuser).</description>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112013" level="12">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^objectstorage$</field>
+    <field name="oci.action">^CreateBucket$|^UpdateBucket$</field>
+    <field name="oci.data.additionalDetails.publicAccessType">ObjectRead</field>
+    <description>OCI Object Storage: bucket $(oci.resource_name) exposed with public read access by $(srcuser).</description>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Autonomous Database, ATP and APEX control plane -->
+
+  <rule id="112014" level="5">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^databaseservice$</field>
+    <description>OCI Database: $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112015" level="10">
+    <if_sid>112014</if_sid>
+    <field name="oci.action">^Stop|^Delete|^Terminate|^Restore</field>
+    <description>OCI Autonomous Database/ATP: availability-affecting operation $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1489</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112016" level="10">
+    <if_sid>112014</if_sid>
+    <field name="oci.action">Wallet$|AdminPassword$|^UpdateAutonomousDatabaseRegionalWallet$</field>
+    <description>OCI Autonomous Database/ATP: database credential changed - $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Data Integration and Integration Service control plane -->
+
+  <rule id="112017" level="5">
+    <if_sid>112019</if_sid>
+    <field name="oci.service">^dataintegration$|^integration$</field>
+    <description>OCI Integration: $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112018" level="10">
+    <if_sid>112017</if_sid>
+    <field name="oci.action">^Delete|^Stop</field>
+    <description>OCI Integration: instance or workspace removed - $(action) on $(oci.resource_name) by $(srcuser).</description>
+    <mitre>
+      <id>T1489</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ==================================================================
+       VCN flow logs (data plane)
+       ================================================================== -->
+
+  <rule id="112020" level="0">
+    <if_sid>112000</if_sid>
+    <field name="oci.log_type">^vcn_flow$</field>
+    <description>OCI VCN flow log record.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112021" level="4">
+    <if_sid>112020</if_sid>
+    <field name="oci.action">^REJECT$</field>
+    <description>OCI VCN: traffic rejected from $(srcip) to $(dstip):$(dstport).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112022" level="8" frequency="20" timeframe="120">
+    <if_matched_sid>112021</if_matched_sid>
+    <same_source_ip />
+    <description>OCI VCN: high volume of rejected connections from $(srcip). Possible port scan.</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ==================================================================
+       Object Storage access logs (data plane)
+       ================================================================== -->
+
+  <rule id="112030" level="3">
+    <if_sid>112000</if_sid>
+    <field name="oci.log_type">^objectstorage$</field>
+    <description>OCI Object Storage: $(action) on $(oci.data.bucketName)/$(oci.data.objectName).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Bounded to successful deletes so a denied DELETE falls through to 112032. -->
+  <rule id="112031" level="6">
+    <if_sid>112030</if_sid>
+    <field name="oci.action">^DELETE$</field>
+    <field name="oci.status">^2\d\d$</field>
+    <description>OCI Object Storage: object $(oci.data.objectName) deleted from bucket $(oci.data.bucketName).</description>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112032" level="8">
+    <if_sid>112030</if_sid>
+    <field name="oci.status">^401$|^403$</field>
+    <description>OCI Object Storage: access denied on $(oci.data.bucketName)/$(oci.data.objectName) from $(srcip).</description>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112033" level="10" frequency="30" timeframe="300">
+    <if_matched_sid>112030</if_matched_sid>
+    <same_source_ip />
+    <field name="oci.action">^GET$</field>
+    <description>OCI Object Storage: unusually high object read volume from $(srcip). Possible data staging.</description>
+    <mitre>
+      <id>T1530</id>
+      <id>T1567.002</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ==================================================================
+       API Gateway
+       ================================================================== -->
+
+  <rule id="112040" level="3">
+    <if_sid>112000</if_sid>
+    <field name="oci.log_type">^apigateway_access$|^apigateway_execution$</field>
+    <description>OCI API Gateway: $(action) $(url) returned $(status).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112041" level="5">
+    <if_sid>112040</if_sid>
+    <field name="oci.status">^4\d\d$</field>
+    <description>OCI API Gateway: client error $(status) on $(action) $(url) from $(srcip).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112042" level="8">
+    <if_sid>112041</if_sid>
+    <field name="oci.status">^401$|^403$</field>
+    <description>OCI API Gateway: authentication or authorization failure on $(url) from $(srcip).</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112043" level="10" frequency="15" timeframe="120">
+    <if_matched_sid>112042</if_matched_sid>
+    <same_source_ip />
+    <description>OCI API Gateway: repeated authentication failures from $(srcip). Possible credential brute force.</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112044" level="7">
+    <if_sid>112040</if_sid>
+    <field name="oci.status">^5\d\d$</field>
+    <description>OCI API Gateway: backend error $(status) on $(action) $(url).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ==================================================================
+       Email Delivery
+       ================================================================== -->
+
+  <rule id="112050" level="3">
+    <if_sid>112000</if_sid>
+    <field name="oci.log_type">^emaildelivery$</field>
+    <description>OCI Email Delivery: message from $(srcuser) to $(dstuser) - $(status).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112051" level="5">
+    <if_sid>112050</if_sid>
+    <field name="oci.status">SUPPRESSED|BOUNCE|FAIL|REJECT</field>
+    <description>OCI Email Delivery: message to $(dstuser) was not delivered - $(status).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="112052" level="10" frequency="25" timeframe="300">
+    <if_matched_sid>112051</if_matched_sid>
+    <same_field>oci.srcuser</same_field>
+    <description>OCI Email Delivery: high bounce or suppression rate for sender $(srcuser). Possible compromised sender or list abuse.</description>
+    <mitre>
+      <id>T1566</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+</group>
