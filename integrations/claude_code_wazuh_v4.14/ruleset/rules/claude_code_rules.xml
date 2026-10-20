@@ -1,0 +1,87 @@
+<!--
+  -  ID range: 997000 - 997099
+  -  Created by NucleiAv
+  -  Copyright (C) 2015, Wazuh Inc.
+  -  This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2.
+-->
+
+<group name="claude_code,ai_agent,">
+
+  <rule id="997000" level="0">
+    <field name="service_name">claude-code</field>
+    <description>Claude Code telemetry event.</description>
+  </rule>
+
+  <rule id="997001" level="12">
+    <if_sid>997000</if_sid>
+    <field name="permission_mode">bypassPermissions</field>
+    <description>Claude Code: tool call accepted under bypassPermissions mode (tool_use_id $(tool_use_id))</description>
+    <group>guardrail_tampering,</group>
+    <mitre>
+      <id>T1562</id>
+    </mitre>
+  </rule>
+
+  <rule id="997002" level="5">
+    <if_sid>997000</if_sid>
+    <field name="decision">reject</field>
+    <description>Claude Code: tool call rejected (source $(source), tool $(tool_name))</description>
+    <group>blocked_attempt,</group>
+  </rule>
+
+  <rule id="997003" level="12">
+    <if_sid>997000</if_sid>
+    <field name="tool_name">Bash</field>
+    <field name="tool_parameters" type="pcre2">(?i)"full_command":"[^"]*\b(rm\s+-[a-z]*r|rm\s+-[a-z]*f|rm\s+-rf|mkfs|dd\s+if=)</field>
+    <description>Claude Code: destructive shell command executed via Bash tool</description>
+    <group>execution,destructive_command,</group>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+  </rule>
+
+  <rule id="997004" level="15">
+    <if_sid>997000</if_sid>
+    <field name="tool_name">Bash</field>
+    <field name="tool_parameters" type="pcre2">(?i)"full_command":"[^"]*(curl|wget)[^"]*\|\s*(sudo\s+)?(sh|bash|zsh)\b</field>
+    <description>Claude Code: download-and-execute pattern (curl/wget piped to a shell) via Bash tool</description>
+    <group>execution,download_and_execute,</group>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+  </rule>
+
+  <rule id="997005" level="15">
+    <if_sid>997000</if_sid>
+    <field name="tool_name" type="pcre2">^(Edit|Write)$</field>
+    <field name="tool_input" type="pcre2">(?i)(claude-code[\\/]managed-settings\.json|ClaudeCode[\\/]managed-settings\.json|managed-settings\.json)</field>
+    <description>Claude Code: attempt to modify its own managed-settings.json guardrail configuration</description>
+    <group>guardrail_tampering,</group>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="997006" level="12">
+    <if_sid>997000</if_sid>
+    <field name="tool_name" type="pcre2">^(Read|Write|Edit)$</field>
+    <field name="tool_input" type="pcre2">(?i)(\.ssh[\\/]|\.aws[\\/]credentials|\.kube[\\/]config|\.npmrc|\.git-credentials|id_rsa|id_ed25519|\.env($|["\\/]))</field>
+    <description>Claude Code: file access targeting a credential or sensitive configuration path</description>
+    <group>credential_access,</group>
+    <mitre>
+      <id>T1552.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="997007" level="8">
+    <if_sid>997000</if_sid>
+    <field name="tool_name" type="pcre2">^(Write|Edit)$</field>
+    <field name="tool_input" type="pcre2">"file_path":"(/tmp/|/etc/|/var/|/root/)</field>
+    <description>Claude Code: file write outside the project workspace into a system-sensitive directory</description>
+    <group>scope_escape,</group>
+    <mitre>
+      <id>T1565</id>
+    </mitre>
+  </rule>
+
+</group>
