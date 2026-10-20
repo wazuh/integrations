@@ -1,0 +1,26 @@
+id: 'd2e4b8f1-7a3c-4d9e-8f1b-3c5a7d9e2f4b'
+logsource:
+  product: claude-code
+tags:
+  - attack.command-and-control
+  - attack.t1105
+falsepositives:
+  - Rare; a deliberate install script piped to a shell during legitimate environment setup
+level: critical
+status: experimental
+enabled: true
+metadata:
+  title: Claude Code Download-and-Execute Pattern via Bash Tool
+  author: Anmol Vats
+  description: Detects curl or wget piped directly into a shell interpreter, executed through Claude Code's Bash tool.
+  references:
+    - 'https://code.claude.com/docs/en/monitoring-usage'
+  documentation: ''
+  supports:
+    - '5.0'
+detection:
+  selection:
+    process.name: Bash
+  pipe_to_shell:
+    process.command_line|re: (curl|wget).*\|[ ]*(sudo[ ]+)?(sh|bash|zsh)
+  condition: selection and pipe_to_shell
