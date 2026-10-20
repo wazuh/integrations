@@ -26,7 +26,7 @@ There was no Wazuh coverage for Claude Code's own telemetry anywhere before this
 * `CLAUDE_CODE_ENABLE_TELEMETRY=1` and `OTEL_LOG_TOOL_DETAILS=1` set in the environment Claude Code runs in. **`OTEL_LOG_TOOL_DETAILS=1` is not optional for this integration** — without it, `tool_decision`/`tool_result` never carry the tool's actual arguments (file paths, shell commands), and every path-based rule in this ruleset (997003-997007) goes blind. This was verified empirically: the same `~/.ssh` read produced an identical event with and without the flag, except for the presence of `tool_input`/`tool_parameters`.
 * An OpenTelemetry Collector (`otelcol-contrib`) able to receive OTLP/gRPC or OTLP/HTTP and export to a local file. Wazuh 4.x has no OTLP receiver of its own.
 * Python 3 for the shipper script in `scripts/otel_shipper.py`.
-* Wazuh manager 4.14.x (tested against 4.9.2; the ruleset uses no 4.14-specific syntax).
+* Wazuh manager 4.14.x (empirically validated against both 4.9.2 and 4.14.9 — see Integration Testing below).
 
 ### Installation and Configuration
 
@@ -95,11 +95,15 @@ Copy `ruleset/decoders/claude_code_decoders.xml` to `/var/ossec/etc/decoders/` a
 
 ### Integration Testing
 
-All 7 detection rules and the base parse rule were tested against **real telemetry captured from an actual Claude Code v2.1.304 session**, not fabricated — every line in `sample_logs.txt` and `claude_code.ini` is a real event emitted by the tool, run inside a sandboxed WSL environment. Each was verified individually with `wazuh-logtest` against a Wazuh 4.9.2 manager, and each malicious-shaped scenario was paired with a benign counter-example confirmed **not** to fire the scenario-specific rule (only the level-0 base rule).
+All 7 detection rules and the base parse rule were tested against **real telemetry captured from an actual Claude Code v2.1.304 session**, not fabricated — every line in `sample_logs.txt` and `claude_code.ini` is a real event emitted by the tool, run inside a sandboxed WSL environment. Each was verified individually with `wazuh-logtest`, and each malicious-shaped scenario was paired with a benign counter-example confirmed **not** to fire the scenario-specific rule (only the level-0 base rule).
 
-| File | Cases | Status |
-| --- | --- | --- |
-| `claude_code.ini` | 9 | All pass |
+This ruleset was validated against two real Wazuh manager versions, not just the directory's target version by assumption:
+
+| File | Cases | Wazuh manager 4.9.2 | Wazuh manager 4.14.9 |
+| --- | --- | --- | --- |
+| `claude_code.ini` | 9 | All pass | All pass |
+
+The 4.14.9 run was a second, independent `wazuh-logtest` pass against a real `wazuh/wazuh-manager:4.14.9` container (the current latest stable release as of this writing), not an assumption that 4.9.2-tested XML syntax carries forward unchanged. All 9 cases produced the exact expected rule ID and alert level on both manager versions.
 
 Sample `wazuh-logtest` output for the bypass-permissions and download-and-execute cases:
 
@@ -129,6 +133,18 @@ Sample `wazuh-logtest` output for the bypass-permissions and download-and-execut
 
 Rule `997003` (destructive Bash command) was additionally verified in isolation with `permission_mode` forced back to `default`, since the only real captured sample of that scenario happened to also use `bypassPermissions` (both are independently true facts about that one event, and both rules correctly fire for it).
 
+Sample `wazuh-logtest` output for the same bypass-permissions case, from the 4.14.9 confirmation run:
+
+```
+**Phase 3: Completed filtering (rules).
+	id: '997001'
+	level: '12'
+	description: 'Claude Code: tool call accepted under bypassPermissions mode (tool_use_id toolu_01FppnPARLv7z3vcqbcbLZFB)'
+	groups: '['claude_code', 'ai_agent', 'guardrail_tampering']'
+	firedtimes: '1'
+	mail: 'True'
+```
+
 Four blocking paths for disallowed tools were tested and only one produces a detectable event — see `VERIFY.md` for the other three, which are a confirmed gap, not an oversight.
 
 ### Sources
@@ -143,6 +159,6 @@ Four blocking paths for disallowed tools were tested and only one produces a det
 
 * Original source, written from scratch against Claude Code's documented OTel telemetry schema and empirically verified against real captured events; no third party ruleset was adapted or copied.
 * Adapted by, Anmol Vats (GitHub: NucleiAv)
-* Tested versions, Wazuh manager 4.9.2, Claude Code CLI v2.1.304, opentelemetry-collector-contrib v0.163.1
+* Tested versions, Wazuh manager 4.9.2 and 4.14.9, Claude Code CLI v2.1.304, opentelemetry-collector-contrib v0.163.1
 * Maintainer, Anmol Vats (GitHub: NucleiAv)
 * Support boundary, community maintained, provided as is
