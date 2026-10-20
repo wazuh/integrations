@@ -1,0 +1,28 @@
+id: 'e5f7c9a2-8b4d-4e1f-9c3a-5d7b9f1c3e5a'
+logsource:
+  product: claude-code
+tags:
+  - attack.defense-evasion
+  - attack.t1562.001
+falsepositives:
+  - An administrator deliberately updating managed-settings.json through Claude Code itself rather than directly
+level: critical
+status: experimental
+enabled: true
+metadata:
+  title: Claude Code Attempted Edit of Its Own Guardrail Configuration
+  author: Anmol Vats
+  description: Detects an Edit or Write tool call targeting Claude Code's own managed-settings.json guardrail file. Fires regardless of whether the write succeeded or was blocked by filesystem permissions, since the attempt itself is the signal.
+  references:
+    - 'https://code.claude.com/docs/en/managed-settings'
+  documentation: ''
+  supports:
+    - '5.0'
+detection:
+  selection:
+    process.name:
+      - Edit
+      - Write
+  target:
+    file.path|re: managed-settings.json
+  condition: selection and target

@@ -1,0 +1,23 @@
+id: 'b4f2e8a1-6c9d-4a3e-8b7f-1e5d9c2a4f6b'
+logsource:
+  product: claude-code
+tags:
+  - attack.defense-evasion
+falsepositives:
+  - Normal, intentional hook-based policy enforcement working as designed
+level: low
+status: experimental
+enabled: true
+metadata:
+  title: Claude Code Tool Call Rejected
+  author: Anmol Vats
+  description: Detects a tool call that Claude Code rejected. Confirmed empirically to be emitted only when a PreToolUse hook denies the call (decision_source "hook"); CLI --disallowedTools, project settings.json deny rules, and managed-settings.json deny rules were tested and do not emit this event at all, since Claude Code filters the tool out of the model's option set before any decision is made.
+  references:
+    - 'https://code.claude.com/docs/en/monitoring-usage'
+  documentation: ''
+  supports:
+    - '5.0'
+detection:
+  selection:
+    event.action: reject
+  condition: selection
