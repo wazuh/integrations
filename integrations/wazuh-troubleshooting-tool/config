@@ -1,0 +1,29 @@
+# Replace the placeholder credentials below according to your own environment.
+
+wazuh_api:
+  host: "https://localhost:55000"
+  username: "wazuh"
+  password: "YOUR_WAZUH_PASSWORD"
+  verify_ssl: false
+
+indexer:
+  url: "https://localhost:9200"
+  username: "admin"
+  password: "YOUR_INDEXER_PASSWORD"
+
+kibana:
+  username: "kibanaserver"
+  password: "YOUR_KIBANA_PASSWORD"
+
+ollama:
+  url: "http://localhost:11434"
+  model: "qwen3:1.7b"
+
+anthropic:
+  api_key: ""
+  model: "claude-sonnet-5"
+
+server:
+  host: "localhost"
+  backend_port: "8000"
+  frontend_port: "3000"

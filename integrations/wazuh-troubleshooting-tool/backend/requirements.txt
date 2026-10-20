@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+requests
+rapidfuzz
+pyyaml
+anthropic
+numpy
