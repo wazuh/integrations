@@ -320,15 +320,26 @@ Rules `100570` and `100571` fire within a few seconds. On the test deployment a
 
 #### End to end, in the dashboard
 
-Dashboard → **Threat Hunting**, filter `rule.groups: web_to_shell`. Triggering a
-benign discovery command on an agent is enough to confirm the pipeline:
+The dashboard shipped in `dashboards/web_to_shell.ndjson`, running on the test
+deployment — 29 alerts across all three layers, the layer breakdown, the
+executables the web account ran, and the files caught by FIM:
+
+![Web-to-shell dashboard](images/4-web-to-shell-dashboard.png)
+
+The two `100550` rows in the alert list are worth a look: one correlation alert
+for uid 33 (PHP) and one for uid 999 (Node). The rule's `same_field` on
+`audit.uid` is what keeps the two accounts from correlating into each other.
+
+The stock views work too. Dashboard → **Threat Hunting**, filter
+`rule.groups: web_to_shell`. Triggering a benign discovery command on an agent
+is enough to confirm the pipeline:
 
 ```bash
 sudo -u www-data id        # fires rule 100520
 ```
 
-A populated view from the test deployment — 17 alerts across all three layers,
-11 of them level 12 or higher:
+A populated Threat Hunting view from an earlier run of the same deployment —
+17 alerts across all three layers, 11 of them level 12 or higher:
 
 ![Threat Hunting dashboard](images/1-threat-hunting-dashboard.png)
 
