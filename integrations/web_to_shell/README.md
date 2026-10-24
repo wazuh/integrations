@@ -41,7 +41,8 @@ commands from the same web account inside two minutes escalate to level 14 as a
 likely interactive webshell.
 
 Detection uses only stock Wazuh decoders (`auditd`, `web-accesslog`,
-`syscheck`), so no custom decoder is needed.
+`syscheck`), so no custom decoder is needed. A ready-made dashboard for the
+resulting alerts ships in `dashboards/web_to_shell.ndjson`.
 
 **Why the service account is the signal.** auditd records the UID that called
 `execve`, not the parent process. The rules therefore key on the *account* the
@@ -143,6 +144,26 @@ log, and real-time FIM on `/var/www` and `/opt/nodeapp`. Adjust those paths to
 your webroots and application directories. Managing many agents? Put the same
 block in a shared agent group (`/var/ossec/etc/shared/<group>/agent.conf` on the
 manager) instead, so it pushes to every agent in the group.
+
+**On the Wazuh dashboard** — import the dashboard:
+
+Stack Management → **Saved objects** → **Import** → select
+`dashboards/web_to_shell.ndjson`, leave "Check for existing objects" on, then
+open **Dashboards → Web-to-Shell Detection (PHP & Node.js)**. Or from a shell:
+
+```bash
+curl -k -u <user>:<password> -X POST \
+  "https://<dashboard>:443/api/saved_objects/_import" \
+  -H "osd-xsrf: true" -F file=@dashboards/web_to_shell.ndjson
+```
+
+The file contains eight visualizations, a saved search and the dashboard, and
+references the stock `wazuh-alerts-*` index pattern rather than shipping its
+own, so it does not touch your existing index pattern. The dashboard query is pinned to
+`rule.groups:web_to_shell`, so every panel is scoped to this ruleset: total
+alerts, the three-layer breakdown, alerts over time by severity, top rules,
+MITRE techniques, the executables the web account ran, the files dropped in
+monitored paths, top source IPs, and a saved search of the raw alerts.
 
 > **FIM `restrict` caveat:** write the extension patterns with unescaped dots
 > (`.php$`, not `\.php$`). On 4.14.8 an escaped pattern silently matches
