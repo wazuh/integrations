@@ -159,8 +159,9 @@ curl -k -u <user>:<password> -X POST \
 
 The file contains eight visualizations, a saved search and the dashboard, and
 references the stock `wazuh-alerts-*` index pattern rather than shipping its
-own, so it does not touch your existing index pattern. The dashboard query is pinned to
-`rule.groups:web_to_shell`, so every panel is scoped to this ruleset: total
+own, so it does not touch your existing index pattern. The dashboard query is
+pinned to `rule.groups:web_to_shell`, so every panel is scoped to this
+ruleset: total
 alerts, the three-layer breakdown, alerts over time by severity, top rules,
 MITRE techniques, the executables the web account ran, the files dropped in
 monitored paths, top source IPs, and a saved search of the raw alerts.
