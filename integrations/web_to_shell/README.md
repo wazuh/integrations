@@ -389,9 +389,12 @@ from its regex if your application calls `php` as a subprocess on purpose.
   copied. Published independently at
   https://github.com/SAMsploit1/shellcatch before being contributed here.
 * **Adapted by** — Vigan Bytyqi (GitHub: SAMsploit1)
-* **Tested versions** — Wazuh manager 4.14.8 (rules, 28/28 automated cases);
-  layer 3 FIM verified on a live 4.14 single-node deployment with Ubuntu 24.04
-  agents running PHP-FPM 8.3 and Node.js 20. Uses only stock decoders, so it is
-  expected to hold across the 4.x line.
+* **Tested versions** — rules: Wazuh manager 4.14.8, 28/28 automated cases via
+  `runtests.py`. Layer 3 (FIM) and the end-to-end alert path: Wazuh 4.14
+  single-node deployment with Ubuntu 24.04 agents running PHP-FPM 8.3 and
+  Node.js 20. Dashboard: exported from a Wazuh 4.14.4 single-node stack
+  (OpenSearch Dashboards 2.19.4) and re-imported to confirm it loads on its own.
+  Uses only stock decoders, so the rules are expected to hold across the 4.x
+  line.
 * **Maintainer** — Vigan Bytyqi (GitHub: SAMsploit1)
 * **Support boundary** — community maintained, provided as is.
