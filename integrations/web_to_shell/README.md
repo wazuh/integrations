@@ -22,12 +22,19 @@
 
 A web runtime — PHP-FPM, `mod_php`, or Node.js — should almost never start a new
 process. When it does, it is usually the endpoint of a web attack: a webshell,
-an OS command injection, or a deserialization/RCE bug. A PHP worker has no
-business running `id`, `curl`, or `/bin/sh`, so when it does, it is worth an
-alert.
+an OS command injection, or a deserialization/RCE bug such as React2Shell
+(CVE-2025-55182, React Server Components, disclosed December 2025). The
+integration detects that post-exploitation behaviour, not any specific
+vulnerability. A PHP worker rarely needs to run `id`, `curl`, or `/bin/sh`, so
+when it does, it is worth an alert.
 
-Wazuh ships no coverage for this behaviour. This integration adds it across
-three layers, all mapped to MITRE ATT&CK:
+Wazuh has published guidance on this, notably the
+[Web shell attack detection with Wazuh](https://wazuh.com/blog/web-shell-attack-detection-with-wazuh/)
+blog post (FIM and auditd for PHP, Sysmon for ASP.NET). The default ruleset has
+no ready-made rule for it, though. This integration builds on that guidance and
+adds Node.js coverage, tiered severity, hex-aware auditd matching, correlation,
+and a `runtests.py` suite. It works across three layers, all mapped to MITRE
+ATT&CK:
 
 | Layer | Source | What it catches | Rule IDs |
 |-------|--------|-----------------|----------|
@@ -35,8 +42,14 @@ three layers, all mapped to MITRE ATT&CK:
 | 2. Web requests | nginx/apache access log | command-execution payloads, webshell URLs, `cmd=`-style parameters | `100560`–`100562` |
 | 3. File integrity | Wazuh FIM | new `.php`/`.phtml`/`.phar` in the webroot, new `.js` in the app directory, `.htaccess`/`.user.ini` tampering | `100570`–`100572` |
 
-Severity climbs with intent: a bare shell spawn is level 8, discovery and
-downloads are 10–12, and reverse-shell patterns are 15. Three post-exploitation
+Severity climbs with intent: a bare shell spawn is level 8, an interpreter
+running a script file is 10, and inline interpreter code (`python -c`,
+`perl -e`, `php -r`, `node -e`), discovery and downloads are 12. Reverse-shell
+patterns are 15. Inline code ranks with discovery because it runs a payload
+without dropping a file. The script-file rule matches on the binary alone, which
+also covers legitimate PHP CLI and cron work, so it sits one tier lower. PHP
+`mail()` calling sendmail is a known-good shell spawn and logs at level 3
+(`100511`). Three post-exploitation
 commands from the same web account inside two minutes escalate to level 14 as a
 likely interactive webshell.
 
@@ -44,8 +57,10 @@ Detection uses only stock Wazuh decoders (`auditd`, `web-accesslog`,
 `syscheck`), so no custom decoder is needed. A ready-made dashboard for the
 resulting alerts ships in `dashboards/web_to_shell.ndjson`.
 
-**Why the service account is the signal.** auditd records the UID that called
-`execve`, not the parent process. The rules therefore key on the *account* the
+**Why the service account is the signal.** auditd's `SYSCALL` record carries
+the parent PID (`ppid`) along with `pid`, `comm` and `exe`, but not the parent's
+name, and Wazuh cannot easily join that PID back to the parent process across
+events. The rules therefore key on the *account* the
 runtime runs as, used as a proxy for "this came from the web app". That means
 PHP-FPM/Apache must run as `www-data` (or `apache`/`nginx`) — the default — and
 **Node.js must run under its own dedicated service account**, not as root or a
@@ -166,10 +181,12 @@ alerts, the three-layer breakdown, alerts over time by severity, top rules,
 MITRE techniques, the executables the web account ran, the files dropped in
 monitored paths, top source IPs, and a saved search of the raw alerts.
 
-> **FIM `restrict` caveat:** write the extension patterns with unescaped dots
-> (`.php$`, not `\.php$`). On 4.14.8 an escaped pattern silently matches
-> nothing, which disables layer 3 without any error. The shipped file is
-> already written correctly.
+> **FIM `restrict` syntax:** `restrict` is sregex (OS_Match), not OS_Regex or
+> PCRE2, as the syscheck reference documents. `.` is a literal dot and there
+> are no escapes, so write `.php$`. A regex-style `\.php$` looks for a real
+> backslash in the file name and misses `shell.php`. On 4.14.8, `.php$` alerted
+> on `shell.php` and not on `shellXphp`, and `\.php$` alerted only on a file
+> literally named `x\.php`. The shipped file uses the documented form.
 
 ---
 
@@ -178,14 +195,19 @@ monitored paths, top source IPs, and a saved search of the raw alerts.
 Once deployed, data reaches the manager through three independent paths, and
 each is handled by a stock decoder:
 
-1. **auditd** records every `execve` made by the web service account and tags it
+1. **auditd** records every `execve` and `execveat`, on both the 64-bit and the
+   32-bit syscall tables, made by the web service account and tags it
    with the key `web_exec_php` or `web_exec_node`. The agent ships the grouped
    record, the stock `auditd` decoder parses it, and rules `100500`/`100501`
    pick it up by key. Child rules then classify the event by what was run —
    shell, discovery tool, downloader, interpreter, base64, or reverse shell.
 2. **The web server access log** is parsed by the stock `web-accesslog` decoder;
    rules `100560`–`100562` match command-execution payloads, successful requests
-   to PHP files inside upload directories, and `cmd=`-style parameters.
+   to PHP files inside upload directories, and `cmd=`-style parameters. Access
+   logs hold the request line only: POST bodies, where most real webshell
+   traffic goes, are never logged, and fully percent-encoded or base64 payloads
+   get past plaintext patterns. Treat layer 2 as early warning; layer 1 is the
+   detection.
 3. **FIM** watches the webroot and the Node application directory in real time;
    rules `100570`–`100572` fire when a new PHP/JS file or an `.htaccess` /
    `.user.ini` appears.
@@ -202,9 +224,12 @@ A second note on rule chaining: the stock rules in `0850-audit_rules.xml`
 (`92600` python, `92603` scp, `92604` `ps aux`, `92606` lscpu) use `if_group
 audit` and claim those events first. Rules `100520`, `100521`, and `100522`
 therefore also chain off those stock IDs and gate on the auditd key, so those
-events still reach this ruleset.
+events still reach this ruleset. The same applies to the stock web rules:
+`31104` (common web attack) and its 200-response child `31106` claim URLs
+containing `wget%`, `cd%20`, `exec%20`, `%0A` and similar, so `100560`–`100562`
+also chain off them and the more specific alert wins.
 
-`sample_logs.txt` in this directory contains 28 real-format log lines covering
+`sample_logs.txt` in this directory contains 40 real-format log lines covering
 every rule tier, and can be piped straight into `wazuh-logtest`.
 
 ---
@@ -214,7 +239,7 @@ every rule tier, and can be piped straight into `wazuh-logtest`.
 #### Automated: the Wazuh ruleset test tool
 
 `web_to_shell.ini` is a test file for the core ruleset testing tool
-(`ruleset/testing/runtests.py` in `wazuh/wazuh`), with 28 cases covering every
+(`ruleset/testing/runtests.py` in `wazuh/wazuh`), with 40 cases covering every
 non-frequency rule in the pack. Run it against a throwaway manager:
 
 ```bash
@@ -240,11 +265,11 @@ Result from a clean 4.14.8 container:
 
 ```
 - [ File = ./tests/web_to_shell.ini ] ---------
-............................
+........................................
 
 |          File           |  Passed  |  Failed  |  Status  |
 |        --------         | -------- | -------- | -------- |
-|./tests/web_to_shell.ini |    28    |    0     |    ✅     |
+|./tests/web_to_shell.ini |    40    |    0     |    ✅     |
 ```
 
 The suite deliberately includes negative cases as well as positive ones:
@@ -256,6 +281,12 @@ The suite deliberately includes negative cases as well as positive ones:
 * **Isolation** — a non-web user's python must stay on the stock rule (`92600`).
 * **No alert** — a `404` on a PHP file in an upload directory must *not* fire
   `100561`.
+* **Syscall coverage** — the same command via `execveat` and via the 32-bit
+  `execve` table must hit the same rule.
+* **Known-good** — PHP `mail()` → `sendmail -t -i` (with and without `-f`) lands
+  on `100511` at level 3, but `sendmail -t -i;id` must stay on `100510`.
+* **Stock web-rule overlap** — payloads that stock `31104`/`31106` also claim
+  must still reach `100560`/`100562`.
 
 Rule `100550` is frequency based (3 events in 120 s, correlated on
 `audit.uid`), so it is outside what `runtests.py` drives one event at a time; it
@@ -359,8 +390,22 @@ supplying the data:
 
 ### Tuning
 
-Expect to tune rule **`100510`** (shell spawned by web runtime, level 8) first:
-some applications legitimately shell out to ImageMagick, `git`, or a mailer.
+Expect to tune rule **`100510`** (shell spawned by web runtime, level 8) first,
+because some applications legitimately shell out:
+
+* **PHP `mail()`** runs `sendmail_path` through `/bin/sh -c`. Rule `100511`
+  already drops the default `/usr/sbin/sendmail -t -i [-f<sender>]` call to
+  level 3. The match covers the whole argument, so an appended command still
+  alerts. Edit its hex if your `sendmail_path` differs.
+* **ImageMagick / Ghostscript delegates and wkhtmltopdf** (image and document
+  processing).
+* **Git-based deploy hooks** (`git pull` from a webhook) and **Composer**, when
+  run as the web user.
+* **Cron-driven PHP scripts** in the web user's crontab hit the interpreter rule
+  `100522`. On Debian/Ubuntu, cron sets the audit login UID (`audit.auid`) while
+  PHP-FPM workers leave it unset (`4294967295`), which makes a clean tuning
+  field.
+
 Silence a known-good command with a level-0 child rule in your local rules
 rather than editing this file:
 
@@ -387,7 +432,11 @@ from its regex if your application calls `php` as a subprocess on purpose.
   https://documentation.wazuh.com/current/user-manual/ruleset/custom.html
 * MITRE ATT&CK, https://attack.mitre.org/ — T1505.003, T1059.004, T1190, T1105,
   T1140, T1546
-* Lab environment (vulnerable PHP and Node apps behind nginx), the generator
+* Web shell attack detection with Wazuh (Wazuh blog, January 2023),
+  https://wazuh.com/blog/web-shell-attack-detection-with-wazuh/
+* Lab environment (vulnerable PHP and Node apps behind nginx; exploitable by
+  design, so run it only in an isolated network, never internet-facing, and
+  never on a manager that serves production agents), the generator
   for the sample logs and the multi-event logtest suite that covers the
   frequency rule: https://github.com/SAMsploit1/shellcatch
 * Write-up describing the detection design: https://samsploit1.github.io/shellcatch/
@@ -401,7 +450,7 @@ from its regex if your application calls `php` as a subprocess on purpose.
   copied. Published independently at
   https://github.com/SAMsploit1/shellcatch before being contributed here.
 * **Adapted by** — Vigan Bytyqi (GitHub: SAMsploit1)
-* **Tested versions** — rules: Wazuh manager 4.14.8, 28/28 automated cases via
+* **Tested versions** — rules: Wazuh manager 4.14.8, 40/40 automated cases via
   `runtests.py`. Layer 3 (FIM) and the end-to-end alert path: Wazuh 4.14
   single-node deployment with Ubuntu 24.04 agents running PHP-FPM 8.3 and
   Node.js 20. Dashboard: exported from a Wazuh 4.14.4 single-node stack

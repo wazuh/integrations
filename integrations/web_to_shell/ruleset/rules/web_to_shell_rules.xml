@@ -3,7 +3,9 @@
   Author: Vigan Bytyqi (GitHub: SAMsploit1)
 
   Detects web runtimes (PHP-FPM / mod_php / Node.js) spawning processes:
-  webshells, command injection and RCE (e.g. React2Shell-style bugs).
+  webshells, command injection and RCE. It catches the post-exploitation
+  behaviour, not a specific vulnerability: e.g. the commands run after
+  React2Shell (CVE-2025-55182, Dec 2025), not the exploit request itself.
 
   Layers:
     100500-100549  process execution (auditd, see agent/60-web-to-shell.rules)
@@ -123,6 +125,24 @@
     <group>web_shell_activity,</group>
   </rule>
 
+  <!-- Inline code (python -c, perl -e, php -r, node -e) is ranked with
+       discovery and downloads: it is how an attacker runs a payload without
+       dropping a file. 100522 below matches on the binary alone, which also
+       covers legitimate cases such as a PHP CLI script or `php artisan`, so it
+       sits one tier lower. -->
+  <rule id="100523" level="12">
+    <if_sid>100500, 100501, 92600</if_sid>
+    <field name="audit.key" type="pcre2">^web_exec_(?:php|node)$</field>
+    <field name="audit.exe" type="pcre2">/(?:python[0-9.]*|perl[0-9.]*|ruby[0-9.]*|lua[0-9.]*|php[0-9.]*|node)$</field>
+    <regex type="pcre2">a\d+="-(?:c|e|E|r|p|-eval|-print)"</regex>
+    <description>Web-to-shell: inline code executed by $(audit.exe) launched by web runtime</description>
+    <mitre>
+      <id>T1059.006</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
   <!-- Tune: drop php from this list if your app legitimately shells out to the PHP CLI. -->
   <rule id="100522" level="10">
     <if_sid>100500, 100501, 92600</if_sid>
@@ -137,8 +157,9 @@
   </rule>
 
   <!-- PHP system()/exec() and Node child_process.exec() both go through
-       /bin/sh -c. Some apps do this legitimately (e.g. ImageMagick, git),
-       so this is medium severity. Tune with a level-0 child rule per known command. -->
+       /bin/sh -c. Some apps do this legitimately (PHP mail(), ImageMagick,
+       wkhtmltopdf, git deploy hooks, Composer), so this is medium severity.
+       Tune with a child rule per known command, like 100511 below. -->
   <rule id="100510" level="8">
     <if_sid>100500, 100501</if_sid>
     <field name="audit.exe" type="pcre2">/(?:sh|bash|dash|zsh|ksh|csh|tcsh|ash|busybox)$</field>
@@ -148,6 +169,19 @@
       <id>T1505.003</id>
     </mitre>
     <group>web_shell_spawn,</group>
+  </rule>
+
+  <!-- PHP mail() runs `sh -c "<sendmail_path> [-f<sender>]"`, so every
+       contact form or WordPress notification would otherwise raise 100510.
+       Matched on the whole hex-encoded argument: the default sendmail_path,
+       plus an optional -f with address characters only, so an appended
+       `;id` or `|sh` no longer matches. Kept at level 3 rather than 0 so it
+       stays searchable. Edit the hex if your sendmail_path differs. -->
+  <rule id="100511" level="3">
+    <if_sid>100510</if_sid>
+    <regex type="pcre2">a2=2F7573722F7362696E2F73656E646D61696C202D74202D69(?:202D66(?:3[0-9]|4[0-9A-F]|5[0-9A]|6[1-9A-F]|7[0-9A]|2[BDE]|5F)+)?(?: |$)</regex>
+    <description>Web-to-shell: PHP mail() invoked sendmail (known-good shell spawn)</description>
+    <group>web_exec,</group>
   </rule>
 
   <!-- ================================================================
@@ -176,10 +210,14 @@
 
 <group name="web_to_shell,web,accesslog,">
 
-  <!-- 31108 (stock) claims "simple" 2xx/3xx requests, so hang off it too. -->
+  <!-- 31108 (stock) claims "simple" 2xx/3xx requests, and 31104 / 31106
+       (stock "common web attack" and its 200 child) claim URLs containing
+       wget%, cd%20, exec%20, %0A and similar, so hang off all of them.
+       These rules run on the request line only: nginx/apache do not log
+       POST bodies, which is where most real webshell traffic goes. -->
 
   <rule id="100560" level="12">
-    <if_sid>31100, 31108</if_sid>
+    <if_sid>31100, 31108, 31104, 31106</if_sid>
     <regex type="pcre2">(?i)(?:system|passthru|shell_exec|proc_open|popen|pcntl_exec|child_process|execSync|spawnSync)(?:\(|%28|%2528|\.|%2E)|(?:/|%2F)bin(?:/|%2F)(?:ba)?sh|(?:/|%2F)dev(?:/|%2F)tcp</regex>
     <description>Web-to-shell: command execution payload in request from $(srcip): $(url)</description>
     <mitre>
@@ -190,7 +228,7 @@
   </rule>
 
   <rule id="100561" level="10">
-    <if_sid>31100, 31108</if_sid>
+    <if_sid>31100, 31108, 31104, 31106</if_sid>
     <id>^2</id>
     <regex type="pcre2">(?i)/(?:uploads?|files|images?|img|media|tmp|cache|assets)/[^?\s]*\.(?:php\d?|phtml|phar|pht)\b</regex>
     <description>Web-to-shell: successful request to PHP script in upload directory from $(srcip): $(url)</description>
@@ -201,7 +239,7 @@
   </rule>
 
   <rule id="100562" level="6">
-    <if_sid>31100, 31108</if_sid>
+    <if_sid>31100, 31108, 31104, 31106</if_sid>
     <regex type="pcre2">(?i)[?&amp;](?:cmd|exec|command|execute|shell|run)=</regex>
     <description>Web-to-shell: request with command-style parameter from $(srcip): $(url)</description>
     <mitre>
