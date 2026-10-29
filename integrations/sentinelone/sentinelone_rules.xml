@@ -1,0 +1,70 @@
+<!-- Rules for SentinelOne via API -->
+
+<!-- SentinelOne logs grouped -->
+<group name="sentinelone_API">
+  <rule id="100600" level="3">
+    <decoded_as>json</decoded_as>
+    <location>/var/log/sentinelone.json</location>
+    <description>Logs from SentinelOne.</description>
+  </rule>
+  
+  <!-- Rules to detect active threat -->
+  <rule id="100601" level="10">
+    <if_sid>100600</if_sid>
+    <field name="agentDetectionInfo.agentMitigationMode">detect</field>
+    <description>SentinelOne: New active threat $(threatInfo.threatName) detected on $(agentRealtimeInfo.agentComputerName).</description>
+  </rule>
+  
+  <!-- Rules to detect successfully mitigated threat -->
+  <rule id="100602" level="5">
+    <if_sid>100600</if_sid>
+    <field name="threatInfo.mitigationStatus">mitigated</field>
+    <description>SentinelOne: Threat $(threatInfo.threatName) successfully mitigated on $(agentRealtimeInfo.agentComputerName).</description>
+  </rule>
+  
+    <!-- Rules to detect multiple active threats -->
+    <rule id="100603" level="12" ignore="120">
+      <if_sid>100600</if_sid>
+      <field name="agentRealtimeInfo.activeThreats">[4-9]\d*|\d{2,}</field>
+      <description>SentinelOne: Multiple active threats detected on $(agentRealtimeInfo.agentComputerName).</description>
+    </rule>
+  
+  <!-- Rules to detect reboot required -->
+  <rule id="100604" level="7">
+    <if_sid>100600</if_sid>
+    <field name="agentRealtimeInfo.rebootRequired">true</field>
+    <description>SentinelOne: System reboot required on $(agentRealtimeInfo.agentComputerName) to complete actions.</description>
+  </rule>
+</group>
+
+<!-- Rules to detect SentinelOne events via syslog -->
+
+<!-- SentinelOne logs grouped -->
+<group name="sentinelone">
+  <rule id="105000" level="2">
+    <decoded_as>sentinelone</decoded_as>
+    <description>Logs from SentinelOne.</description>
+  </rule>
+
+  <!-- Rule to detect successfully mitigated threat -->
+  <rule id="105001" level="5">
+    <if_sid>105000</if_sid>
+    <field name="log_message2">Kill performed successfully</field>
+    <description>SentinelOne: Threat $(file_path) successfully mitigated on $(suser).</description>
+  </rule>
+  
+  <!-- Rule to detect active threat -->
+  <rule id="105002" level="10">
+    <if_sid>105000</if_sid>
+    <field name="log_message1">New active threat</field>
+    <description>SentinelOne: $(log_message1) $(file_path) detected on $(endpoint).</description>
+  </rule>
+  
+  <!-- Rules to detect successful threat quarantine -->
+  <rule id="105003" level="5">
+    <if_sid>105000</if_sid>
+    <field name="log_message2">Quarantine performed successfully</field>
+    <description>SentinelOne: Threat file $(file_path) quarantined successfully on $(suser).</description>
+  </rule>
+
+</group>
