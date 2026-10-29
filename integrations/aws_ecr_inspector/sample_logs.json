@@ -1,0 +1,141 @@
+{
+  "integration": "aws",
+  "aws": {
+    "detail_type": "Security Hub Findings - Imported",
+    "log_info": {
+      "s3bucket": "prod-s3-securityhub-01",
+      "log_file": "2026/10/06/06/prod-s3-securityhub-01-1-2026-10-06-06-47-21-17346058-b834-44e8-b122-8511ae9ebdd0"
+    },
+    "source": "securityhub",
+    "finding": {
+      "ProductArn": "arn:aws:securityhub:eu-central-1::product/aws/inspector",
+      "Types": [
+        "Software and Configuration Checks/Vulnerabilities/CVE"
+      ],
+      "ProcessedAt": "2026-10-06T06:49:04.599Z",
+      "Description": "Archive::Tar versions before 3.10 for Perl allow memory exhaustion via attacker controlled entry size field in tar header. _read_tar() reads each entry's payload with $handle->read($$data, $block), where $block is derived from the entry's 12-byte size field in the tar header with no upper bound on that value. A crafted header declaring a multi-gigabyte size causes Perl to allocate a scalar of that size.",
+      "ProductName": "Inspector",
+      "FirstObservedAt": "2026-10-06T06:29:19.322Z",
+      "CreatedAt": "2026-10-06T06:29:19.322Z",
+      "LastObservedAt": "2026-10-06T06:34:18.198Z",
+      "Vulnerabilities": [
+        {
+          "Cvss": [
+            {
+              "Version": "3.1",
+              "BaseVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N",
+              "BaseScore": 7.5,
+              "Source": "UBUNTU_CVE"
+            },
+            {
+              "Version": "3.1",
+              "BaseScore": 7.5,
+              "BaseVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "Source": "NVD"
+            }
+          ],
+          "ReferenceUrls": [
+            "https://lists.security.metacpan.org/cve-announce/msg/40396448/",
+            "https://ubuntu.com/security/notices/USN-8684-1",
+            "https://people.canonical.com/~ubuntu-security/cve/2026/CVE-2026-9538.html",
+            "https://www.cve.org/CVERecord?id=CVE-2026-9538"
+          ],
+          "FixAvailable": "YES",
+          "ExploitAvailable": "NO",
+          "VulnerablePackages": [
+            {
+              "PackageManager": "OS",
+              "Architecture": "AMD64",
+              "Version": "5.38.2",
+              "SourceLayerHash": "sha256:98effb2dfe85d4c431f97d90482075f19e5fc3a57c2dd423d8bdfd4813620043",
+              "Epoch": "0",
+              "FixedInVersion": "0:5.38.2-3.2ubuntu0.4",
+              "Remediation": "Update affected packages to fixed version (or newer).",
+              "Release": "3.2ubuntu0.2",
+              "Name": "perl"
+            }
+          ],
+          "EpssScore": 0.00448,
+          "Vendor": {
+            "VendorCreatedAt": "2026-05-26T02:16:00.000Z",
+            "VendorSeverity": "medium",
+            "Url": "https://people.canonical.com/~ubuntu-security/cve/2026/CVE-2026-9538.html",
+            "Name": "UBUNTU_CVE"
+          },
+          "Id": "CVE-2026-9538",
+          "RelatedVulnerabilities": [
+            "USN-8684-1"
+          ]
+        }
+      ],
+      "FindingProviderFields": {
+        "Types": [
+          "Software and Configuration Checks/Vulnerabilities/CVE"
+        ],
+        "Severity": {
+          "Normalized": "70",
+          "Label": "HIGH"
+        }
+      },
+      "CompanyName": "Amazon",
+      "ProductFields": {
+        "aws/inspector/FindingStatus": "ACTIVE",
+        "aws/inspector/inspectorScore": "7.5",
+        "aws/inspector/ProductVersion": "2",
+        "aws/securityhub/ProductName": "Inspector",
+        "aws/securityhub/CompanyName": "Amazon",
+        "aws/inspector/resources/1/resourceDetails/awsEcrContainerImageDetails/platform": "UBUNTU_24_04",
+        "aws/inspector/packageVulnerabilityDetails/vulnerablePackages/sourceLayerHashes": "sha256:98effb2dfe85d4c431f97d90482075f19e5fc3a57c2dd423d8bdfd4813620043",
+        "aws/securityhub/FindingId": "arn:aws:securityhub:eu-central-1::product/aws/inspector/arn:aws:inspector2:eu-central-1:111122223333:finding/90a3cf79f6378db5a2d84ff597a28cd1"
+      },
+      "Remediation": {
+        "Recommendation": {
+          "Text": "Remediation is available. Please refer to the Fixed version in the vulnerability details section above. For detailed remediation guidance for each of the affected packages, refer to the vulnerabilities section of the detailed finding JSON."
+        }
+      },
+      "SchemaVersion": "2018-10-08",
+      "GeneratorId": "AWSInspector",
+      "RecordState": "ACTIVE",
+      "Workflow": {
+        "Status": "NEW"
+      },
+      "Title": "CVE-2026-9538 - perl",
+      "Severity": {
+        "Normalized": "70",
+        "Label": "HIGH"
+      },
+      "UpdatedAt": "2026-10-06T06:34:18.198Z",
+      "WorkflowState": "NEW",
+      "AwsAccountId": "111122223333",
+      "Region": "eu-central-1",
+      "Id": "arn:aws:inspector2:eu-central-1:111122223333:finding/90a3cf79f6378db5a2d84ff597a28cd1",
+      "Resources": [
+        {
+          "Partition": "aws",
+          "Type": "AwsEcrContainerImage",
+          "Owner": {
+            "Account": {
+              "Id": "111122223333"
+            }
+          },
+          "Details": {
+            "AwsEcrContainerImage": {
+              "Architecture": "amd64",
+              "ImageDigest": "sha256:287bab310c1ce25905c18d784d74610e3921b665f90dc0c82152c0a71aa70f53",
+              "RegistryId": "111122223333",
+              "RepositoryName": "system_state_service",
+              "ImagePublishedAt": "2026-10-06T06:29:05.196Z",
+              "ImageTags": [
+                "1.3.3",
+                "latest"
+              ]
+            }
+          },
+          "Region": "eu-central-1",
+          "Id": "arn:aws:ecr:eu-central-1:111122223333:repository/system_state_service/sha256:287bab310c1ce25905c18d784d74610e3921b665f90dc0c82152c0a71aa70f53",
+          "Provider": "AWS"
+        }
+      ]
+    }
+  }
+}
