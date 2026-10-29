@@ -1,0 +1,31 @@
+<group name="aws,aws_securityhub,amazon_inspector,ecr,">
+  <rule id="100130" level="12">
+    <if_sid>80300</if_sid>
+    <field name="aws.source">^securityhub$</field>
+    <field name="aws.finding.ProductName">^Inspector$</field>
+    <field name="aws.finding.Resources.Type">^AwsEcrContainerImage$</field>
+    <field name="aws.finding.Resources.Details.AwsEcrContainerImage.ImageTags">latest</field>
+    <field name="aws.finding.Severity.Label">^HIGH$|^CRITICAL$</field>
+    <field name="aws.finding.Workflow.Status" negate="yes">^SUPPRESSED$|^NOTIFIED$</field>
+    <description>Amazon Inspector: $(aws.finding.Severity.Label) vulnerability $(aws.finding.Title) in ECR repository $(aws.finding.Resources.Details.AwsEcrContainerImage.RepositoryName):latest (RecordState: $(aws.finding.RecordState))</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Note for SLA lifecycle tracking:
+    - Automatic remediation closures from Amazon Inspector (RecordState: ARCHIVED, FindingStatus: CLOSED)
+      still carry Workflow.Status: NEW and are indexed by rule 100130 above.
+    - If your team manually suppresses findings in AWS Security Hub (Workflow.Status: SUPPRESSED or NOTIFIED)
+      and wants those manual suppressions to clear earlier ACTIVE alerts from the SLA dashboard panels,
+      change level="0" to level="3" on rule 100135 below so Wazuh indexes the status transition event.
+  -->
+  <rule id="100135" level="0">
+    <if_sid>80300</if_sid>
+    <field name="aws.source">^securityhub$</field>
+    <field name="aws.finding.ProductName">^Inspector$</field>
+    <field name="aws.finding.Workflow.Status">^SUPPRESSED$|^NOTIFIED$</field>
+    <description>Amazon Inspector: Suppressed or notified Security Hub finding $(aws.finding.Title) (Workflow.Status: $(aws.finding.Workflow.Status))</description>
+  </rule>
+</group>
