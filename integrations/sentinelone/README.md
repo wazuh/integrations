@@ -43,7 +43,7 @@ chmod 750 /var/ossec/integrations/sentinel_one.py
   <location>/var/log/sentinelone.json</location>
 </localfile>
 ```
-4. Create the rules for SentinelOne logs. You can find rules in `/content/ruleset/SentinelOne/` of this repository
+4. Create the rules for SentinelOne logs. You can find rules and decoders in  this repository
 
 6. Restart the wazuh-manager service:
 `systemctl restart wazuh-manager`
