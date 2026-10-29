@@ -1,0 +1,51 @@
+<decoder name="sentinelone">
+    <prematch>sentinel -  CEF:\d\|SentinelOne\|</prematch>
+</decoder>
+
+<decoder name="sentinelone">
+    <parent>sentinelone</parent>
+    <regex>\|SentinelOne\|\w+\|\S+\|\d+\|(\.*) -</regex>
+    <order>log_message1</order>
+</decoder>
+
+<decoder name="sentinelone">
+    <parent>sentinelone</parent>
+    <regex>\|SentinelOne\|\w+\|\S+\|\d+\|(\.*)\|\d+</regex>
+    <order>log_message2</order>
+</decoder>
+
+<decoder name="sentinelone">
+    <parent>sentinelone</parent>
+    <regex>\|SentinelOne\|\w+\|\S+\|\d+\|\.* machine (\.*)\|\d+</regex>
+    <order>endpoint</order>
+</decoder>
+
+<decoder name="sentinelone">
+    <parent>sentinelone</parent>
+    <regex>osName=(\w*)\s</regex>
+    <order>operating_system</order>
+</decoder>
+
+<decoder name="sentinelone">
+    <parent>sentinelone</parent>
+    <regex>fileHash=(\S+)\s</regex>
+    <order>file_hash</order>
+</decoder>
+
+<decoder name="sentinelone">
+    <parent>sentinelone</parent>
+    <regex>filePath=(\S+)\s</regex>
+    <order>file_path</order>
+</decoder>
+
+<decoder name="sentinelone">
+    <parent>sentinelone</parent>
+    <regex>activityID=(\S+)</regex>
+    <order>activity_id</order>
+</decoder>
+
+<decoder name="sentinelone">
+  <parent>sentinelone</parent>
+  <regex>suser=(\S+)</regex>
+  <order>suser</order>
+</decoder>
