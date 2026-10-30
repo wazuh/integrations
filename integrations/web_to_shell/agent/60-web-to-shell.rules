@@ -1,0 +1,29 @@
+## Web-to-shell detection: record every execve() made by a web service account.
+##
+## Web runtimes (PHP-FPM, mod_php, Node.js) should almost never start new
+## processes. When they do, it is usually a webshell, command injection or RCE.
+##
+## The SYSCALL record carries the parent PID (ppid) but not the parent's name,
+## and Wazuh cannot join that PID back to an earlier event, so the service
+## account is used as a proxy for "this came from the web app". Run each runtime
+## under a dedicated account and adjust the names below to match your hosts:
+##   Debian/Ubuntu PHP-FPM / Apache / nginx : www-data
+##   RHEL/Alma/Rocky                        : apache or nginx
+##   Node.js                                : a dedicated user (nodeapp here)
+##
+## The account must exist when the rules load, or augenrules will fail.
+## Remove the lines for a runtime you don't use.
+##
+## Each runtime is watched on both syscall tables (b64 and b32) and on both
+## entry points (execve and execveat), so a payload can't slip past by using the
+## 32-bit table or the alternate syscall. execveat needs kernel 3.19+.
+##
+## Install: copy to /etc/audit/rules.d/ then run `augenrules --load`.
+
+## PHP (key: web_exec_php)
+-a always,exit -F arch=b64 -S execve -S execveat -F euid=www-data -k web_exec_php
+-a always,exit -F arch=b32 -S execve -S execveat -F euid=www-data -k web_exec_php
+
+## Node.js (key: web_exec_node)
+-a always,exit -F arch=b64 -S execve -S execveat -F euid=nodeapp -k web_exec_node
+-a always,exit -F arch=b32 -S execve -S execveat -F euid=nodeapp -k web_exec_node
