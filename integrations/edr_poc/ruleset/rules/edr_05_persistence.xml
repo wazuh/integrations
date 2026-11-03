@@ -1,0 +1,71 @@
+<group name="persistence,edr_lab,">
+
+  <!-- Windows -->
+  <rule id="105001" level="10">
+    <if_sid>92300</if_sid>
+    <field name="win.eventdata.targetObject" type="pcre2" negate="yes">(?i)RunNotification</field>
+    <description>Run key value set: $(win.eventdata.targetObject) = $(win.eventdata.details)</description>
+    <mitre><id>T1547.001</id></mitre>
+  </rule>
+
+  <rule id="105002" level="10">
+    <if_sid>60228</if_sid>
+    <description>Scheduled task created: $(win.eventdata.taskName) by $(win.eventdata.subjectUserName)</description>
+    <mitre><id>T1053.005</id></mitre>
+  </rule>
+
+  <rule id="105003" level="10">
+    <if_sid>61138</if_sid>
+    <description>New service installed: $(win.eventdata.serviceName), binary $(win.eventdata.imagePath)</description>
+    <mitre><id>T1543.003</id></mitre>
+  </rule>
+
+  <rule id="105004" level="10">
+    <if_sid>60109</if_sid>
+    <field name="win.system.eventID">^4720$</field>
+    <description>Local user created: $(win.eventdata.targetUserName) by $(win.eventdata.subjectUserName)</description>
+    <mitre><id>T1136.001</id></mitre>
+  </rule>
+
+  <rule id="105006" level="10">
+    <if_sid>554</if_sid>
+    <field name="file" type="pcre2">(?i)start menu.+startup</field>
+    <description>File added to the Startup folder: $(file)</description>
+    <mitre><id>T1547.001</id></mitre>
+  </rule>
+
+  <!-- Linux -->
+  <rule id="105101" level="10">
+    <if_sid>550,554</if_sid>
+    <field name="file" type="pcre2">^/etc/cron|^/var/spool/cron</field>
+    <description>Cron job created or changed: $(file)</description>
+    <mitre><id>T1053.003</id></mitre>
+  </rule>
+
+  <rule id="105102" level="10">
+    <if_sid>550,554</if_sid>
+    <field name="file" type="pcre2">^/etc/systemd/system/</field>
+    <description>systemd unit created or changed: $(file)</description>
+    <mitre><id>T1543.002</id></mitre>
+  </rule>
+
+  <rule id="105103" level="12">
+    <if_sid>550,554</if_sid>
+    <field name="file" type="pcre2">/\.ssh/authorized_keys$</field>
+    <description>SSH authorized_keys created or changed: $(file)</description>
+    <mitre><id>T1098.004</id></mitre>
+  </rule>
+
+  <rule id="105104" level="10">
+    <if_sid>5902</if_sid>
+    <description>Linux user created</description>
+    <mitre><id>T1136.001</id></mitre>
+  </rule>
+
+  <rule id="105105" level="12">
+    <if_sid>2961</if_sid>
+    <description>User added to the sudo group</description>
+    <mitre><id>T1098</id></mitre>
+  </rule>
+
+</group>
