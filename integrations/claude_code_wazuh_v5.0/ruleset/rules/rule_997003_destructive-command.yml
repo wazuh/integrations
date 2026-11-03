@@ -1,0 +1,26 @@
+id: 'c9d1a7e3-4f6b-4c8e-9a2d-7b3f5e8c1a4d'
+logsource:
+  product: claude-code
+tags:
+  - attack.impact
+  - attack.t1485
+falsepositives:
+  - Legitimate cleanup of temporary files the agent itself created earlier in the same session
+level: high
+status: experimental
+enabled: true
+metadata:
+  title: Claude Code Destructive Shell Command via Bash Tool
+  author: Anmol Vats
+  description: Detects a destructive shell command (rm -rf, rm -f, mkfs, dd if=) executed through Claude Code's Bash tool, found inside the extracted full_command text.
+  references:
+    - 'https://code.claude.com/docs/en/monitoring-usage'
+  documentation: ''
+  supports:
+    - '5.0'
+detection:
+  selection:
+    process.name: Bash
+  destructive:
+    process.command_line|re: rm[ ]+-[a-z]*r|rm[ ]+-[a-z]*f|rm[ ]+-rf|mkfs|dd[ ]+if=
+  condition: selection and destructive

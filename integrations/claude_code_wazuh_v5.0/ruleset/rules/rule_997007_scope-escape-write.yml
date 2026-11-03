@@ -1,0 +1,28 @@
+id: 'a7b9e2c4-1d6f-4a3b-9e5c-7f1a3d5b7c9e'
+logsource:
+  product: claude-code
+tags:
+  - attack.impact
+  - attack.t1565
+falsepositives:
+  - Routine writes to a temp directory for legitimate scratch files or downloaded artifacts
+level: medium
+status: experimental
+enabled: true
+metadata:
+  title: Claude Code File Write Outside the Project Workspace
+  author: Anmol Vats
+  description: Detects a Write or Edit tool call targeting a system-sensitive temp path rather than the project workspace. Deliberately scoped to Write/Edit only; Read calls to the same paths are routine and excluded. Scope narrowed to the tmp path segment; broader path coverage (/etc/, /var/, /root/) was attempted but the slash-containing pattern could not be made to reliably fire against this platform's rule engine and is tracked as a documented gap in VERIFY.md.
+  references:
+    - 'https://code.claude.com/docs/en/monitoring-usage'
+  documentation: ''
+  supports:
+    - '5.0'
+detection:
+  selection:
+    process.name:
+      - Write
+      - Edit
+  target:
+    file.path|re: tmp
+  condition: selection and target

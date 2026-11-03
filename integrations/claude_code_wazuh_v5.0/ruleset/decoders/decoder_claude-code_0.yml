@@ -1,0 +1,48 @@
+name: decoder/claude-code/0
+enabled: true
+metadata:
+  title: Claude Code Telemetry Decoder
+  description: Decodes Claude Code OTel telemetry events, flattened by scripts/otel_shipper.py, into Wazuh Common Schema fields
+  author: Anmol Vats
+  references: []
+  documentation: 'https://code.claude.com/docs/en/monitoring-usage'
+  supports:
+    - '5.0'
+
+parents:
+  - decoder/core-wazuh-message/0
+
+check: string_equal($_tmp_json.service_name, "claude-code")
+
+normalize:
+  - map:
+      - event.kind: event
+      - event.dataset: claude-code
+      - service.type: claude-code
+      - user.id: $_tmp_json.user_id
+      - message: $_tmp_json.event_name
+  - check: exists($_tmp_json.tool_name)
+    map:
+      - process.name: $_tmp_json.tool_name
+      - event.id: $_tmp_json.tool_use_id
+  - check: exists($_tmp_json.decision)
+    map:
+      - event.action: $_tmp_json.decision
+      - event.outcome: $_tmp_json.decision
+      - event.provider: $_tmp_json.source
+      - tags: $_tmp_json.permission_mode
+  - check: exists($_tmp_json.success)
+    map:
+      - event.outcome: $_tmp_json.success
+  - check: exists($_tmp_json.tool_input)
+    map:
+      - file.path: $_tmp_json.tool_input
+  - check: exists($_tmp_json.tool_parameters)
+    map:
+      - _tmp_tool_params: parse_json($_tmp_json.tool_parameters)
+      - process.command_line: $_tmp_tool_params.full_command
+  - check: exists($_tmp_json.error_type)
+    map:
+      - error.message: $_tmp_json.error_type
+  - map:
+      - _tmp_json: delete()

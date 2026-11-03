@@ -1,0 +1,24 @@
+id: '7a3e1c9d-5b8f-4e21-9a6c-2d4f8b1e3c7a'
+logsource:
+  product: claude-code
+tags:
+  - attack.defense-evasion
+  - attack.t1562
+falsepositives:
+  - Deliberate, authorized use of --dangerously-skip-permissions for a trusted automation task
+level: high
+status: experimental
+enabled: true
+metadata:
+  title: Claude Code Tool Call Accepted Under bypassPermissions Mode
+  author: Anmol Vats
+  description: Detects a Claude Code tool call that was accepted while the session's permission_mode was bypassPermissions (the --dangerously-skip-permissions flag), meaning the agent's normal guardrails were disabled for that call.
+  references:
+    - 'https://code.claude.com/docs/en/permission-modes.md'
+  documentation: ''
+  supports:
+    - '5.0'
+detection:
+  selection:
+    tags: bypassPermissions
+  condition: selection
