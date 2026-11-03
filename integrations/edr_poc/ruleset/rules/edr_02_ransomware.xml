@@ -1,0 +1,52 @@
+<group name="windows,sysmon,ransomware,edr_lab,">
+
+  <rule id="102001" level="14">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)vssadmin.*(delete\s+shadows|resize\s+shadowstorage)</field>
+    <description>Shadow copies deleted or resized with vssadmin: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1490</id></mitre>
+  </rule>
+
+  <rule id="102002" level="14">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)wmic.*shadowcopy.*delete</field>
+    <description>Shadow copies deleted with WMIC: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1490</id></mitre>
+  </rule>
+
+  <rule id="102003" level="14">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)Win32_ShadowCopy.*(Delete|Remove-CimInstance|Remove-WmiObject)</field>
+    <description>Shadow copies deleted through WMI from PowerShell: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1490</id></mitre>
+  </rule>
+
+  <rule id="102004" level="12">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)bcdedit.*(recoveryenabled\s+no|bootstatuspolicy\s+ignoreallfailures)</field>
+    <description>Windows boot recovery disabled with bcdedit: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1490</id></mitre>
+  </rule>
+
+  <rule id="102005" level="12">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)wbadmin.*delete\s+(catalog|systemstatebackup|backup)</field>
+    <description>Windows backup catalog deleted with wbadmin: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1490</id></mitre>
+  </rule>
+
+  <rule id="102010" level="10">
+    <if_sid>550,553,554</if_sid>
+    <field name="file" type="pcre2">(?i)00_finance_backup</field>
+    <description>Decoy file changed: $(file)</description>
+    <mitre><id>T1486</id></mitre>
+  </rule>
+
+  <rule id="102011" level="14" frequency="10" timeframe="60">
+    <if_matched_sid>102010</if_matched_sid>
+    <same_location />
+    <description>Mass changes in the decoy folder, possible ransomware encryption</description>
+    <mitre><id>T1486</id></mitre>
+  </rule>
+
+</group>

@@ -1,0 +1,41 @@
+<group name="windows,lateral_movement,edr_lab,">
+
+  <!-- RDP logon (4624, type 10). Attached to the built-in remote logon rules:
+       92652/92657 (NTLM, the case in a workgroup) and 92653 (Kerberos) -->
+  <rule id="106010" level="8">
+    <if_sid>92652,92653,92657</if_sid>
+    <field name="win.eventdata.logonType">^10$</field>
+    <description>RDP logon: $(win.eventdata.targetUserName) from $(win.eventdata.ipAddress)</description>
+    <mitre><id>T1021.001</id></mitre>
+  </rule>
+
+  <rule id="106011" level="12">
+    <if_sid>106010</if_sid>
+    <field name="win.eventdata.ipAddress" type="pcre2" negate="yes">^192\.168\.122\.1$</field>
+    <description>RDP logon from an unapproved source: $(win.eventdata.targetUserName) from $(win.eventdata.ipAddress)</description>
+    <mitre><id>T1021.001</id></mitre>
+  </rule>
+
+  <!-- WinRM: process started by the WinRM host process -->
+  <rule id="106030" level="10">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)wsmprovhost\.exe$</field>
+    <description>Remote command through WinRM: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1021.006</id></mitre>
+  </rule>
+
+  <!-- WMI: raises built-in 92069 (process started by WmiPrvSE, level 0) -->
+  <rule id="106040" level="10">
+    <if_sid>92069</if_sid>
+    <description>Process started through WMI: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1047</id></mitre>
+  </rule>
+
+  <!-- PsExec: raises built-in 92068 (child of PSEXESVC, level 3) -->
+  <rule id="106050" level="10">
+    <if_sid>92068</if_sid>
+    <description>Remote command through PsExec: $(win.eventdata.commandLine)</description>
+    <mitre><id>T1569.002</id></mitre>
+  </rule>
+
+</group>

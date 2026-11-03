@@ -1,0 +1,12 @@
+<group name="active_response,edr_lab,">
+  <rule id="109001" level="10">
+    <if_sid>657</if_sid>
+    <match>kill-process: killed</match>
+    <description>Active response killed a process after rule $(parameters.alert.rule.id): $(parameters.alert.rule.description)</description>
+  </rule>
+  <rule id="109002" level="7">
+    <if_sid>657</if_sid>
+    <match>kill-process: skipped|kill-process: failed</match>
+    <description>Active response kill-process did not kill the process (protected or already gone)</description>
+  </rule>
+</group>

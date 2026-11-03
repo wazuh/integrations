@@ -1,0 +1,9 @@
+<decoder name="yara_decoder">
+  <prematch>wazuh-yara:</prematch>
+</decoder>
+
+<decoder name="yara_decoder1">
+  <parent>yara_decoder</parent>
+  <regex>wazuh-yara: (\S+) - Scan result: (\S+) (\S+)</regex>
+  <order>log_type, yara_rule, yara_scanned_file</order>
+</decoder>
