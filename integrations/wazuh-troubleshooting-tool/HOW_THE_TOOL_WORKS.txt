@@ -1,0 +1,125 @@
+Wazuh Troubleshooting Tool - How It Works (plain language)
+=============================================================
+
+WHAT THIS TOOL IS
+------------------
+It's a web dashboard you open in your browser. It talks to a Wazuh
+installation (the Manager, the Indexer, the Dashboard) and helps a
+person diagnose and fix problems with it, either by running checks
+automatically, walking you through step-by-step wizards, or letting
+you chat with an AI that understands Wazuh.
+
+There are 5 tabs on the left side of the screen. Here's what each one does.
+
+1. HOME (the main dashboard)
+-----------------------------
+This is the page you land on. It shows:
+- Big status boxes at the top: is everything OK, how many issues are
+  found, how many services are online, cluster status.
+- A "Run Health Check" button. When you click it, the backend checks:
+  are wazuh-indexer, wazuh-manager, and wazuh-dashboard actually
+  running, can it log into the Wazuh API, and is the Indexer cluster
+  healthy (green/yellow/red).
+- A small chat box right there on the dashboard where you can type a
+  problem in plain English (like "alerts are not showing up") and it
+  will walk you through a fix, step by step. This is a wizard, not a
+  free-form AI chat, it follows a fixed script for known problems. If
+  the wizard runs out of steps without actually confirming the issue
+  is fixed, it automatically looks up similar known issues (local
+  knowledge base plus a live search of public Wazuh GitHub
+  issues/discussions) and points you to the Wazuh community, instead
+  of just stopping. This lookup is a similarity match, not an AI
+  writing an answer, so it doesn't need Ollama or Claude. If a wizard
+  does confirm the fix worked, you just get a clean "resolved"
+  message with no extra suggestion.
+- A live services list, cluster stats, and memory usage.
+- Quick action buttons: restart a service, test filebeat, with one click.
+
+No AI/LLM is required for any of this. It's all direct checks against
+your Wazuh services (systemctl, the Wazuh API, the Indexer API).
+
+2. TROUBLESHOOTING LIBRARY
+----------------------------
+This is a list of common, named problems, for example:
+  Dashboard Error, Application Not Found, Alerts Not Showing,
+  Filebeat Error, Filebeat Mapping Issue, Alerts Not Indexing,
+  Cluster Health Issues, Indexer Problems.
+
+You pick one, and it opens the same kind of step-by-step wizard as the
+dashboard's chat box, but focused on that specific problem. It asks
+you questions, checks things on the system, and offers to run fixes
+(with your yes/no approval at each risky step). Just like the
+dashboard's chat box, if a wizard here runs out of steps without
+confirming the issue is actually fixed, it looks up similar known
+issues and points you to the Wazuh community instead of just
+stopping. Once a wizard finishes (fixed or not), it saves a small
+transcript so you can look back at what was done and download it
+later.
+
+Again, no AI/LLM needed here either, these are fixed logic scripts
+per known issue, not the AI chatting freely - the community lookup on
+an unresolved ending is a similarity search, not AI-generated text.
+
+3. OPERATIONS REPORTING CENTER
+--------------------------------
+This tab lets you generate reports: Agent Fleet Health, Dashboard,
+Data Flow, Cluster Health, Environment, Security Events. You pick a
+report type (or build a custom one by choosing which sections to
+include), click Generate, and it puts together a readable report you
+can view or export (PDF/HTML), based on live data pulled from your
+Wazuh install.
+
+4. WAZUH COPILOT / AGENT (this is where the AI actually is)
+--------------------------------------------------------------
+This tab is the real AI chat. There's a dropdown where you pick which
+"brain" answers you:
+  - Ollama (local): a small AI model that runs on the same machine,
+    no internet connection or API key needed. It's fast but limited,
+    it can answer questions and explain things using your live system
+    data and a local knowledge base of known Wazuh issues, but it
+    can't actually take actions on the system.
+  - Claude (API): a much more capable AI (Anthropic's Claude), used
+    only if you've added an API key in the config file. This one can
+    actually DO things: it can call tools to check statuses, read
+    logs, and even apply fixes, but only after you approve any change
+    it wants to make. It never touches your system without asking
+    first.
+
+Both brains use the same knowledge sources: your Wazuh system's live
+status, a local database of real Wazuh community issues/solutions
+(so it doesn't just guess), and (for Claude) real official Wazuh
+documentation pages when relevant.
+
+This is the only tab where you're talking to a genuinely open-ended
+AI rather than a fixed wizard script.
+
+5. SETTINGS
+------------
+Basic configuration display/controls for the tool itself.
+
+WHERE THE "AI" ACTUALLY LIVES IN THE CODE (for reference)
+------------------------------------------------------------
+- assistant_engine.py + use_cases/*.py: the fixed step-by-step wizards
+  used by the Home dashboard's chat box AND the Troubleshooting
+  Library. No LLM involved, just guided logic.
+- copilot_engine.py: quick one-shot AI answers, used to help build
+  context for the Agent tab.
+- agent_engine.py + agent_brain.py + agent_tools.py: the real AI
+  agent loop (plan, call a tool, look at the result, repeat), used
+  only in the Wazuh Copilot / Agent tab. This is where Ollama or
+  Claude actually think and decide what to check or fix.
+- backend/knowledge/: a local database of real, past Wazuh community
+  issues and solutions, which both the wizards and the AI use to give
+  grounded, accurate answers instead of making things up.
+- utils/unresolved_help.py: used by every wizard's ending. On a
+  confirmed fix it just finishes cleanly; otherwise it looks up
+  similar issues (local knowledge base + live public GitHub search)
+  and points to the Wazuh community. Lookup only, no AI generation.
+
+IN ONE SENTENCE
+-----------------
+Three tabs (Home, Library, Reports) are automated checks and guided
+scripts with no AI involved; one tab (Wazuh Copilot / Agent) is where
+you actually talk to an AI, which can either be a small local model
+or Claude, and Claude is the only one that can take real action on
+your system, always with your approval first.
