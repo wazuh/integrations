@@ -84,10 +84,10 @@ The state file holds the IDs of events inside the overlap window. With `include=
 
 ## Testing
 
-`test/mock_ghe_api.py` is a stdlib mock of the enterprise audit log endpoint (cursor pagination, `created:` range and `include` filters, live events with indexing lag, and injected 429 / 403 rate-limit / 500 / oversized-event faults). Token is `test-token`.
+`mock_ghe_api.py` is a stdlib mock of the enterprise audit log endpoint (cursor pagination, `created:` range and `include` filters, live events with indexing lag, and injected 429 / 403 rate-limit / 500 / oversized-event faults). Token is `test-token`.
 
 ```bash
-python3 test/mock_ghe_api.py --port 8765 --backfill 250 --live-every 2 --faults 429,500,403rl &
+python3 mock_ghe_api.py --port 8765 --backfill 250 --live-every 2 --faults 429,500,403rl &
 GITHUB_TOKEN=test-token python3 github_audit_wodle.py --api-url http://127.0.0.1:8765 \
     --enterprise example --dry-run --initial-lookback 60 --log-stderr --state-file /tmp/gh-state.json
 ```
