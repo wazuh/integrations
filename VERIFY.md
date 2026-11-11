@@ -82,3 +82,19 @@ None of the above are documented in the official 5.0-rc docs as of this session;
 ## MCP servers (not yet built)
 
 - stdio transport: stdout reserved for JSON-RPC, stderr may carry logs (spec-sanctioned). Streamable HTTP transport: OAuth 2.1 + RFC 9728/8414/7591/8707 confirmed. Source: modelcontextprotocol.io 2025-06-18 spec. Process-lineage behavior for `npx`/`uvx` wrapper spawning is standard OS behavior, not spec-mandated — to be verified empirically with real captured process trees when this integration is built, not assumed from the spec text.
+
+## agentmetry
+
+### Confirmed via direct empirical testing
+
+- **Wazuh's built-in JSON decoder handles trail lines.** A custom decoder with `<prematch>^{"trail":{"v":</prematch>` lost to it on 4.14.9: `wazuh-logtest` reported decoder `json`. The package therefore ships no decoder, and rule 997600 uses `decoded_as json` plus two fields specific to the trail.
+- **Nested fields decode as `trail.*` and `event.*`.** For example `event.detection.rule_id` and `event.action.outcome`.
+- **All 14 detection samples alert over the live `localfile` path.** Rule, level and decoder also pass for all 15 cases in `wazuh-logtest`. Tested on `wazuh/wazuh-manager:4.14.9` with Agentmetry 0.10.6.
+- **The manager's vulnerability scanner fills a 32 GB disk in a test container.** About 18 GB went to its content download. `scripts/capture_and_test.sh` turns it off.
+
+### Confirmed gaps
+
+- The samples come from a real recorder replaying Agentmetry's scripted attack sessions, not from a live agent session.
+- `host-subagent-swarm-burst` and `off-hours-activity` produced no sample in this replay, so they have no specific rule.
+- A Wazuh agent reading a trail on a developer machine was not tested. The manager read the file itself.
+- Wazuh 5.0 was not tested.

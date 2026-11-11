@@ -40,3 +40,4 @@ OpenTelemetry attribute names use dots as a semantic-grouping convention (`servi
 | `cursor_wazuh_v4.14` | 997300-997399 (reserved, not yet used) |
 | `mcp_servers_wazuh_v4.14` | 997400-997499 (reserved, not yet used) |
 | `ai_agent_host_wazuh_v4.14` | 997500-997599 (reserved, not yet used) |
+| `agentmetry_wazuh_v4.14` | 997600-997699 |

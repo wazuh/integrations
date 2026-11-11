@@ -1,0 +1,208 @@
+<!--
+  -  ID range: 997600 - 997699
+  -  Created by blitzcrieg1
+  -  Copyright (C) 2015, Wazuh Inc.
+  -  This program is a free software; you can redistribute it and/or modify it under the terms of GPLv2.
+-->
+
+<!--
+  Every line of an Agentmetry trail is an envelope:
+  {"trail":{"v":1,"seq":N,"prev_sha256":"...","record_sha256":"..."},"event":{...}}
+  Wazuh's built-in JSON decoder handles it, so no custom decoder is needed and
+  fields sit under `trail.` and `event.`.
+
+  These rules key on detection events, the sequences Agentmetry has already
+  correlated. Tool arguments are hashed by default, so rules on raw commands or
+  file paths would not match a default install.
+
+  A rule ID Agentmetry adds later, or one an operator writes, still alerts at its
+  severity through 997602 to 997605. It just carries no MITRE mapping here.
+-->
+
+<group name="agentmetry,ai_agent,">
+
+  <rule id="997600" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="trail.record_sha256" type="pcre2">^[0-9a-f]{64}$</field>
+    <field name="event.schema_version" type="pcre2">^\d+\.\d+\.\d+$</field>
+    <description>Agentmetry trail record.</description>
+  </rule>
+
+  <rule id="997601" level="0">
+    <if_sid>997600</if_sid>
+    <field name="event.action.type">^detection$</field>
+    <description>Agentmetry detection event.</description>
+    <group>agentmetry_detection,</group>
+  </rule>
+
+  <!-- Severity, from `action.outcome` on the detection event. -->
+
+  <rule id="997602" level="15">
+    <if_sid>997601</if_sid>
+    <field name="event.action.outcome">^critical$</field>
+    <description>Agentmetry critical: $(event.detection.title) (rule $(event.detection.rule_id), session $(event.correlation_id))</description>
+  </rule>
+
+  <rule id="997603" level="12">
+    <if_sid>997601</if_sid>
+    <field name="event.action.outcome">^high$</field>
+    <description>Agentmetry high: $(event.detection.title) (rule $(event.detection.rule_id), session $(event.correlation_id))</description>
+  </rule>
+
+  <rule id="997604" level="7">
+    <if_sid>997601</if_sid>
+    <field name="event.action.outcome">^medium$</field>
+    <description>Agentmetry medium: $(event.detection.title) (rule $(event.detection.rule_id), session $(event.correlation_id))</description>
+  </rule>
+
+  <rule id="997605" level="4">
+    <if_sid>997601</if_sid>
+    <field name="event.action.outcome">^low$</field>
+    <description>Agentmetry low: $(event.detection.title) (rule $(event.detection.rule_id), session $(event.correlation_id))</description>
+  </rule>
+
+  <!-- Critical. -->
+
+  <rule id="997610" level="15">
+    <if_sid>997602</if_sid>
+    <field name="event.detection.rule_id">^approval-denied-then-executed$</field>
+    <description>Agentmetry critical: an action a human denied was executed later in session $(event.correlation_id)</description>
+    <group>guardrail_tampering,</group>
+  </rule>
+
+  <rule id="997611" level="15">
+    <if_sid>997602</if_sid>
+    <field name="event.detection.rule_id">^credential-exfil$</field>
+    <description>Agentmetry critical: credential access followed by network egress in session $(event.correlation_id)</description>
+    <group>credential_access,exfiltration,</group>
+    <mitre>
+      <id>T1552.004</id>
+      <id>T1071.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="997612" level="15">
+    <if_sid>997602</if_sid>
+    <field name="event.detection.rule_id">^credential-read-then-cloud-api$</field>
+    <description>Agentmetry critical: credential access followed by a cloud or cluster API call in session $(event.correlation_id)</description>
+    <group>credential_access,</group>
+    <mitre>
+      <id>T1552.004</id>
+      <id>T1078</id>
+    </mitre>
+  </rule>
+
+  <rule id="997613" level="15">
+    <if_sid>997602</if_sid>
+    <field name="event.detection.rule_id">^dotfile-read-then-git-push$</field>
+    <description>Agentmetry critical: credential read followed by git push in session $(event.correlation_id)</description>
+    <group>credential_access,exfiltration,</group>
+    <mitre>
+      <id>T1552.001</id>
+      <id>T1567.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="997614" level="15">
+    <if_sid>997602</if_sid>
+    <field name="event.detection.rule_id">^encoded-command-download$</field>
+    <description>Agentmetry critical: remote code fetched and executed in session $(event.correlation_id)</description>
+    <group>execution,download_and_execute,</group>
+    <mitre>
+      <id>T1105</id>
+      <id>T1059.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="997615" level="15">
+    <if_sid>997602</if_sid>
+    <field name="event.detection.rule_id">^pr-merged-without-review$</field>
+    <description>Agentmetry critical: pull request merged without reading the code in session $(event.correlation_id)</description>
+    <mitre>
+      <id>T1195.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="997616" level="15">
+    <if_sid>997602</if_sid>
+    <field name="event.detection.rule_id">^remote-staging-then-execute$</field>
+    <description>Agentmetry critical: downloaded file executed in session $(event.correlation_id)</description>
+    <group>execution,download_and_execute,</group>
+    <mitre>
+      <id>T1105</id>
+      <id>T1059</id>
+    </mitre>
+  </rule>
+
+  <!-- High. -->
+
+  <rule id="997617" level="12">
+    <if_sid>997603</if_sid>
+    <field name="event.detection.rule_id">^autonomous-unapproved-write$</field>
+    <description>Agentmetry high: autonomous write without human approval in session $(event.correlation_id)</description>
+    <mitre>
+      <id>T1565</id>
+    </mitre>
+  </rule>
+
+  <rule id="997618" level="12">
+    <if_sid>997603</if_sid>
+    <field name="event.detection.rule_id">^destructive-delete-burst$</field>
+    <description>Agentmetry high: burst of destructive deletions in session $(event.correlation_id)</description>
+    <group>destructive_command,</group>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+  </rule>
+
+  <rule id="997619" level="12">
+    <if_sid>997603</if_sid>
+    <field name="event.detection.rule_id">^session-tool-burst$</field>
+    <description>Agentmetry high: burst of tool calls in session $(event.correlation_id)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+  </rule>
+
+  <rule id="997620" level="12">
+    <if_sid>997603</if_sid>
+    <field name="event.detection.rule_id">^subagent-swarm-burst$</field>
+    <description>Agentmetry high: burst of subagent spawns in session $(event.correlation_id)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+  </rule>
+
+  <rule id="997621" level="12">
+    <if_sid>997603</if_sid>
+    <field name="event.detection.rule_id">^untrusted-input-then-risky-action$</field>
+    <description>Agentmetry high: risky action after ingesting untrusted content in session $(event.correlation_id)</description>
+    <mitre>
+      <id>T1071.001</id>
+    </mitre>
+  </rule>
+
+  <!-- Medium. -->
+
+  <rule id="997622" level="7">
+    <if_sid>997604</if_sid>
+    <field name="event.detection.rule_id">^discovery-then-collect$</field>
+    <description>Agentmetry medium: filesystem recon followed by data collection in session $(event.correlation_id)</description>
+    <mitre>
+      <id>T1083</id>
+      <id>T1005</id>
+    </mitre>
+  </rule>
+
+  <!-- Low. -->
+
+  <rule id="997623" level="4">
+    <if_sid>997605</if_sid>
+    <field name="event.detection.rule_id">^encoded-command-download$</field>
+    <description>Agentmetry low: local content piped into an interpreter in session $(event.correlation_id)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+  </rule>
+
+</group>
