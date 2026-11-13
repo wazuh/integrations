@@ -1,0 +1,3 @@
+# Only needed for --source streaming and --source objectstorage.
+# --source local (offline replay/testing) runs on the standard library alone.
+oci>=2.126.0
