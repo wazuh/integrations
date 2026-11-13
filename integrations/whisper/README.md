@@ -160,8 +160,8 @@ The verdict → alert-level mapping (bundled rules):
 | `known_bad` | confirmed-malicious evidence (C2 / malware / phishing) | 100501 | 12 |
 | `known_bad` (CRITICAL) | as above, with a critical graph score | 100505 | 14 |
 | `suspicious` | a threat signal without a confirmed-bad category (e.g. Tor / anonymizer) | 100502 | 7 |
-| `known_good` | allowlist-vouched, no threat | 100503 | 3 |
-| `unknown` | no data at this granularity (no-data ≠ safe) | 100504 | 3 |
+| `known_good` | allowlist-vouched, no threat, and assessed by the engine (never level `UNKNOWN` or coverage `no-data`) | 100503 | 3 |
+| `unknown` | no data at this granularity, or not assessed by the engine (no-data ≠ safe) | 100504 | 3 |
 
 ---
 

@@ -499,12 +499,13 @@ def build_source_ref(alert: dict, field_path: str) -> dict:
 
 # --- explain() — the authoritative threat verdict (mapping §5/§6) -------------------------
 # The procedure is multi-shape: the rich shape below on success, and a degraded shape
-# carrying error/retryAfter when the scoring backend is down. NOTE the REST layer has no
-# `coverage` field (that is an MCP-surface addition) — coverage.granularity is derived
-# from the IOC type; shared_host/data_coverage stay None and are stripped before send.
+# carrying error/retryAfter when the scoring backend is down. The REST layer yields a
+# scalar `coverage` string (e.g. `no-data`, `known-clean`) which lands in
+# coverage.data_coverage; coverage.granularity is derived from the IOC type and
+# shared_host stays unavailable at REST (None, stripped before send).
 _EXPLAIN_FIELDS = (
     'indicator, type, available, cached, found, score, level, '
-    'explanation, factors, sources, breakdown, advisory'
+    'explanation, factors, sources, breakdown, advisory, coverage'
 )
 _EXPLAIN_ERROR_FIELDS = 'indicator, type, available, error, retryAfter, advisory'
 
@@ -730,6 +731,19 @@ def fetch_flags(cfg: dict, ioc: str, ioc_type: str) -> 'dict | None':
     return rows[0] if rows else None
 
 
+def _engine_coverage(raw: object, notes: 'list[str]') -> 'str | None':
+    """The engine's explain() coverage value as a string, or None when absent.
+
+    A non-string value is not a shape we know: omit it and say so (mapping §8).
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        return raw.strip() or None
+    notes.append(f'coverage unmapped ({type(raw).__name__})')
+    return None
+
+
 # --- verdict derivation (mapping §6 — ordered gates, first match wins) ---------------------
 def derive_verdict(explain_row: dict, flags: dict, known: bool = True) -> str:
     """Evidence-derived verdict. The Whisper score is evidence, never the answer:
@@ -737,11 +751,11 @@ def derive_verdict(explain_row: dict, flags: dict, known: bool = True) -> str:
     never from the raw score and never from the explanation string (they can disagree).
 
     `known` = the IOC has a real graph node (from fetch_flags, NOT explain().found, which
-    is unreliable for domains). NOTE the §6 coverage gate (shared_host / data_coverage →
-    unknown) is NOT enforced here: the REST explain() surface exposes no coverage block
-    (verified 2026-07-06). The gate order is otherwise conservative — any confirmed-bad or
-    threat signal blocks known_good — so a multi-tenant apex listed only in trust feeds is
-    the one residual case (documented in mapping §6/§11).
+    is unreliable for domains). A row the engine did not assess (level UNKNOWN, or coverage
+    `no-data`) never reaches known_good: no data is not benign, even with a trust signal.
+    It falls through to known_bad (hard-bad flag), suspicious (threat evidence) or unknown.
+    The shared_host coverage gate is still NOT enforced (REST has no such signal): a
+    multi-tenant apex listed only in trust feeds is the one residual case (mapping §6/§11).
     """
     level = explain_row.get('level') or 'NONE'
     sources = explain_row.get('sources') or []
@@ -761,7 +775,15 @@ def derive_verdict(explain_row: dict, flags: dict, known: bool = True) -> str:
     has_trust_signal = (
         explain_row.get('advisory') == 'allowlist-vouched' or flags.get('isWhitelist') or trust_only
     )
-    if has_trust_signal and not has_threat_evidence and level not in ('HIGH', 'CRITICAL'):
+    coverage = explain_row.get('coverage')
+    coverage = coverage.strip().lower() if isinstance(coverage, str) else ''
+    no_assessment = str(level).upper() == 'UNKNOWN' or coverage == 'no-data'
+    if (
+        has_trust_signal
+        and not has_threat_evidence
+        and not no_assessment
+        and level not in ('HIGH', 'CRITICAL')
+    ):
         return 'known_good'
 
     # Gate 3 — known_bad: a confirmed-malicious node flag on its own (#30 — the node IS bad
@@ -1336,10 +1358,15 @@ def enrich(
         'permalink': f'{api_url}/{kind}/{ioc}',
         'graph_node_id': None,
         'source_ref': source_ref,
-        # The REST layer has no coverage block (MCP-surface only): granularity is
-        # derived from the IOC type; shared_host/data_coverage stay None here and are
-        # stripped before send (nullable fields are omitted, never JSON null — §2.4).
-        'coverage': {'granularity': granularity, 'shared_host': None, 'data_coverage': None},
+        # granularity is derived from the IOC type; data_coverage is the engine's scalar
+        # explain().coverage (never the `coverage` object itself: the indexer maps it as an
+        # object). shared_host is unavailable at REST. None values are stripped before send
+        # (nullable fields are omitted, never JSON null — §2.4).
+        'coverage': {
+            'granularity': granularity,
+            'shared_host': None,
+            'data_coverage': _engine_coverage(explain_row.get('coverage'), notes),
+        },
         'dedup_key': dedup_key,
         'unmapped_summary': None,
         'truncated': False,
