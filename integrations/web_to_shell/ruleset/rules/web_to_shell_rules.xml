@@ -1,0 +1,290 @@
+<!--
+  Web-to-shell detection (PHP + Node.js)
+  Author: Vigan Bytyqi (GitHub: SAMsploit1)
+
+  Detects web runtimes (PHP-FPM / mod_php / Node.js) spawning processes:
+  webshells, command injection and RCE. It catches the post-exploitation
+  behaviour, not a specific vulnerability: e.g. the commands run after
+  React2Shell (CVE-2025-55182, Dec 2025), not the exploit request itself.
+
+  Layers:
+    100500-100549  process execution (auditd, see agent/60-web-to-shell.rules)
+    100550-100559  correlation
+    100560-100569  web access logs (nginx / apache combined format)
+    100570-100579  file integrity monitoring (webshell drops)
+
+  Install on the manager: /var/ossec/etc/rules/web_to_shell_rules.xml
+  Rule IDs 100500-100599 must be free in your custom ruleset.
+
+  Note: auditd hex-encodes any argument containing spaces or quotes, so
+  `sh -c "bash -i >& /dev/tcp/..."` arrives as a2=62617368202D69...
+  The argument-based rules match both the plain and hex forms.
+-->
+
+<group name="web_to_shell,audit,">
+
+  <!-- ================================================================
+       Layer 1: process execution by web service accounts (auditd)
+       ================================================================ -->
+
+  <rule id="100500" level="3">
+    <if_sid>80700</if_sid>
+    <field name="audit.key">^web_exec_php$</field>
+    <description>Web-to-shell: PHP web service account executed $(audit.exe)</description>
+    <group>web_exec,</group>
+  </rule>
+
+  <rule id="100501" level="3">
+    <if_sid>80700</if_sid>
+    <field name="audit.key">^web_exec_node$</field>
+    <description>Web-to-shell: Node.js service account executed $(audit.exe)</description>
+    <group>web_exec,</group>
+  </rule>
+
+  <!-- Argument-based rules come first, so `sh -c '<payload>'` is classified
+       by what it runs instead of as a generic shell spawn. -->
+
+  <!-- Reverse shell. Plain form: /dev/tcp, mkfifo, `bash -i`, socat exec:.
+       Hex form: /dev/tcp/, /dev/udp/, mkfifo, bash -i, sh -i, nc -e, nc -c, ncat -e. -->
+  <rule id="100530" level="15">
+    <if_sid>100500, 100501</if_sid>
+    <regex type="pcre2">/dev/(?:tcp|udp)/|a\d+="mkfifo"|a\d+="(?:\S*/)?(?:ba|da|z)?sh" a\d+="-i"|a\d+="(?:exec|system):|2F6465762F(?:746370|756470)2F|6D6B6669666F|62617368202D69|(?:=|20|2F)7368202D69|(?:=|20|2F)6E63(?:6174)?202D(?:65|63)</regex>
+    <description>Web-to-shell: reverse shell launched by web runtime ($(audit.exe), pid $(audit.pid))</description>
+    <mitre>
+      <id>T1505.003</id>
+      <id>T1059.004</id>
+      <id>T1071</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <rule id="100531" level="15">
+    <if_sid>100500, 100501</if_sid>
+    <field name="audit.exe" type="pcre2">/(?:nc|ncat|netcat|nc\.traditional|nc\.openbsd)$</field>
+    <regex type="pcre2">a\d+="-[ec]"</regex>
+    <description>Web-to-shell: netcat with command execution flag launched by web runtime</description>
+    <mitre>
+      <id>T1505.003</id>
+      <id>T1059.004</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <!-- `echo <b64> | base64 -d | sh` inside a shell command line (hex form) -->
+  <rule id="100541" level="12">
+    <if_sid>100500, 100501</if_sid>
+    <regex type="pcre2">626173653634202D(?:64|2D6465636F6465|6469|6964)</regex>
+    <description>Web-to-shell: base64-decoded command line executed by web runtime</description>
+    <mitre>
+      <id>T1140</id>
+      <id>T1027</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <!-- Executable-based rules.
+       Stock rules 92600/92603/92604/92606 (0850-audit_rules.xml) use
+       if_group audit and can claim python/scp/ps/lscpu events before these
+       rules, so these rules also hang off them and gate on the auditd key. -->
+
+  <rule id="100540" level="12">
+    <if_sid>100500, 100501</if_sid>
+    <field name="audit.exe" type="pcre2">/base64$</field>
+    <description>Web-to-shell: base64 decoding by web runtime</description>
+    <mitre>
+      <id>T1140</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <rule id="100521" level="12">
+    <if_sid>100500, 100501, 92603</if_sid>
+    <field name="audit.key" type="pcre2">^web_exec_(?:php|node)$</field>
+    <field name="audit.exe" type="pcre2">/(?:curl|wget|nc|ncat|netcat|nc\.traditional|nc\.openbsd|socat|telnet|ftp|tftp|scp|sftp)$</field>
+    <description>Web-to-shell: network or transfer tool $(audit.exe) launched by web runtime</description>
+    <mitre>
+      <id>T1105</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <rule id="100520" level="12">
+    <if_sid>100500, 100501, 92604, 92606</if_sid>
+    <field name="audit.key" type="pcre2">^web_exec_(?:php|node)$</field>
+    <field name="audit.exe" type="pcre2">/(?:id|whoami|uname|hostname|hostnamectl|ifconfig|ip|netstat|ss|ps|w|who|last|lsb_release|getent|groups|lscpu|crontab)$</field>
+    <description>Web-to-shell: discovery command $(audit.exe) launched by web runtime</description>
+    <mitre>
+      <id>T1033</id>
+      <id>T1082</id>
+      <id>T1016</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <!-- Inline code (python -c, perl -e, php -r, node -e) is ranked with
+       discovery and downloads: it is how an attacker runs a payload without
+       dropping a file. 100522 below matches on the binary alone, which also
+       covers legitimate cases such as a PHP CLI script or `php artisan`, so it
+       sits one tier lower. -->
+  <rule id="100523" level="12">
+    <if_sid>100500, 100501, 92600</if_sid>
+    <field name="audit.key" type="pcre2">^web_exec_(?:php|node)$</field>
+    <field name="audit.exe" type="pcre2">/(?:python[0-9.]*|perl[0-9.]*|ruby[0-9.]*|lua[0-9.]*|php[0-9.]*|node)$</field>
+    <regex type="pcre2">a\d+="-(?:c|e|E|r|p|-eval|-print)"</regex>
+    <description>Web-to-shell: inline code executed by $(audit.exe) launched by web runtime</description>
+    <mitre>
+      <id>T1059.006</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <!-- Tune: drop php from this list if your app legitimately shells out to the PHP CLI. -->
+  <rule id="100522" level="10">
+    <if_sid>100500, 100501, 92600</if_sid>
+    <field name="audit.key" type="pcre2">^web_exec_(?:php|node)$</field>
+    <field name="audit.exe" type="pcre2">/(?:python[0-9.]*|perl[0-9.]*|ruby[0-9.]*|lua[0-9.]*|php[0-9.]*)$</field>
+    <description>Web-to-shell: script interpreter $(audit.exe) launched by web runtime</description>
+    <mitre>
+      <id>T1059.006</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_activity,</group>
+  </rule>
+
+  <!-- PHP system()/exec() and Node child_process.exec() both go through
+       /bin/sh -c. Some apps do this legitimately (PHP mail(), ImageMagick,
+       wkhtmltopdf, git deploy hooks, Composer), so this is medium severity.
+       Tune with a child rule per known command, like 100511 below. -->
+  <rule id="100510" level="8">
+    <if_sid>100500, 100501</if_sid>
+    <field name="audit.exe" type="pcre2">/(?:sh|bash|dash|zsh|ksh|csh|tcsh|ash|busybox)$</field>
+    <description>Web-to-shell: shell $(audit.exe) spawned by web runtime</description>
+    <mitre>
+      <id>T1059.004</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_spawn,</group>
+  </rule>
+
+  <!-- PHP mail() runs `sh -c "<sendmail_path> [-f<sender>]"`, so every
+       contact form or WordPress notification would otherwise raise 100510.
+       Matched on the whole hex-encoded argument: the default sendmail_path,
+       plus an optional -f with address characters only, so an appended
+       `;id` or `|sh` no longer matches. Kept at level 3 rather than 0 so it
+       stays searchable. Edit the hex if your sendmail_path differs. -->
+  <rule id="100511" level="3">
+    <if_sid>100510</if_sid>
+    <regex type="pcre2">a2=2F7573722F7362696E2F73656E646D61696C202D74202D69(?:202D66(?:3[0-9]|4[0-9A-F]|5[0-9A]|6[1-9A-F]|7[0-9A]|2[BDE]|5F)+)?(?: |$)</regex>
+    <description>Web-to-shell: PHP mail() invoked sendmail (known-good shell spawn)</description>
+    <group>web_exec,</group>
+  </rule>
+
+  <!-- ================================================================
+       Correlation
+       ================================================================ -->
+
+  <!-- Repeated post-exploitation commands by the same service account on the
+       same agent within 2 minutes: someone is typing into a webshell.
+       Observed on 4.14.8: with if_matched_group this fires on the 2nd matching
+       event regardless of the frequency value (if_matched_sid rules count as
+       documented). Covered by tests/logtest.py, so a change shows up there. -->
+  <rule id="100550" level="14" frequency="3" timeframe="120">
+    <if_matched_group>web_shell_activity</if_matched_group>
+    <same_field>audit.uid</same_field>
+    <description>Web-to-shell: repeated post-exploitation commands by $(audit.uid) (interactive webshell likely)</description>
+    <mitre>
+      <id>T1505.003</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<!-- ================================================================
+     Layer 2: web access logs (decoded by the stock web-accesslog decoder)
+     ================================================================ -->
+
+<group name="web_to_shell,web,accesslog,">
+
+  <!-- 31108 (stock) claims "simple" 2xx/3xx requests, and 31104 / 31106
+       (stock "common web attack" and its 200 child) claim URLs containing
+       wget%, cd%20, exec%20, %0A and similar, so hang off all of them.
+       These rules run on the request line only: nginx/apache do not log
+       POST bodies, which is where most real webshell traffic goes. -->
+
+  <rule id="100560" level="12">
+    <if_sid>31100, 31108, 31104, 31106</if_sid>
+    <regex type="pcre2">(?i)(?:system|passthru|shell_exec|proc_open|popen|pcntl_exec|child_process|execSync|spawnSync)(?:\(|%28|%2528|\.|%2E)|(?:/|%2F)bin(?:/|%2F)(?:ba)?sh|(?:/|%2F)dev(?:/|%2F)tcp</regex>
+    <description>Web-to-shell: command execution payload in request from $(srcip): $(url)</description>
+    <mitre>
+      <id>T1190</id>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_request,</group>
+  </rule>
+
+  <rule id="100561" level="10">
+    <if_sid>31100, 31108, 31104, 31106</if_sid>
+    <id>^2</id>
+    <regex type="pcre2">(?i)/(?:uploads?|files|images?|img|media|tmp|cache|assets)/[^?\s]*\.(?:php\d?|phtml|phar|pht)\b</regex>
+    <description>Web-to-shell: successful request to PHP script in upload directory from $(srcip): $(url)</description>
+    <mitre>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_request,</group>
+  </rule>
+
+  <rule id="100562" level="6">
+    <if_sid>31100, 31108, 31104, 31106</if_sid>
+    <regex type="pcre2">(?i)[?&amp;](?:cmd|exec|command|execute|shell|run)=</regex>
+    <description>Web-to-shell: request with command-style parameter from $(srcip): $(url)</description>
+    <mitre>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_request,</group>
+  </rule>
+
+</group>
+
+<!-- ================================================================
+     Layer 3: file integrity monitoring (see agent/web_to_shell_agent.conf)
+     ================================================================ -->
+
+<group name="web_to_shell,syscheck,">
+
+  <rule id="100570" level="10">
+    <if_sid>554</if_sid>
+    <field name="file" type="pcre2">(?i)^/var/www/.*\.(?:php\d?|phtml|phar|pht|phps)$</field>
+    <description>Web-to-shell: new PHP script in webroot: $(file)</description>
+    <mitre>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_drop,</group>
+  </rule>
+
+  <rule id="100571" level="12">
+    <if_sid>550, 554</if_sid>
+    <field name="file" type="pcre2">(?i)^/var/www/.*/(?:\.htaccess|\.user\.ini)$</field>
+    <description>Web-to-shell: PHP execution config created or changed: $(file)</description>
+    <mitre>
+      <id>T1505.003</id>
+      <id>T1546</id>
+    </mitre>
+    <group>web_shell_drop,</group>
+  </rule>
+
+  <rule id="100572" level="10">
+    <if_sid>554</if_sid>
+    <field name="file" type="pcre2">(?i)^/opt/nodeapp/.*\.(?:js|mjs|cjs)$</field>
+    <description>Web-to-shell: new JavaScript file in Node.js app directory: $(file)</description>
+    <mitre>
+      <id>T1505.003</id>
+    </mitre>
+    <group>web_shell_drop,</group>
+  </rule>
+
+</group>
