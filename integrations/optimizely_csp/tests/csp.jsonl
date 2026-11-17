@@ -1,0 +1,9 @@
+{"csp-report":{"blocked-uri":"https://1688360[.]cc/track.js","disposition":"enforce","effective-directive":"script-src-elem"}}
+[{"type":"csp-violation","body":{"blockedURL":"https://ASSET.5VOBAUUA3OJPKLX[.]ICU.:8443","disposition":"report","effectiveDirective":"frame-src"}},{"type":"deprecation","body":{}}]
+{"csp-report":{"blocked-uri":"https://cdn.optimizely.com","disposition":"enforce","effective-directive":"script-src-elem"}}
+{"csp-report":{"blocked-uri":"https://1688360[.]cc.example.test","disposition":"enforce","effective-directive":"connect-src"}}
+{"csp-report":{"blocked-uri":"https://fake1688360[.]cc","disposition":"enforce","effective-directive":"connect-src"}}
+{"csp-report":{"blocked-uri":"https://example.test/path/1688360[.]cc","disposition":"enforce","effective-directive":"connect-src"}}
+{"csp-report":{"blocked-uri":"https://1688360[.]cc@example.test","disposition":"enforce","effective-directive":"connect-src"}}
+{"csp-report":{"blocked-uri":"eval","disposition":"enforce","effective-directive":"script-src"}}
+{"csp-report":{"blocked-uri":"https://1688360[.]cc","disposition":"unknown","effective-directive":"script-src"}}

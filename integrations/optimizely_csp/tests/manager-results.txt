@@ -1,0 +1,89 @@
+WAZUH_VERSION="v4.14.10"
+WAZUH_REVISION="rc2"
+WAZUH_TYPE="server"
+Case 1 passed
+Case 2 passed
+Case 3 passed
+Case 4 passed
+Case 5 passed
+Case 6 passed
+Case 7 passed
+Case 8 passed
+Case 9 passed
+9/9 passed (Wazuh logtest and normalization)
+
+Logtest fixture 1
+Starting wazuh-logtest v4.14.10
+Type one log per line
+
+
+**Phase 1: Completed pre-decoding.
+	full event: '{"integration":"optimizely_csp","csp":{"destination":"1688360.cc","disposition":"enforce","directive":"script-src-elem"}}'
+
+**Phase 2: Completed decoding.
+	name: 'json'
+	csp.destination: '1688360.cc'
+	csp.directive: 'script-src-elem'
+	csp.disposition: 'enforce'
+	integration: 'optimizely_csp'
+
+**Phase 3: Completed filtering (rules).
+	id: '100980'
+	level: '10'
+	description: 'CSP enforce violation for Optimizely campaign domain 1688360.cc'
+	groups: '['browser_csp', 'optimizely_csp']'
+	firedtimes: '1'
+	mail: 'False'
+	mitre.id: '['T1195.002']'
+	mitre.tactic: '['Initial Access']'
+	mitre.technique: '['Compromise Software Supply Chain']'
+**Alert to be generated.
+
+
+Logtest fixture 2
+
+Starting wazuh-logtest v4.14.10
+Type one log per line
+
+**Phase 1: Completed pre-decoding.
+	full event: '{"integration":"optimizely_csp","csp":{"destination":"asset.5vobauua3ojpklx.icu","disposition":"report","directive":"frame-src"}}'
+
+**Phase 2: Completed decoding.
+	name: 'json'
+	csp.destination: 'asset.5vobauua3ojpklx.icu'
+	csp.directive: 'frame-src'
+	csp.disposition: 'report'
+	integration: 'optimizely_csp'
+
+**Phase 3: Completed filtering (rules).
+	id: '100980'
+	level: '10'
+	description: 'CSP report violation for Optimizely campaign domain asset.5vobauua3ojpklx.icu'
+	groups: '['browser_csp', 'optimizely_csp']'
+	firedtimes: '1'
+	mail: 'False'
+	mitre.id: '['T1195.002']'
+	mitre.tactic: '['Initial Access']'
+	mitre.technique: '['Compromise Software Supply Chain']'
+**Alert to be generated.
+
+
+Logtest fixture 3
+
+Starting wazuh-logtest v4.14.10
+Type one log per line
+
+**Phase 1: Completed pre-decoding.
+	full event: '{"integration":"optimizely_csp","csp":{"destination":"cdn.optimizely.com","disposition":"enforce","directive":"script-src-elem"}}'
+
+**Phase 2: Completed decoding.
+	name: 'json'
+	csp.destination: 'cdn.optimizely.com'
+	csp.directive: 'script-src-elem'
+	csp.disposition: 'enforce'
+	integration: 'optimizely_csp'
+
+
+Live manager alerts from /var/ossec/logs/alerts/alerts.json
+{"rule":"100980","level":10,"decoder":"json","disposition":"enforce","directive":"script-src-elem","destination":"1688360.cc","location":"/var/log/optimizely-csp.jsonl"}
+{"rule":"100980","level":10,"decoder":"json","disposition":"report","directive":"frame-src","destination":"asset.5vobauua3ojpklx.icu","location":"/var/log/optimizely-csp.jsonl"}
