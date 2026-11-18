@@ -82,3 +82,23 @@ None of the above are documented in the official 5.0-rc docs as of this session;
 ## MCP servers (not yet built)
 
 - stdio transport: stdout reserved for JSON-RPC, stderr may carry logs (spec-sanctioned). Streamable HTTP transport: OAuth 2.1 + RFC 9728/8414/7591/8707 confirmed. Source: modelcontextprotocol.io 2025-06-18 spec. Process-lineage behavior for `npx`/`uvx` wrapper spawning is standard OS behavior, not spec-mandated — to be verified empirically with real captured process trees when this integration is built, not assumed from the spec text.
+
+## aertun
+
+### Confirmed live, on Wazuh manager 4.14.10 (`wazuh/wazuh-manager:4.14.10`) and Aertun 0.2.0
+
+- **Integratord runs `custom-aertun.py` by its name.** With `<name>custom-aertun.py</name>`, `ossec.log` says `Enabling integration for: 'custom-aertun.py'` and no shell wrapper is needed. The script got `ALERT_FILE API_KEY HOOK_URL` and, with an `<options>` block, a file whose name ends in `options`, as `shuffle.py` reads them.
+- **Alerts arrive, signed and sealed.** Real `sshd` alerts (rules 5710, 5712, 40112) raised by the manager went to an Aertun webhook feed over TLS under a private CA given in `<options>`. Each was stored through Aertun's `wazuh/alerts` mapping and its digest sealed in Aertun's audit log, ten alerts raised together in one entry. Alert 40112, copied out of the manager's own `alerts.json`, was found by `aertun proof sealed` in the batch that sealed it, its Merkle path reaching the root.
+- **Refusals.** In Aertun's test suite the script is run as the integrator runs it, against the feed over TLS. A wrong `api_key` exits 1 and logs `refused by Aertun (401)`, a `hook_url` over plain http exits 2, an untrusted certificate exits 1, and bad option values exit 1 with a log line instead of a traceback. Nothing is stored in any of those cases, and the same alert sent twice is stored once.
+- **The rules.** All 21 cases in `aertun.ini`, on 24 real Aertun audit-log entries in `sample_logs.txt`, pass in `wazuh-logtest` (`check_rules.py` runs them). With Aertun's audit log read live by a `json` `localfile`, the kill switch (998001), a refusal (998005), the burst of five refusals (998006), a declared incident (998011) and a setting change (998012) were raised as alerts in `alerts.json`.
+- **`action` is a static field in 4.x.** `<field name="action">` is refused at load (`Field 'action' is static`), so the rules use `<action type="pcre2">`.
+
+### Confirmed and fixed during testing
+
+- **A feedback loop.** Wazuh sends its alerts to Aertun, Aertun writes an `alert.sealed` entry for them, and a Wazuh alert raised on that entry at the integration's level would be sent back and sealed again without end. Rule 998015 is level 0 for that reason. With the audit log shipped continuously into the manager while alerts arrived, the counts settled and stayed put.
+
+### Confirmed gaps
+
+- Wazuh 5.0 is not covered. Its rules are a new YAML format with no command-line rule test as of 5.0-rc, so none was built rather than one shipped untested.
+- The samples for 998004 (a peer deployment's forked log), 998007 (a grant approved by a second administrator) and 998017 (a newly trusted signer) were written by Aertun's own test suite, not a live deployment, because each needs a second deployment or a second administrator's passkey. They are Aertun's real records, field for field.
+- 998006 counts refusals per pseudonymised principal. Every caller whose token is rejected is recorded under the same unverified identity, so it counts them together.
