@@ -1,0 +1,14 @@
+Wazuh 4.14.10 manager image, internal revision rc2
+Synthetic records replayed directly through wazuh-logtest
+Manager ruleset configuration check passed
+
+PASS affected runtime: decoder=json, rule=(112939, 8)
+PASS fixed runtime: decoder=json, rule=(112938, 0)
+PASS unaffected vendor build: decoder=json, rule=(112938, 0)
+PASS CPU path absent: decoder=json, rule=(112938, 0)
+PASS mitigation verified: decoder=json, rule=(112938, 0)
+PASS vendor unknown: decoder=json, rule=(112940, 5)
+PASS CPU unknown: decoder=json, rule=(112940, 5)
+PASS mitigation unknown: decoder=json, rule=(112940, 5)
+PASS fixed runtime with unknown CPU: decoder=json, rule=(112938, 0)
+9/9 passed

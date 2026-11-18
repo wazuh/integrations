@@ -1,0 +1,25 @@
+<group name="java4shell_exposure,">
+  <rule id="112938" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="event_type" type="pcre2">^java4shell_runtime_assessment$</field>
+    <field name="cve" type="pcre2">^CVE-2026-114938$</field>
+    <description>Java4Shell runtime assessment</description>
+  </rule>
+
+  <rule id="112939" level="8">
+    <if_sid>112938</if_sid>
+    <field name="vendor_status" type="pcre2">^affected$</field>
+    <field name="cpu_path" type="pcre2">^present$</field>
+    <field name="mitigation" type="pcre2">^absent$</field>
+    <description>Java4Shell patch priority for $(workload) running $(runtime)</description>
+  </rule>
+
+  <rule id="112940" level="5">
+    <if_sid>112938</if_sid>
+    <field name="vendor_status" type="pcre2">^(affected|unknown)$</field>
+    <field name="cpu_path" type="pcre2">^(present|unknown)$</field>
+    <field name="mitigation" type="pcre2">^(absent|unknown)$</field>
+    <field name="assessment_complete" type="pcre2">^no$</field>
+    <description>Java4Shell assessment needs more evidence for $(workload)</description>
+  </rule>
+</group>
