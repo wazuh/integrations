@@ -233,7 +233,99 @@ The **History** sidebar view shows your last 30 sessions, stored in browser `loc
 
 ## Quick Start
 
-### 1. Set Up Python Environment
+### Prerequisites
+
+- **A running Wazuh manager** — the app validates every decoder against `wazuh-logtest`, which needs `wazuh-analysisd` alive (see step 1). Only the manager is required: the Wazuh indexer, dashboard and agents are **not** needed.
+- `git` and OpenSSL installed
+- Python 3.9 or later
+- On Linux, `sudo` access to install system packages
+
+### 1. Install and Start the Wazuh Manager
+
+The app has no built-in decoder engine — it drives the real `wazuh-logtest` binary shipped with the Wazuh manager to pre-decode logs, validate generated XML and confirm that rules fire. **Install the manager and make sure it is running before you start the app.**
+
+> Install **only the `wazuh-manager` package**. Do not run the all-in-one `wazuh-install.sh` installer — the indexer, dashboard and filebeat components it deploys are not used by this tool and only add overhead.
+
+On Ubuntu or Debian:
+
+```bash
+# Add the Wazuh package repository
+curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --no-default-keyring \
+  --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+sudo chmod 644 /usr/share/keyrings/wazuh.gpg
+echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" \
+  | sudo tee /etc/apt/sources.list.d/wazuh.list
+
+# Install the manager only
+sudo apt update
+sudo apt install -y wazuh-manager
+```
+
+On RHEL, CentOS, Rocky or Alma Linux:
+
+```bash
+sudo rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
+sudo tee /etc/yum.repos.d/wazuh.repo > /dev/null << 'EOF'
+[wazuh]
+gpgcheck=1
+gpgkey=https://packages.wazuh.com/key/GPG-KEY-WAZUH
+enabled=1
+name=Wazuh repository
+baseurl=https://packages.wazuh.com/4.x/yum/
+protect=1
+EOF
+
+sudo yum install -y wazuh-manager
+```
+
+Then enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-manager
+sudo systemctl start wazuh-manager
+sudo systemctl status wazuh-manager
+```
+
+Verify that `wazuh-logtest` can actually reach the running manager — this is exactly the check the app performs at startup:
+
+```bash
+echo 'Dec 25 20:45:02 MyHost sshd[12345]: Failed password for root from 10.0.0.5 port 22 ssh2' \
+  | sudo /var/ossec/bin/wazuh-logtest
+```
+
+You should see the phase-by-phase output with a matched decoder and rule. If it reports that it cannot connect to `wazuh-analysisd`, the manager is not running — fix that before continuing, or generation will work but every validation will be skipped.
+
+> **Manager on a different machine?** You do not need the manager on the same host as this app. Install it on your Wazuh VM or server, start it there, and configure SSH access instead — see [Remote Wazuh VM (SSH Mode)](#remote-wazuh-vm-ssh-mode).
+
+### 2. Install Python 3.9 or later
+
+On Ubuntu or Debian:
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip
+python3 --version
+```
+
+### 3. Install Ollama
+
+On macOS or Windows, download the installer from [ollama.com/download](https://ollama.com/download). On Linux, run:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+> Ollama is the default (local, no rate limits) AI provider. To use DashScope or OpenRouter instead, skip this step and see [AI Provider Configuration](#ai-provider-configuration).
+
+### 4. Clone the Repository
+
+```bash
+git clone https://github.com/wazuh/integrations.git
+cd integrations/integrations/wazuh_decoder_rule_tool
+```
+
+### 5. Set Up the Python Environment
 
 ```bash
 python3 -m venv .venv
@@ -241,7 +333,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Generate SSL Certificates
+### 6. Generate SSL Certificates
 
 The app runs over HTTPS. Generate a self-signed certificate for local use:
 
@@ -255,32 +347,41 @@ openssl req -x509 -newkey rsa:4096 \
 
 > **Note:** `certs/` is in `.gitignore` — your private keys will never be committed.
 
-### 3. (Optional) Set Up the Ollama AI Model
+### 7. Create the Ollama Model
 
-The app uses a custom Ollama model called `wazuh-decoder` built on top of `qwen2.5:7b`. It has Wazuh OS_Regex rules baked into its system prompt.
+The app uses a custom Ollama model called `wazuh-decoder` built on top of `qwen2.5:7b`. It has Wazuh OS_Regex rules baked into its system prompt. The repository includes the `Modelfile`:
 
 ```bash
-# Install Ollama: https://ollama.com
 ollama create wazuh-decoder -f Modelfile
 ```
 
-Then set environment variables before starting:
+Then set the required environment variables:
 
 ```bash
 export OLLAMA_BASE_URL=http://localhost:11434
 export OLLAMA_MODEL=wazuh-decoder
 ```
 
-### 4. Start the Application
+### 8. Start the Application
+
+Confirm the Wazuh manager from step 1 is still running first — the app probes `wazuh-logtest` on startup and reports its connectivity in the UI status pill:
 
 ```bash
-.venv/bin/uvicorn app.main:app \
+sudo systemctl is-active wazuh-manager    # should print: active
+```
+
+```bash
+uvicorn app.main:app \
   --host 0.0.0.0 --port 8443 \
   --ssl-certfile certs/localhost.crt \
   --ssl-keyfile certs/localhost.key
 ```
 
-Open **`https://localhost:8443`** in your browser.
+> If you did not activate the virtual environment (step 5), call the binary directly with `.venv/bin/uvicorn` instead of `uvicorn`.
+
+### 9. Open the UI
+
+Open **`https://<NodeIP>:8443`** in your browser, replacing `<NodeIP>` with the IP address of the machine running the Wazuh Decoder and Rule Creator (use `localhost` if it runs on your own machine).
 
 > On first startup, the RAG vector store is built automatically in the background (~1–2 min). The app is fully usable while it builds.
 
@@ -319,6 +420,8 @@ export AI_DEFAULT_MODEL=meta-llama/llama-3.3-70b-instruct:free
 
 ## Wazuh Integration
 
+Everything in this section assumes a **running Wazuh manager**, installed per [step 1](#1-install-and-start-the-wazuh-manager). The binary alone is not enough: a stopped manager leaves `/var/ossec/bin/wazuh-logtest` in place but it cannot reach `wazuh-analysisd`, so the app reports `Wazuh Local (unavailable)` and skips all validation.
+
 ### Local `wazuh-logtest`
 
 By default the app looks for the Wazuh logtest binary at:
@@ -344,7 +447,7 @@ export WAZUH_SUDO_PASSWORD=your_sudo_password
 
 ### Remote Wazuh VM (SSH Mode)
 
-If your Wazuh instance runs in a VM or remote server, configure SSH access:
+If your Wazuh manager runs in a VM or on a remote server, install and start it there (step 1, manager package only), then configure SSH access from the machine running this app:
 
 ```bash
 export WAZUH_SSH_HOST=192.168.56.10

@@ -1,3 +1,6 @@
+# Local configuration (may hold endpoints/credentials)
+.env
+
 # Virtual environments
 venv/
 .venv/
@@ -29,9 +32,13 @@ certs/
 # OS files
 .DS_Store
 
-# Test files
+# Test files (scratch test scripts at the repo root, not the suite)
 test*
 test_*
+# ...but the suite itself must stay tracked; `test*` above swallows it.
+!tests/
+!tests/**
+tests/__pycache__/
 
 # Generated artifacts
 response.json

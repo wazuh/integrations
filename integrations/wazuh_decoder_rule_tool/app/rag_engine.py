@@ -32,6 +32,9 @@ _FEEDBACK_JSONL = _BASE / "data" / "datasets" / "feedback.jsonl"
 _TRAIN_JSONL = _BASE / "data" / "datasets" / "train.jsonl"
 _RAG_STORE_DIR = _BASE / "data" / "rag_store"
 _SBERT_MODEL_DIR = _BASE / "data" / "models" / "decoder-sbert" / "final"
+# Real log samples harvested from the Wazuh ruleset test suite and confirmed
+# against wazuh-logtest. Produced by scripts/harvest_log_samples.py.
+_VERIFIED_SAMPLES = _BASE / "data" / "verified_log_samples.jsonl"
 
 # ---------------------------------------------------------------------------
 # Globals
@@ -75,9 +78,18 @@ def _get_embedding_function():
 # ---------------------------------------------------------------------------
 
 def _build_decoder_text(name: str, parent: str, prematch: str,
-                        program_name: str, regex: str, order: str) -> str:
-    """Produce a flat text representation for embedding."""
+                        program_name: str, regex: str, order: str,
+                        log_example: str = "") -> str:
+    """Produce a flat text representation for embedding.
+
+    The log sample leads, because retrieval queries with a raw log line —
+    embedding only decoder metadata (regex/order/prematch) meant comparing a
+    log against OS_Regex syntax, which is why official decoders scored barely
+    above unrelated feedback rows.
+    """
     parts = []
+    if log_example:
+        parts.append(log_example)
     if name:
         parts.append(f"decoder:{name}")
     if parent:
@@ -91,6 +103,87 @@ def _build_decoder_text(name: str, parent: str, prematch: str,
     if order:
         parts.append(f"fields:{order}")
     return " ".join(parts)
+
+
+_verified_samples_cache: Optional[Dict[str, List[Dict[str, Any]]]] = None
+
+
+def _load_verified_samples() -> Dict[str, List[Dict[str, Any]]]:
+    """Index verified log samples by the decoder name that claimed them.
+
+    A sample is filed under both its own decoder and its parent, because an
+    official doc is keyed on the child decoder in some files and the parent in
+    others. Returns {} when the corpus hasn't been harvested yet, which just
+    means docs keep their previous (empty) log_example.
+    """
+    global _verified_samples_cache
+    if _verified_samples_cache is not None:
+        return _verified_samples_cache
+
+    index: Dict[str, List[Dict[str, Any]]] = {}
+    if not _VERIFIED_SAMPLES.exists():
+        logger.info(
+            "RAG: %s absent — indexing decoders without log examples. "
+            "Run scripts/harvest_log_samples.py to generate it.",
+            _VERIFIED_SAMPLES.name,
+        )
+        _verified_samples_cache = index
+        return index
+
+    count = 0
+    with _VERIFIED_SAMPLES.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            log = (row.get("log") or "").strip()
+            if not log:
+                continue
+            entry = {"log": log, "field_names": set(row.get("field_names") or [])}
+            for key in {row.get("decoder"), row.get("parent")}:
+                if key:
+                    index.setdefault(key, []).append(entry)
+            count += 1
+
+    logger.info(f"RAG: loaded {count} verified log samples covering {len(index)} decoder names")
+    _verified_samples_cache = index
+    return index
+
+
+def _pick_log_example(child_name: str, parent_name: str, fields: List[str]) -> str:
+    """Best verified sample for one parent+child decoder pair.
+
+    Sibling decoders share a name, so a name-only match would attach the same
+    log to every variant in a file. logtest told us which fields each sample
+    actually produced, so prefer the sample whose extracted fields overlap this
+    decoder's <order> — that picks the variant the log really exercises.
+    """
+    index = _load_verified_samples()
+    candidates: List[Dict[str, Any]] = []
+    for key in (child_name, parent_name):
+        if key:
+            candidates.extend(index.get(key, []))
+    if not candidates:
+        return ""
+
+    wanted = {f.strip() for f in fields if f.strip()}
+    if not wanted:
+        # No <order> to discriminate on (e.g. a prematch-only decoder); any
+        # sample that reached this decoder is a fair illustration.
+        return candidates[0]["log"]
+
+    def overlap(entry: Dict[str, Any]) -> Tuple[int, int]:
+        common = wanted & entry["field_names"]
+        # Tie-break toward the sample with the fewest extra fields, so the
+        # example stays close to what this decoder alone is responsible for.
+        return len(common), -len(entry["field_names"] - wanted)
+
+    best = max(candidates, key=overlap)
+    return best["log"] if (wanted & best["field_names"]) else candidates[0]["log"]
 
 
 def _parse_decoder_xml_file(xml_path: Path) -> List[Dict[str, Any]]:
@@ -163,6 +256,8 @@ def _parse_decoder_xml_file(xml_path: Path) -> List[Dict[str, Any]]:
         child_xml += "</decoder>"
 
         full_xml = parent_xml + "\n\n" + child_xml
+        fields = [f.strip() for f in child["order"].split(",") if f.strip()]
+        log_example = _pick_log_example(child["name"], child["parent"], fields)
         embed_text = _build_decoder_text(
             name=child["name"],
             parent=child["parent"],
@@ -170,15 +265,33 @@ def _parse_decoder_xml_file(xml_path: Path) -> List[Dict[str, Any]]:
             program_name=pinfo.get("program_name", ""),
             regex=child["regex"],
             order=child["order"],
+            log_example=log_example,
         )
         docs.append({
             "id": doc_id,
             "text": embed_text,
             "decoder_xml": full_xml,
-            "fields": [f.strip() for f in child["order"].split(",") if f.strip()],
+            "fields": fields,
+            "log_example": log_example,
             "source": f"official:{xml_path.name}",
         })
     return docs
+
+
+def _encode_fields(fields: List[str], limit: int = 500) -> str:
+    """JSON-encode a field list so it still parses after the size cap.
+
+    Slicing the encoded string (the previous approach) could cut mid-element and
+    leave `["a", "bc` behind, which made json.loads raise inside retrieve() and
+    took the whole request down. Drop whole elements instead.
+    """
+    kept = list(fields)
+    while kept:
+        encoded = json.dumps(kept)
+        if len(encoded) <= limit:
+            return encoded
+        kept.pop()
+    return "[]"
 
 
 def _parse_feedback_jsonl(jsonl_path: Path) -> List[Dict[str, Any]]:
@@ -197,6 +310,13 @@ def _parse_feedback_jsonl(jsonl_path: Path) -> List[Dict[str, Any]]:
 
         # Skip rejected entries
         if obj.get("approved") is False:
+            continue
+
+        # Skip synthetic records mined from rejection notes (build_dataset.py
+        # load_rejection_records): these are free-text human corrections, not
+        # verified real decoders, and must never be surfaced to the LLM
+        # prompt as a "Retrieved Real Wazuh Decoder Example".
+        if obj.get("source") == "rejection_corrected":
             continue
 
         log_line = obj.get("log", "")
@@ -341,7 +461,7 @@ def build_store(force: bool = False) -> Dict[str, Any]:
                 metadatas=[
                     {
                         "decoder_xml": d["decoder_xml"][:MAX_XML_CHARS],
-                        "fields": json.dumps(d.get("fields", []))[:500],
+                        "fields": _encode_fields(d.get("fields", [])),
                         "log_example": d.get("log_example", "")[:300],
                         "source": d.get("source", "")[:100],
                     }
@@ -360,17 +480,39 @@ def build_store(force: bool = False) -> Dict[str, Any]:
 
 
 def get_status() -> Dict[str, Any]:
-    """Return the current status of the RAG store."""
-    if _collection is None:
-        return {"ready": False, "count": 0, "store_dir": str(_RAG_STORE_DIR)}
-    try:
-        count = _collection.count()
+    """Return the current status of the RAG store.
+
+    Lazily attaches to the store, the same way retrieve() does. Without this,
+    the endpoint reported ready=False/count=0 in any worker that hadn't served a
+    retrieval yet, and kept reporting it after an out-of-process rebuild
+    invalidated the cached handle -- so status disagreed with what retrieval
+    would actually return.
+    """
+    global _collection
+
+    def _describe(count: int) -> Dict[str, Any]:
         return {
             "ready": count > 0,
             "count": count,
             "store_dir": str(_RAG_STORE_DIR),
             "model": str(_SBERT_MODEL_DIR) if _SBERT_MODEL_DIR.exists() else "all-MiniLM-L6-v2",
         }
+
+    try:
+        if _collection is not None:
+            return _describe(_collection.count())
+    except Exception as exc:
+        # A rebuild elsewhere can leave this handle pointing at a dropped
+        # collection; fall through and re-attach rather than reporting empty.
+        logger.info(f"RAG: cached collection handle stale ({exc}); re-attaching")
+        _collection = None
+
+    result = build_store(force=False)
+    if result.get("status") != "ok" or _collection is None:
+        return {"ready": False, "count": 0, "store_dir": str(_RAG_STORE_DIR),
+                "error": result.get("message", "store unavailable")}
+    try:
+        return _describe(_collection.count())
     except Exception as e:
         return {"ready": False, "count": 0, "error": str(e)}
 
@@ -411,10 +553,16 @@ def retrieve(
         query_parts.append("fields:" + " ".join(fields))
     query = " ".join(query_parts)
 
+    # Sibling decoders in one file share a log sample, so a raw top_k often
+    # comes back as the same log three times with fragmentary <order> lists —
+    # the prompt pays for three examples and teaches one. Over-fetch, then keep
+    # the best-scoring doc per distinct log sample.
+    fetch_k = min(max(top_k * 6, top_k), _collection.count())
+
     try:
         results = _collection.query(
             query_texts=[query],
-            n_results=min(top_k, _collection.count()),
+            n_results=fetch_k,
             include=["metadatas", "distances"],
         )
     except Exception as e:
@@ -425,17 +573,37 @@ def retrieve(
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
+    seen_examples: set = set()
     for meta, dist in zip(metadatas, distances):
         decoder_xml = meta.get("decoder_xml", "")
         if not decoder_xml:
             continue
+
+        log_example = meta.get("log_example", "")
+        # Only dedupe when there IS a sample to dedupe on; several docs with no
+        # example are still distinct decoders and shouldn't collapse into one.
+        if log_example:
+            if log_example in seen_examples:
+                continue
+            seen_examples.add(log_example)
+
+        # A store written before _encode_fields existed can still hold a
+        # truncated array; a malformed field list is not worth failing the
+        # whole retrieval over.
+        try:
+            doc_fields = json.loads(meta.get("fields", "[]"))
+        except (json.JSONDecodeError, TypeError):
+            doc_fields = []
+
         docs.append({
             "decoder_xml": decoder_xml,
-            "log_example": meta.get("log_example", ""),
-            "fields": json.loads(meta.get("fields", "[]")),
+            "log_example": log_example,
+            "fields": doc_fields,
             "source": meta.get("source", ""),
             "score": round(1.0 - float(dist), 3),  # convert distance to similarity
         })
+        if len(docs) >= top_k:
+            break
 
     return docs
 

@@ -162,6 +162,23 @@ def load_feedback_records(path: Path) -> List[Dict]:
     return records
 
 
+def _looks_like_osregex(text: str) -> bool:
+    """Heuristic check that `text` looks like an OS_Regex pattern rather than
+    a plain-English sentence a human typed into the notes field (e.g. "It
+    should be corrected like this"). Rejecting prose here prevents free-text
+    notes from being promoted into training/RAG data verbatim as if they were
+    valid decoder regexes.
+    """
+    if not text:
+        return False
+    if not re.search(r'[\\(){}\[\]^$]', text):
+        return False
+    words = re.findall(r"[A-Za-z]{3,}", text)
+    if len(words) >= 4 and not re.search(r'\\[dswpSWD]', text):
+        return False
+    return True
+
+
 def load_rejection_records(path: Path) -> List[Dict]:
     """Convert rejected outputs into training pairs.
 
@@ -190,8 +207,10 @@ def load_rejection_records(path: Path) -> List[Dict]:
             if not log:
                 continue
 
-            # Only use rejections that have a corrected regex in notes
-            if not notes or len(notes) < 10:
+            # Only use rejections that have a corrected regex in notes — and
+            # skip anything that reads like a human note rather than an
+            # actual OS_Regex pattern (see _looks_like_osregex).
+            if not notes or len(notes) < 10 or not _looks_like_osregex(notes):
                 continue
 
             # Build a synthetic decoder target from the corrected pattern
@@ -203,7 +222,7 @@ def load_rejection_records(path: Path) -> List[Dict]:
             corrected_decoder = {
                 "name": f"{app_name}-event",
                 "parent": app_name,
-                "prematch": app_name,
+                "prematch": "",
                 "regex": notes,
                 "order": extract_fields,
                 "source_file": "feedback/corrections",
