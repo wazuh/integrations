@@ -1,0 +1,168 @@
+<!--
+  -  Aertun audit log rules
+  -  ID range: 998000 - 998099
+  -  SPDX-FileCopyrightText: 2026 Rashik Adhikari
+  -  SPDX-License-Identifier: Apache-2.0
+  -
+  -  Aertun's audit log is one JSON object a line, hash-chained. A Wazuh agent
+  -  tails it with <log_format>json</log_format>; these rules raise what a
+  -  security team watches for in it. Principals are pseudonymised in the log
+  -  itself (p_...), so no person's name reaches Wazuh from here.
+-->
+
+<group name="aertun,">
+
+  <rule id="998000" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="seq" type="pcre2">^\d+$</field>
+    <field name="hash" type="pcre2">^[0-9a-f]{64}$</field>
+    <field name="principal" type="pcre2">^p_[0-9a-f]+$</field>
+    <action type="pcre2">^[a-z]</action>
+    <description>Aertun audit log entry.</description>
+  </rule>
+
+  <rule id="998001" level="10">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^agent\.disable$</action>
+    <field name="outcome">^success$</field>
+    <description>Aertun: the kill switch stopped AI agent $(detail.agent).</description>
+    <group>aertun_kill_switch,ai_agent,</group>
+  </rule>
+
+  <rule id="998002" level="3">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^agent\.enable$</action>
+    <field name="outcome">^success$</field>
+    <description>Aertun: AI agent $(detail.agent) was enabled again.</description>
+    <group>ai_agent,</group>
+  </rule>
+
+  <rule id="998003" level="10">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">\.(proved|refereed)$</action>
+    <field name="detail.verdict" type="pcre2">^refuted$</field>
+    <description>Aertun: a signed check was refuted ($(action)).</description>
+    <group>aertun_proof_refuted,</group>
+  </rule>
+
+  <rule id="998004" level="12">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^inbound\.fork$</action>
+    <description>Aertun: peer deployment $(detail.feed) signed a second history of its audit log.</description>
+    <group>aertun_log_fork,integrity,</group>
+    <mitre>
+      <id>T1565</id>
+    </mitre>
+  </rule>
+
+  <rule id="998005" level="5">
+    <if_sid>998000</if_sid>
+    <field name="outcome" type="pcre2">^denied$</field>
+    <description>Aertun refused "$(action)": the caller was not proved or not authorised.</description>
+    <group>aertun_refused,access_denied,</group>
+  </rule>
+
+  <rule id="998006" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>998005</if_matched_sid>
+    <same_field>principal</same_field>
+    <description>Aertun refused one caller five times in five minutes.</description>
+    <group>aertun_refused,authentication_failures,</group>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <rule id="998007" level="8">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^dual\.approved$</action>
+    <field name="detail.kind" type="pcre2">^grant$</field>
+    <description>Aertun: a second administrator approved a grant: $(detail.what).</description>
+    <group>aertun_privilege,</group>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+  <rule id="998008" level="8">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^dual\.proposed$</action>
+    <field name="detail.kind" type="pcre2">^grant$</field>
+    <description>Aertun: a grant awaits a second administrator: $(detail.what).</description>
+    <group>aertun_privilege,</group>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+  <rule id="998009" level="6">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^auth\.revoke$</action>
+    <field name="outcome">^success$</field>
+    <description>Aertun: access was revoked.</description>
+    <group>aertun_privilege,</group>
+  </rule>
+
+  <rule id="998010" level="6">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^token\.issue$</action>
+    <field name="detail.role" type="pcre2">^admin$</field>
+    <description>Aertun: an administrator's token was issued.</description>
+    <group>aertun_privilege,</group>
+  </rule>
+
+  <rule id="998011" level="7">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^incident\.declared$</action>
+    <description>Aertun: a $(detail.grade) incident was declared.</description>
+    <group>aertun_incident,</group>
+  </rule>
+
+  <rule id="998012" level="5">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^config\.(set|unset)$</action>
+    <description>Aertun: setting $(detail.setting) was changed.</description>
+    <group>aertun_config,</group>
+  </rule>
+
+  <rule id="998013" level="4">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^spool\.held$</action>
+    <description>Aertun: legal hold $(detail.hold) placed on the event store.</description>
+    <group>aertun_legal_hold,</group>
+  </rule>
+
+  <rule id="998014" level="8">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^spool\.lifted$</action>
+    <description>Aertun: legal hold $(detail.hold) lifted; retention may delete what it held.</description>
+    <group>aertun_legal_hold,</group>
+  </rule>
+
+  <!--
+    Level 0, and it must stay below the integration's level: Wazuh sends its
+    alerts to Aertun, Aertun seals each one into this log, and an alert raised
+    on the seal would be sent back and sealed again, without end. At level 0
+    it is decoded and counted, and goes nowhere.
+  -->
+  <rule id="998015" level="0">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^alert\.sealed$</action>
+    <description>Aertun: $(detail.sealed) alert(s) sealed into the audit log.</description>
+    <group>aertun_sealed,</group>
+  </rule>
+
+  <rule id="998016" level="3">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^vuln\.report\.committed$</action>
+    <description>Aertun: a vulnerability report was committed to the audit log.</description>
+    <group>aertun_vuln_report,</group>
+  </rule>
+
+  <rule id="998017" level="8">
+    <if_sid>998000</if_sid>
+    <action type="pcre2">^proof\.trusted$</action>
+    <description>Aertun: a new key's proofs now speak for the store.</description>
+    <group>aertun_trust,</group>
+  </rule>
+
+</group>
