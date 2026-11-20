@@ -1,0 +1,15 @@
+{
+ "origin": "recorded from a Wazuh 5.0.0 rc3 Windows agent with Sysmon, 2026-11-18: wazuh-events-v5 documents, field values copied as recorded",
+ "values": {
+  "file.path": {
+   "event.code": "26",
+   "event.dataset": "sysmon",
+   "value": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\comctl32.dll"
+  },
+  "registry.path": {
+   "event.code": "13",
+   "event.dataset": "sysmon",
+   "value": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\SpecialAccounts\\UserList\\hiddenuser"
+  }
+ }
+}

@@ -1,0 +1,9 @@
+{
+  "decoder:myapp-auth@5": "AUTO",
+  "decoder:myapp@1": "AUTO",
+  "rule:100100@2": "AUTO",
+  "rule:100200@10": "RECIPE",
+  "rule:100201@15": "RECIPE",
+  "rule:100300@22": "NOT_APPLICABLE",
+  "rule:100301@26": "AUTO"
+}

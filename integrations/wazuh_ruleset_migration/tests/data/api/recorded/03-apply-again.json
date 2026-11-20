@@ -1,0 +1,877 @@
+{
+ "calls": [
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-integrations/_refresh",
+   "request": null,
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "successful": 1,
+     "total": 1
+    }
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-kvdbs/_refresh",
+   "request": null,
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "successful": 1,
+     "total": 1
+    }
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-decoders/_refresh",
+   "request": null,
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "successful": 1,
+     "total": 1
+    }
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-rules/_refresh",
+   "request": null,
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "successful": 1,
+     "total": 1
+    }
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-policies/_refresh",
+   "request": null,
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "successful": 1,
+     "total": 1
+    }
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-integrations/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "draft"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [
+      {
+       "_id": "f173ae1f-3d84-4539-b89d-5562110b7155",
+       "_index": "wazuh-threatintel-integrations-a",
+       "_score": 1.0,
+       "_source": {
+        "document": {
+         "category": "access-management",
+         "decoders": [],
+         "enabled": true,
+         "id": "f173ae1f-3d84-4539-b89d-5562110b7155",
+         "kvdbs": [],
+         "metadata": {
+          "author": "wazuh-ruleset-migration",
+          "date": "2026-11-17T20:59:46Z",
+          "description": "rmig recorded check",
+          "documentation": "",
+          "modified": "2026-11-17T20:59:46Z",
+          "references": [
+           "wazuh4-migration:5b5ed38c-38e0-52be-9789-2fc20c5808ef"
+          ],
+          "supports": [],
+          "title": "wazuh4-on-rmig-live"
+         },
+         "mode": "user-managed",
+         "rules": [
+          "4b554499-d904-4dab-ab70-c2a0c8fec70f"
+         ]
+        },
+        "hash": {
+         "sha256": "98f48bc4b03c1a02df9399f6808c4ea097d9bffc19cfb3d57ec9d97e5c4dd168"
+        },
+        "space": {
+         "name": "draft"
+        }
+       }
+      }
+     ],
+     "max_score": 1.0,
+     "total": {
+      "relation": "eq",
+      "value": 1
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-kvdbs/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "draft"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-decoders/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "draft"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-rules/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "draft"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [
+      {
+       "_id": "4b554499-d904-4dab-ab70-c2a0c8fec70f",
+       "_index": "wazuh-threatintel-rules-a",
+       "_score": 1.0,
+       "_source": {
+        "document": {
+         "detection": {
+          "condition": "selection",
+          "selection": {
+           "event.original|contains": "Failed password"
+          }
+         },
+         "enabled": true,
+         "id": "4b554499-d904-4dab-ab70-c2a0c8fec70f",
+         "level": "low",
+         "logsource": {
+          "product": "wazuh4-on-rmig-live"
+         },
+         "metadata": {
+          "author": "wazuh-ruleset-migration",
+          "date": "2026-11-17T20:59:46Z",
+          "description": "rmig recorded check",
+          "modified": "2026-11-17T20:59:46Z",
+          "references": [
+           "wazuh4-migration:942e15cc-743e-54b7-9c66-117d12c6645a",
+           "Migrated from Wazuh 4.x rule 100900 (etc/rules/local_rules.xml)"
+          ],
+          "supports": [],
+          "title": "rmig live: sshd failed password"
+         },
+         "status": "experimental",
+         "tags": [
+          "wazuh4.rule.100900"
+         ]
+        },
+        "hash": {
+         "sha256": "2bb608fe5fb169fc02a0b0f0d44f00585d18cf897e8802d90b01bbdb39a15995"
+        },
+        "space": {
+         "name": "draft"
+        }
+       }
+      }
+     ],
+     "max_score": 1.0,
+     "total": {
+      "relation": "eq",
+      "value": 1
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-integrations/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "test"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [
+      {
+       "_id": "JOJP66EB7-ZoMlauA0Ug",
+       "_index": "wazuh-threatintel-integrations-a",
+       "_score": 1.0,
+       "_source": {
+        "document": {
+         "category": "access-management",
+         "decoders": [],
+         "enabled": true,
+         "id": "f173ae1f-3d84-4539-b89d-5562110b7155",
+         "kvdbs": [],
+         "metadata": {
+          "author": "wazuh-ruleset-migration",
+          "date": "2026-11-17T20:59:46Z",
+          "description": "rmig recorded check",
+          "documentation": "",
+          "modified": "2026-11-17T20:59:46Z",
+          "references": [
+           "wazuh4-migration:5b5ed38c-38e0-52be-9789-2fc20c5808ef"
+          ],
+          "supports": [],
+          "title": "wazuh4-on-rmig-live"
+         },
+         "mode": "user-managed",
+         "rules": [
+          "4b554499-d904-4dab-ab70-c2a0c8fec70f"
+         ]
+        },
+        "hash": {
+         "sha256": "98f48bc4b03c1a02df9399f6808c4ea097d9bffc19cfb3d57ec9d97e5c4dd168"
+        },
+        "space": {
+         "name": "test"
+        }
+       }
+      }
+     ],
+     "max_score": 1.0,
+     "total": {
+      "relation": "eq",
+      "value": 1
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-kvdbs/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "test"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-decoders/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "test"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-rules/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "test"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [
+      {
+       "_id": "JeJP66EB7-ZoMlauA0Ul",
+       "_index": "wazuh-threatintel-rules-a",
+       "_score": 1.0,
+       "_source": {
+        "document": {
+         "detection": {
+          "condition": "selection",
+          "selection": {
+           "event.original|contains": "Failed password"
+          }
+         },
+         "enabled": true,
+         "id": "4b554499-d904-4dab-ab70-c2a0c8fec70f",
+         "level": "low",
+         "logsource": {
+          "product": "wazuh4-on-rmig-live"
+         },
+         "metadata": {
+          "author": "wazuh-ruleset-migration",
+          "date": "2026-11-17T20:59:46Z",
+          "description": "rmig recorded check",
+          "modified": "2026-11-17T20:59:46Z",
+          "references": [
+           "wazuh4-migration:942e15cc-743e-54b7-9c66-117d12c6645a",
+           "Migrated from Wazuh 4.x rule 100900 (etc/rules/local_rules.xml)"
+          ],
+          "supports": [],
+          "title": "rmig live: sshd failed password"
+         },
+         "status": "experimental",
+         "tags": [
+          "wazuh4.rule.100900"
+         ]
+        },
+        "hash": {
+         "sha256": "2bb608fe5fb169fc02a0b0f0d44f00585d18cf897e8802d90b01bbdb39a15995"
+        },
+        "space": {
+         "name": "test"
+        }
+       }
+      }
+     ],
+     "max_score": 1.0,
+     "total": {
+      "relation": "eq",
+      "value": 1
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-integrations/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "custom"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-kvdbs/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "custom"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-decoders/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "custom"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-rules/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "custom"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [],
+     "max_score": null,
+     "total": {
+      "relation": "eq",
+      "value": 0
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-policies/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "draft"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [
+      {
+       "_id": "4acfc4c2-7f97-3c9a-b15d-23a2114b3e8d",
+       "_index": "wazuh-threatintel-policies-a",
+       "_score": 1.0,
+       "_source": {
+        "document": {
+         "enabled": true,
+         "enrichments": [],
+         "filters": [],
+         "id": "4a2bbfac-1235-37ba-ac04-0cefe3ecace0",
+         "index_discarded_events": false,
+         "index_unclassified_events": false,
+         "integrations": [
+          "f173ae1f-3d84-4539-b89d-5562110b7155"
+         ],
+         "metadata": {
+          "author": "Custom",
+          "compatibility": [],
+          "date": "2026-11-17T20:59:43Z",
+          "description": "Custom space",
+          "documentation": "",
+          "modified": "2026-11-17T20:59:43Z",
+          "references": [],
+          "title": "Custom space"
+         },
+         "root_decoder": null
+        },
+        "hash": {
+         "sha256": "ffcba64d3af6c371e5a7c3387b5898969c9e10fb5ce7355f0b2ec97bcce8b4a1"
+        },
+        "id": "4acfc4c2-7f97-3c9a-b15d-23a2114b3e8d",
+        "space": {
+         "hash": {
+          "sha256": "ad03713af5c3d8bfd02571c8304f71896a23f902732989b9c106a8b906a77fcf"
+         },
+         "name": "draft"
+        }
+       }
+      }
+     ],
+     "max_score": 1.0,
+     "total": {
+      "relation": "eq",
+      "value": 1
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-policies/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "test"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [
+      {
+       "_id": "5cd2d7b6-b6b0-3e73-b0a1-c348d93c19b4",
+       "_index": "wazuh-threatintel-policies-a",
+       "_score": 1.0,
+       "_source": {
+        "document": {
+         "enabled": true,
+         "enrichments": [],
+         "filters": [],
+         "id": "4a2bbfac-1235-37ba-ac04-0cefe3ecace0",
+         "index_discarded_events": false,
+         "index_unclassified_events": false,
+         "integrations": [
+          "f173ae1f-3d84-4539-b89d-5562110b7155"
+         ],
+         "metadata": {
+          "author": "Custom",
+          "compatibility": [],
+          "date": "2026-11-17T20:59:43Z",
+          "description": "Custom space",
+          "documentation": "",
+          "modified": "2026-11-17T20:59:43Z",
+          "references": [],
+          "title": "Custom space"
+         },
+         "root_decoder": null
+        },
+        "hash": {
+         "sha256": "ffcba64d3af6c371e5a7c3387b5898969c9e10fb5ce7355f0b2ec97bcce8b4a1"
+        },
+        "id": "4acfc4c2-7f97-3c9a-b15d-23a2114b3e8d",
+        "space": {
+         "hash": {
+          "sha256": "ad03713af5c3d8bfd02571c8304f71896a23f902732989b9c106a8b906a77fcf"
+         },
+         "name": "test"
+        }
+       }
+      }
+     ],
+     "max_score": 1.0,
+     "total": {
+      "relation": "eq",
+      "value": 1
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "POST",
+   "path": "/wazuh-threatintel-policies/_search",
+   "request": {
+    "query": {
+     "term": {
+      "space.name": {
+       "value": "custom"
+      }
+     }
+    },
+    "size": 10000
+   },
+   "response": {
+    "_shards": {
+     "failed": 0,
+     "skipped": 0,
+     "successful": 1,
+     "total": 1
+    },
+    "hits": {
+     "hits": [
+      {
+       "_id": "7eb919d7-13e8-314b-b526-fa1113fc5363",
+       "_index": "wazuh-threatintel-policies-a",
+       "_score": 1.0,
+       "_source": {
+        "document": {
+         "enabled": true,
+         "enrichments": [],
+         "filters": [],
+         "id": "4a2bbfac-1235-37ba-ac04-0cefe3ecace0",
+         "index_discarded_events": false,
+         "index_unclassified_events": false,
+         "integrations": [],
+         "metadata": {
+          "author": "Custom",
+          "compatibility": [],
+          "date": "2026-11-17T20:59:43Z",
+          "description": "Custom space",
+          "documentation": "",
+          "modified": "2026-11-17T20:59:43Z",
+          "references": [],
+          "title": "Custom space"
+         },
+         "root_decoder": null
+        },
+        "hash": {
+         "sha256": "fdaf3ad892309d09386260bd13c8a7c4cfc6f3da074cec819085e3bc1487283a"
+        },
+        "space": {
+         "hash": {
+          "sha256": "672b4ef4b94a2be9832cdd571def4280883afb9094ce0e31443dd7e65d18cdfb"
+         },
+         "name": "custom"
+        }
+       }
+      }
+     ],
+     "max_score": 1.0,
+     "total": {
+      "relation": "eq",
+      "value": 1
+     }
+    },
+    "timed_out": false,
+    "took": 0
+   },
+   "status": 200
+  },
+  {
+   "method": "GET",
+   "path": "/_plugins/_content_manager/promote?space=draft",
+   "request": null,
+   "response": {
+    "changes": {
+     "decoders": [],
+     "filters": [],
+     "integrations": [],
+     "kvdbs": [],
+     "policy": [],
+     "rules": []
+    }
+   },
+   "status": 200
+  },
+  {
+   "method": "GET",
+   "path": "/_plugins/_content_manager/promote?space=draft",
+   "request": null,
+   "response": {
+    "changes": {
+     "decoders": [],
+     "filters": [],
+     "integrations": [],
+     "kvdbs": [],
+     "policy": [],
+     "rules": []
+    }
+   },
+   "status": 200
+  }
+ ],
+ "command": "apply",
+ "exit": 0
+}

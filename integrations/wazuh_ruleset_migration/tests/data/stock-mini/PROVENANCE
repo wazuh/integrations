@@ -1,0 +1,9 @@
+Synthetic stock ruleset for the tests, written for this tool. It follows the layout, file names, rule ids and
+decoder names of a 4.x ruleset/ directory; the patterns and descriptions are our own.
+
+Some lines equal lines of the 4.x ruleset because they state facts the tool reads, not expression:
+Windows channel names, event ids, severity values and provider names (win.system.*), the root condition of rule
+60000 that the Windows field map names as implied, the JSON_Decoder plugin name, the sshd program name and
+short field lists in <order>.
+
+Tests that need the real 4.x ruleset run only when RMIG_STOCK_DIR points to it.

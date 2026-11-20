@@ -1,0 +1,12 @@
+<group name="local,sshd,">
+  <!-- 5700 (stock grouping root) -> 5710 (stock) -> 100010 -->
+  <rule id="100010" level="8">
+    <if_sid>5710</if_sid>
+    <match>ssh2</match>
+    <description>sshd: attempt with a non-existent user over SSH2.</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>invalid_login,pci_dss_10.2.4,gdpr_IV_35.7.d,gpg13_7.1,</group>
+  </rule>
+</group>

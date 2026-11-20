@@ -1,0 +1,47 @@
+{
+  "fidelity": "approximate",
+  "local_id": "80a33f46-1ede-5b73-a7f8-7f05142ae4d1",
+  "reasons": [
+    "RM-R-SHADOWING"
+  ],
+  "resource": {
+    "detection": {
+      "condition": "selection",
+      "selection": {
+        "event.action": "authentication-success",
+        "message|startswith": [
+          "Accepted",
+          "Failed"
+        ],
+        "wazuh.integration.name": "system-auth"
+      }
+    },
+    "enabled": true,
+    "level": "informational",
+    "logsource": {
+      "product": "wazuh4-on-system-auth"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100022 (etc/rules/local_rules.xml:12).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:80a33f46-1ede-5b73-a7f8-7f05142ae4d1",
+        "Migrated from Wazuh 4.x rule 100022 (etc/rules/local_rules.xml)"
+      ],
+      "title": "sshd: PCRE2 literal with anchors."
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100022",
+      "wazuh4.group.local",
+      "wazuh4.group.sshd"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100022",
+    "kind": "rule",
+    "line": 12
+  }
+}

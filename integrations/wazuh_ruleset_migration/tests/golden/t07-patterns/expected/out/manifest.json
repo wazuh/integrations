@@ -1,0 +1,11 @@
+{
+  "engine_helpers": "5.0",
+  "format": 1,
+  "integrations": [
+    "wazuh4-on-system-auth"
+  ],
+  "marker_author": "wazuh-ruleset-migration",
+  "root_decoder": null,
+  "source": "t07-patterns",
+  "tool_version": "0.1.0"
+}

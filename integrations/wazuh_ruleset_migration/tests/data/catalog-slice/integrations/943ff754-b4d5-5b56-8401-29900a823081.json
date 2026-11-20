@@ -1,0 +1,37 @@
+{
+  "inserted_at": "2026-09-09T12:08:12.103711Z",
+  "name": "943ff754-b4d5-5b56-8401-29900a823081",
+  "offset": 1378,
+  "payload": {
+    "document": {
+      "category": "unclassified",
+      "decoders": [
+        "ae0abc37-774a-5dc9-a888-647845c36bbe",
+        "03e63c46-35f1-54ab-99e9-feb7fa5167e2",
+        "742b66ae-15d3-53c2-8735-f791fbea8d81"
+      ],
+      "enabled": true,
+      "id": "943ff754-b4d5-5b56-8401-29900a823081",
+      "kvdbs": [
+        "a8e64f8e-c940-5100-b9e2-8737431f4f86",
+        "19d09340-862f-565c-9572-3bf57a5a81bf"
+      ],
+      "metadata": {
+        "author": "Wazuh, Inc.",
+        "date": "2026-09-09",
+        "description": "This integration serves as the base to enable the rest of the decoders and integrations.",
+        "documentation": "",
+        "modified": "2026-09-17",
+        "references": [
+          "https://wazuh.com"
+        ],
+        "supports": [],
+        "title": "wazuh-core"
+      },
+      "mode": "protected",
+      "rules": []
+    },
+    "type": "integration"
+  },
+  "version": 3
+}

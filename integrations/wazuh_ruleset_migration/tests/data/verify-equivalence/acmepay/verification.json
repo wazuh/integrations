@@ -1,0 +1,808 @@
+{
+  "alerts": [
+    "examples/acmepay/alerts.json"
+  ],
+  "limit": 20,
+  "oracles": {
+    "default": "logtest",
+    "via_detector": false
+  },
+  "rules": [
+    {
+      "codes": [],
+      "events": [
+        {
+          "alert_id": "1794948930.730431",
+          "event": "Nov 17 10:01:00 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:37.241627162Z",
+            "event": {
+              "original": "Nov 17 10:01:00 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=admin src=198.51.100.66 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "198.51.100.66"
+            },
+            "user": {
+              "name": "admin"
+            },
+            "wazuh": {
+              "event": {
+                "id": "02b6b86e-ea50-4bdf-813e-cd16f4892bd1"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:30.758+0000"
+        },
+        {
+          "alert_id": "1794948932.730796",
+          "event": "Nov 17 10:01:04 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:37.879069005Z",
+            "event": {
+              "original": "Nov 17 10:01:04 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=admin src=198.51.100.66 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "198.51.100.66"
+            },
+            "user": {
+              "name": "admin"
+            },
+            "wazuh": {
+              "event": {
+                "id": "a999276b-f608-48b5-9dfd-cf34b272bce0"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:32.758+0000"
+        },
+        {
+          "alert_id": "1794948932.731161",
+          "event": "Nov 17 10:01:02 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:38.542392855Z",
+            "event": {
+              "original": "Nov 17 10:01:02 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=admin src=198.51.100.66 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "198.51.100.66"
+            },
+            "user": {
+              "name": "admin"
+            },
+            "wazuh": {
+              "event": {
+                "id": "d1241b6c-6fd0-458d-9b73-46dbaec07c8b"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:32.758+0000"
+        },
+        {
+          "alert_id": "1794948934.731526",
+          "event": "Nov 17 10:01:06 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:39.174668042Z",
+            "event": {
+              "original": "Nov 17 10:01:06 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=admin src=198.51.100.66 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "198.51.100.66"
+            },
+            "user": {
+              "name": "admin"
+            },
+            "wazuh": {
+              "event": {
+                "id": "8b8e1d17-d2bd-4c5d-b2a7-5305de6b65ae"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:34.758+0000"
+        },
+        {
+          "alert_id": "1794948934.731891",
+          "event": "Nov 17 10:01:08 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:39.816275339Z",
+            "event": {
+              "original": "Nov 17 10:01:08 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=admin src=198.51.100.66 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "198.51.100.66"
+            },
+            "user": {
+              "name": "admin"
+            },
+            "wazuh": {
+              "event": {
+                "id": "af6b0a07-33ca-4b02-9520-e070232ecc44"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:34.758+0000"
+        },
+        {
+          "alert_id": "1794948936.732256",
+          "event": "Nov 17 10:01:10 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:40.456370260Z",
+            "event": {
+              "original": "Nov 17 10:01:10 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=admin src=198.51.100.66 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "198.51.100.66"
+            },
+            "user": {
+              "name": "admin"
+            },
+            "wazuh": {
+              "event": {
+                "id": "90c1ca3f-0724-4296-88fd-f1686478a76c"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:36.758+0000"
+        },
+        {
+          "alert_id": "1794948936.732621",
+          "event": "Nov 17 10:01:12 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:41.093727344Z",
+            "event": {
+              "original": "Nov 17 10:01:12 gw01 acmepay[2311]: login failed user=admin src=198.51.100.66 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=admin src=198.51.100.66 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "198.51.100.66"
+            },
+            "user": {
+              "name": "admin"
+            },
+            "wazuh": {
+              "event": {
+                "id": "04beb425-be2d-4256-96c0-b699c1d8efd9"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:36.758+0000"
+        }
+      ],
+      "field_parity": {
+        "acmepay.tenant": {
+          "absent": 0,
+          "different": 0,
+          "equal": 7,
+          "wcs": "organization.id"
+        }
+      },
+      "integration": "wazuh4-acmepay",
+      "matched": 7,
+      "not_met": [],
+      "oracle": "logtest (test)",
+      "result": "REPRODUCED",
+      "rule_id_4x": "100201",
+      "samples": 7,
+      "shadowing": [],
+      "title": "acmepay: failed login for user {{ user.name }} from {{ source.ip }}."
+    },
+    {
+      "codes": [],
+      "events": [
+        {
+          "alert_id": null,
+          "event": "Nov 17 10:00:09 gw01 acmepay[2311]: login failed user=healthcheck src=10.20.0.5 tenant=eu1",
+          "fired": [],
+          "location": "rmig-sample",
+          "source": "examples/acmepay/samples/100202.log:1",
+          "timestamp": null
+        }
+      ],
+      "field_parity": {},
+      "integration": "wazuh4-acmepay",
+      "matched": 0,
+      "not_met": [],
+      "oracle": "logtest (test)",
+      "result": "SILENCED",
+      "rule_id_4x": "100202",
+      "samples": 1,
+      "shadowing": [],
+      "silences": [
+        "100201",
+        "100205"
+      ],
+      "title": null
+    },
+    {
+      "codes": [],
+      "events": [
+        {
+          "alert_id": "1794948928.729793",
+          "event": "Nov 17 10:00:25 gw01 acmepay[2311]: payment id=tx9002 amount=58000 currency=XMR merchant=shop-42",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:42.376706638Z",
+            "event": {
+              "code": "tx9002",
+              "original": "Nov 17 10:00:25 gw01 acmepay[2311]: payment id=tx9002 amount=58000 currency=XMR merchant=shop-42"
+            },
+            "message": "payment id=tx9002 amount=58000 currency=XMR merchant=shop-42",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "name": "shop-42"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "tags": [
+              "wazuh4.rule.100204.c1"
+            ],
+            "wazuh": {
+              "event": {
+                "id": "53e40da8-c13c-4c77-bbed-910d54f4dfc3"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-payment/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:28.757+0000"
+        }
+      ],
+      "field_parity": {
+        "acmepay.merchant": {
+          "absent": 0,
+          "different": 0,
+          "equal": 1,
+          "wcs": "organization.name"
+        }
+      },
+      "integration": "wazuh4-acmepay",
+      "matched": 1,
+      "not_met": [],
+      "oracle": "logtest (test)",
+      "result": "REPRODUCED",
+      "rule_id_4x": "100204",
+      "samples": 1,
+      "shadowing": [],
+      "title": "acmepay: payment in a non-authorized currency (<acmepay.currency>) for merchant {{ organization.name }}."
+    },
+    {
+      "codes": [
+        "RM-R-SHADOWING"
+      ],
+      "events": [
+        {
+          "alert_id": "1794948924.729166",
+          "event": "Nov 17 10:00:05 gw01 acmepay[2311]: login failed user=bob src=203.0.113.7 tenant=eu1",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:43.021817743Z",
+            "event": {
+              "original": "Nov 17 10:00:05 gw01 acmepay[2311]: login failed user=bob src=203.0.113.7 tenant=eu1",
+              "outcome": "failed"
+            },
+            "message": "login failed user=bob src=203.0.113.7 tenant=eu1",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "eu1"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "203.0.113.7"
+            },
+            "tags": [
+              "wazuh4.list.blocked-ips"
+            ],
+            "user": {
+              "name": "bob"
+            },
+            "wazuh": {
+              "event": {
+                "id": "c7c96d43-2117-44f3-9c3d-f7504585ee31"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:24.757+0000"
+        },
+        {
+          "alert_id": "1794948926.729480",
+          "event": "Nov 17 10:00:12 gw01 acmepay[2311]: login failed user=root src=192.0.2.44 tenant=us2",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:43.517305937Z",
+            "event": {
+              "original": "Nov 17 10:00:12 gw01 acmepay[2311]: login failed user=root src=192.0.2.44 tenant=us2",
+              "outcome": "failed"
+            },
+            "message": "login failed user=root src=192.0.2.44 tenant=us2",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "organization": {
+              "id": "us2"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "source": {
+              "ip": "192.0.2.44"
+            },
+            "tags": [
+              "wazuh4.list.blocked-ips"
+            ],
+            "user": {
+              "name": "root"
+            },
+            "wazuh": {
+              "event": {
+                "id": "cb4e075a-228a-45ea-ab21-4d4728084718"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0",
+                  "decoder/wazuh4-acmepay-login/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:26.757+0000"
+        }
+      ],
+      "field_parity": {
+        "acmepay.tenant": {
+          "absent": 0,
+          "different": 0,
+          "equal": 2,
+          "wcs": "organization.id"
+        }
+      },
+      "integration": "wazuh4-acmepay",
+      "matched": 2,
+      "not_met": [],
+      "oracle": "logtest (test)",
+      "result": "REPRODUCED",
+      "rule_id_4x": "100205",
+      "samples": 2,
+      "shadowing": [
+        "100201"
+      ],
+      "title": "acmepay: failed login from a blocked address ({{ source.ip }})."
+    },
+    {
+      "codes": [],
+      "events": [
+        {
+          "alert_id": "1794948930.730174",
+          "event": "Nov 17 10:00:31 gw01 acmepay[2311]: Certificate expired for gateway endpoint api.acmepay.example",
+          "location": "/var/log/acmepay.log",
+          "matched": true,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:44.158746344Z",
+            "event": {
+              "original": "Nov 17 10:00:31 gw01 acmepay[2311]: Certificate expired for gateway endpoint api.acmepay.example"
+            },
+            "message": "Certificate expired for gateway endpoint api.acmepay.example",
+            "observer": {
+              "hostname": "gw01"
+            },
+            "process": {
+              "name": "acmepay"
+            },
+            "tags": [
+              "wazuh4.rule.100206.c1"
+            ],
+            "wazuh": {
+              "event": {
+                "id": "1a2fa716-0c54-4ea6-88f9-6ae38c62a705"
+              },
+              "integration": {
+                "category": "applications",
+                "decoders": [
+                  "decoder/wazuh4-core-wazuh-message/0",
+                  "decoder/wazuh4-predecoder/0",
+                  "decoder/wazuh4-acmepay/0"
+                ],
+                "name": "wazuh4-acmepay"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "test"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:30.758+0000"
+        }
+      ],
+      "field_parity": {},
+      "integration": "wazuh4-acmepay",
+      "matched": 1,
+      "not_met": [],
+      "oracle": "logtest (test)",
+      "result": "REPRODUCED",
+      "rule_id_4x": "100206",
+      "samples": 1,
+      "shadowing": [],
+      "title": "acmepay: gateway TLS certificate expired."
+    },
+    {
+      "codes": [],
+      "events": [
+        {
+          "alert_id": "1794948940.734412",
+          "event": "Nov 17 10:02:05 gw01 sshd[4410]: Failed password for deploy from 10.4.2.9 port 40122 ssh2",
+          "location": "/var/log/acmepay.log",
+          "matched": false,
+          "normalized": {
+            "@timestamp": "2026-11-18T22:12:44.796575068Z",
+            "event": {
+              "action": "authentication-failure",
+              "category": [
+                "authentication"
+              ],
+              "dataset": "system-auth",
+              "kind": "event",
+              "original": "Nov 17 10:02:05 gw01 sshd[4410]: Failed password for deploy from 10.4.2.9 port 40122 ssh2",
+              "outcome": "failure",
+              "reason": "Failed password",
+              "start": "2026-11-17T10:02:05.000Z",
+              "type": [
+                "info"
+              ]
+            },
+            "host": {
+              "hostname": "gw01"
+            },
+            "message": "Failed password for deploy from 10.4.2.9 port 40122 ssh2",
+            "process": {
+              "name": "sshd",
+              "pid": 4410
+            },
+            "related": {
+              "hosts": [
+                "gw01"
+              ],
+              "ip": [
+                "10.4.2.9"
+              ],
+              "user": [
+                "deploy"
+              ]
+            },
+            "source": {
+              "address": "10.4.2.9",
+              "ip": "10.4.2.9",
+              "port": 40122
+            },
+            "user": {
+              "name": "deploy"
+            },
+            "wazuh": {
+              "event": {
+                "id": "e38a6501-0bf3-44d6-a9f4-f3f562f07521"
+              },
+              "integration": {
+                "category": "system-activity",
+                "decoders": [
+                  "decoder/core-wazuh-message/0",
+                  "decoder/syslog/0",
+                  "decoder/system-auth/0"
+                ],
+                "name": "system-auth"
+              },
+              "protocol": {
+                "location": "/var/log/acmepay.log",
+                "queue": 1
+              },
+              "space": {
+                "name": "standard"
+              }
+            }
+          },
+          "source": "alert",
+          "timestamp": "2026-11-17T20:55:40.758+0000"
+        }
+      ],
+      "field_parity": {},
+      "integration": "wazuh4-on-system-auth",
+      "matched": 0,
+      "not_met": [
+        "the server reported no match"
+      ],
+      "oracle": "logtest (normalization: standard, detection: test)",
+      "result": "NOT_REPRODUCED",
+      "rule_id_4x": "100300",
+      "samples": 1,
+      "shadowing": [],
+      "title": "sshd: authentication failed from an address outside the corporate network ({{ source.ip }})."
+    }
+  ],
+  "samples_dir": "examples/acmepay/samples",
+  "state_fingerprint": "28321ae46999d9130e51d49ebde521e5af4bd60f04dbd2394cfbcafa0ee5f033",
+  "summary": {
+    "NOT_REPRODUCED": 1,
+    "NOT_SILENCED": 0,
+    "NO_SAMPLE": 0,
+    "REPRODUCED": 4,
+    "SILENCED": 1,
+    "failures": 1,
+    "rules": 6
+  },
+  "tool": "rmig 0.1.0",
+  "unreadable_lines": [],
+  "version": 1,
+  "when": "2026-11-18T22:12:45+00:00"
+}

@@ -1,0 +1,49 @@
+{
+  "fields": [
+    "rule_id_4x",
+    "state",
+    "reasons",
+    "integration",
+    "resource_title",
+    "local_id",
+    "server_id"
+  ],
+  "format": 1,
+  "rows": [
+    {
+      "integration": "wazuh4-on-system-auth",
+      "local_id": "50375208-0b6d-58ed-865c-e8c3a2c4cba9",
+      "reasons": [
+        "RM-R-RE-DIALECT",
+        "RM-R-SHADOWING"
+      ],
+      "resource_title": "sshd: invalid user (OS_Match with a space).",
+      "rule_id_4x": "100020",
+      "server_id": "",
+      "state": "AUTO"
+    },
+    {
+      "integration": "wazuh4-on-system-auth",
+      "local_id": "ba4d3927-0fec-5d75-9a66-5a4920d703ff",
+      "reasons": [
+        "RM-R-RE-DIALECT",
+        "RM-R-SHADOWING"
+      ],
+      "resource_title": "sshd: user and source (OS_Regex classes).",
+      "rule_id_4x": "100021",
+      "server_id": "",
+      "state": "AUTO"
+    },
+    {
+      "integration": "wazuh4-on-system-auth",
+      "local_id": "80a33f46-1ede-5b73-a7f8-7f05142ae4d1",
+      "reasons": [
+        "RM-R-SHADOWING"
+      ],
+      "resource_title": "sshd: PCRE2 literal with anchors.",
+      "rule_id_4x": "100022",
+      "server_id": "",
+      "state": "AUTO"
+    }
+  ]
+}

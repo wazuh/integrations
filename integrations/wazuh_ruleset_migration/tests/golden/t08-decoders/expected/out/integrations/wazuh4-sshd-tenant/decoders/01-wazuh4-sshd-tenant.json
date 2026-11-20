@@ -1,0 +1,61 @@
+{
+  "fidelity": "exact",
+  "local_id": "5b5314e6-5266-5e5e-b5bb-56bac418d5e6",
+  "reasons": [
+    "RM-D-DUAL-DOCUMENT"
+  ],
+  "resource": {
+    "check": "regex_match($message, '(?i:^Accepted )')",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x decoder sshd-tenant (etc/decoders/a_sshd_custom.xml:1).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:5b5314e6-5266-5e5e-b5bb-56bac418d5e6",
+        "Migrated from Wazuh 4.x decoder sshd-tenant (etc/decoders/a_sshd_custom.xml)"
+      ],
+      "title": "wazuh4-sshd-tenant"
+    },
+    "name": "decoder/wazuh4-sshd-tenant/0",
+    "normalize": [
+      {
+        "map": [
+          {
+            "_c1": "regex_extract($message, '(?i:^Accepted )(?i:([^ ]+?) for (?:[^ ]+?) from (?:[^ ]+?) tenant=(?:[-0-9@A-Z_a-z]+))')"
+          },
+          {
+            "_c2": "regex_extract($message, '(?i:^Accepted )(?i:(?:[^ ]+?) for ([^ ]+?) from (?:[^ ]+?) tenant=(?:[-0-9@A-Z_a-z]+))')"
+          },
+          {
+            "_c3": "regex_extract($message, '(?i:^Accepted )(?i:(?:[^ ]+?) for (?:[^ ]+?) from ([^ ]+?) tenant=(?:[-0-9@A-Z_a-z]+))')"
+          },
+          {
+            "_c4": "regex_extract($message, '(?i:^Accepted )(?i:(?:[^ ]+?) for (?:[^ ]+?) from (?:[^ ]+?) tenant=([-0-9@A-Z_a-z]+))')"
+          },
+          {
+            "event.action": "$_c1"
+          },
+          {
+            "user.name": "$_c2"
+          },
+          {
+            "source.ip": "parse_ip($_c3)"
+          },
+          {
+            "organization.name": "$_c4"
+          }
+        ]
+      }
+    ],
+    "parents": [
+      "decoder/wazuh4-sshd/0"
+    ]
+  },
+  "source": {
+    "file": "etc/decoders/a_sshd_custom.xml",
+    "id": "sshd-tenant",
+    "kind": "decoder",
+    "line": 1
+  }
+}

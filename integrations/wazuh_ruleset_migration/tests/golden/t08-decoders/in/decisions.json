@@ -1,0 +1,8 @@
+{
+  "fields": {
+    "sshd.tenant": {
+      "action": "map",
+      "wcs": "organization.name"
+    }
+  }
+}

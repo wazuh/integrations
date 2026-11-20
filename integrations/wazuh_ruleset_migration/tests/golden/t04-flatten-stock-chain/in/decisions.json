@@ -1,0 +1,16 @@
+{
+  "stock": {
+    "rule:5710": {
+      "integration": "system-auth",
+      "selection": {
+        "event.action": "authentication-failure"
+      }
+    },
+    "rule:5715": {
+      "integration": "system-auth",
+      "selection": {
+        "event.action": "authentication-success"
+      }
+    }
+  }
+}

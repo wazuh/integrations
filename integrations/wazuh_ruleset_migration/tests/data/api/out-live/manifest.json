@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "integrations": [
+    "wazuh4-on-rmig-live"
+  ],
+  "marker_author": "wazuh-ruleset-migration",
+  "root_decoder": null,
+  "source": "api-live",
+  "tool_version": "0.1.0"
+}

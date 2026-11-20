@@ -1,0 +1,30 @@
+{
+  "fidelity": "exact",
+  "local_id": "cfc4433e-e6d3-5454-85a8-241ff0878f6c",
+  "reasons": [],
+  "resource": {
+    "check": "regex_match($process.name, '(?i)^sshd')",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Wazuh 4.x stock decoder sshd recreated as the parent of migrated decoders.",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:cfc4433e-e6d3-5454-85a8-241ff0878f6c",
+        "Recreated from the standard 4.x decoder sshd (ruleset/decoders/0310-ssh_decoders.xml:2) (Wazuh 4.x stock ruleset: ruleset/rules, ruleset/decoders, ruleset/lists)"
+      ],
+      "supports": [],
+      "title": "wazuh4-sshd"
+    },
+    "name": "decoder/wazuh4-sshd/0",
+    "parents": [
+      "decoder/wazuh4-predecoder/0"
+    ]
+  },
+  "source": {
+    "file": "rmig/data/wazuh4-base.json",
+    "id": "sshd",
+    "kind": "base",
+    "line": 1
+  }
+}

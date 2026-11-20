@@ -1,0 +1,69 @@
+{
+  "fields": [
+    "rule_id_4x",
+    "state",
+    "reasons",
+    "integration",
+    "resource_title",
+    "local_id",
+    "server_id"
+  ],
+  "format": 1,
+  "rows": [
+    {
+      "integration": "wazuh4-myapp",
+      "local_id": "50375208-0b6d-58ed-865c-e8c3a2c4cba9",
+      "reasons": [
+        "RM-X-TRANSLATED"
+      ],
+      "resource_title": "grandmother",
+      "rule_id_4x": "100100",
+      "server_id": "",
+      "state": "AUTO"
+    },
+    {
+      "integration": "wazuh4-myapp",
+      "local_id": "ba4d3927-0fec-5d75-9a66-5a4920d703ff",
+      "reasons": [
+        "RM-R-SHADOWING"
+      ],
+      "resource_title": "mother",
+      "rule_id_4x": "100101",
+      "server_id": "",
+      "state": "AUTO"
+    },
+    {
+      "integration": "wazuh4-myapp",
+      "local_id": "",
+      "reasons": [
+        "RM-R-SILENCER"
+      ],
+      "resource_title": "",
+      "rule_id_4x": "100102",
+      "server_id": "",
+      "state": "AUTO"
+    },
+    {
+      "integration": "wazuh4-myapp",
+      "local_id": "f54430a4-f4f6-52f7-95c2-407059494020",
+      "reasons": [
+        "RM-R-SHADOWING"
+      ],
+      "resource_title": "sister",
+      "rule_id_4x": "100103",
+      "server_id": "",
+      "state": "AUTO"
+    },
+    {
+      "integration": "wazuh4-myapp",
+      "local_id": "ae3c4935-45bf-5947-9874-ef1d87803ac4",
+      "reasons": [
+        "RM-R-SHADOWING"
+      ],
+      "resource_title": "child of the sister",
+      "rule_id_4x": "100104",
+      "server_id": "",
+      "state": "AUTO"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "fidelity": "approximate",
+  "local_id": "ae3c4935-45bf-5947-9874-ef1d87803ac4",
+  "reasons": [
+    "RM-R-SHADOWING"
+  ],
+  "resource": {
+    "detection": {
+      "condition": "selection and selection_2 and selection_3 and selection_4 and not (filter and selection_2 and filter_2)",
+      "filter": {
+        "message|re": ".*[Aa].*"
+      },
+      "filter_2": {
+        "message|re": ".*[Cc].*"
+      },
+      "selection": {
+        "message|re": ".*[Aa].*",
+        "wazuh.integration.name": "wazuh4-myapp"
+      },
+      "selection_2": {
+        "message|re": ".*[Bb].*"
+      },
+      "selection_3": {
+        "message|re": ".*[Dd].*"
+      },
+      "selection_4": {
+        "message|re": ".*[Ee].*"
+      }
+    },
+    "enabled": true,
+    "level": "low",
+    "logsource": {
+      "product": "wazuh4-myapp"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100104 (etc/rules/local_rules.xml:22).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:ae3c4935-45bf-5947-9874-ef1d87803ac4",
+        "Migrated from Wazuh 4.x rule 100104 (etc/rules/local_rules.xml)"
+      ],
+      "title": "child of the sister"
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100104",
+      "wazuh4.group.myapp"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100104",
+    "kind": "rule",
+    "line": 22
+  }
+}

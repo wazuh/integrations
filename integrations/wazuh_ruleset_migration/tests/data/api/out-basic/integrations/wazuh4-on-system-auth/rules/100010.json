@@ -1,0 +1,41 @@
+{
+  "fidelity": "exact",
+  "local_id": "cf1d6a6f-d9f7-5fa5-94a9-64daa693ea4a",
+  "reasons": [],
+  "resource": {
+    "compliance": {},
+    "detection": {
+      "condition": "selection",
+      "selection": {
+        "destination.port": "2222",
+        "event.action": "ssh-fail"
+      }
+    },
+    "enabled": true,
+    "level": "medium",
+    "logsource": {
+      "product": "wazuh4-on-system-auth"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "sshd: failure on a custom port",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:cf1d6a6f-d9f7-5fa5-94a9-64daa693ea4a",
+        "Migrated from Wazuh 4.x rule 100010 (etc/rules/local_rules.xml)"
+      ],
+      "title": "sshd: failure on a custom port"
+    },
+    "mitre": {},
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100010"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100010",
+    "kind": "rule",
+    "line": 20
+  }
+}

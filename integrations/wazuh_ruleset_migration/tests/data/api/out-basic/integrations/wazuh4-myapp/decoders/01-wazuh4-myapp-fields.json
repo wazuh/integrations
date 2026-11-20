@@ -1,0 +1,37 @@
+{
+  "fidelity": "exact",
+  "local_id": "98a7290d-ade9-5cc8-bdba-cd8eb4964c6f",
+  "reasons": [],
+  "resource": {
+    "check": "$message != ''",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "4.x decoder myapp-fields",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:98a7290d-ade9-5cc8-bdba-cd8eb4964c6f"
+      ],
+      "title": "wazuh4-myapp-fields"
+    },
+    "name": "decoder/wazuh4-myapp-fields/0",
+    "normalize": [
+      {
+        "map": [
+          {
+            "event.kind": "event"
+          }
+        ]
+      }
+    ],
+    "parents": [
+      "decoder/wazuh4-myapp/0"
+    ]
+  },
+  "source": {
+    "file": "etc/decoders/local_decoder.xml",
+    "id": "myapp-fields",
+    "kind": "decoder",
+    "line": 4
+  }
+}

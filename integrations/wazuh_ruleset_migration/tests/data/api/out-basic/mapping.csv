@@ -1,0 +1,6 @@
+rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
+100001,AUTO,,wazuh4-myapp,myapp: root login,0e471799-d381-5107-b0fd-2925c96b1baf,
+100002,AUTO,,wazuh4-myapp,myapp: logout,2ad633c1-c934-510b-857e-1bae72363914,
+100003,RECIPE,RM-R-FREQUENCY,,,,
+100005,AUTO,RM-R-SILENCER,wazuh4-myapp,,,
+100010,AUTO,,wazuh4-on-system-auth,sshd: failure on a custom port,cf1d6a6f-d9f7-5fa5-94a9-64daa693ea4a,

@@ -1,0 +1,2 @@
+rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
+100010,AUTO,RM-R-SHADOWING,wazuh4-on-system-auth,sshd: attempt with a non-existent user over SSH2.,f21b17c2-db26-5cab-9b0c-ab3ee6bfd0fe,

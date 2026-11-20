@@ -1,0 +1,4 @@
+rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
+100100,AUTO,RM-R-TITLE-SUFFIXED,wazuh4-myapp,myapp: login failed (4.x rule 100100),50375208-0b6d-58ed-865c-e8c3a2c4cba9,
+100101,AUTO,RM-R-SHADOWING;RM-R-TITLE-SUFFIXED,wazuh4-myapp,myapp: login failed (4.x rule 100101),ba4d3927-0fec-5d75-9a66-5a4920d703ff,
+100102,AUTO,RM-R-SHADOWING,wazuh4-myapp,myapp: user {{ user.name }} ran {{ event.action }},80a33f46-1ede-5b73-a7f8-7f05142ae4d1,

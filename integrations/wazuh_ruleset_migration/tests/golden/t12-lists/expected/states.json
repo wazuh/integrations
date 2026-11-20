@@ -1,0 +1,7 @@
+{
+  "decoder:myapp-auth@5": "AUTO",
+  "decoder:myapp@1": "AUTO",
+  "list:etc/lists/bad-ips@1": "AUTO",
+  "rule:100600@2": "AUTO",
+  "rule:100601@7": "AUTO"
+}

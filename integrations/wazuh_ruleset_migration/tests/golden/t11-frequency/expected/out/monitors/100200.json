@@ -1,0 +1,85 @@
+{
+  "enabled": true,
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "wazuh-findings-v5-*"
+        ],
+        "query": {
+          "aggregations": {
+            "by_group": {
+              "composite": {
+                "sources": [
+                  {
+                    "wazuh_agent_name": {
+                      "terms": {
+                        "field": "wazuh.agent.name"
+                      }
+                    }
+                  },
+                  {
+                    "source_ip": {
+                      "terms": {
+                        "field": "source.ip"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "term": {
+                    "tags": "wazuh4.rule.100100"
+                  }
+                },
+                {
+                  "range": {
+                    "@timestamp": {
+                      "format": "epoch_millis",
+                      "gte": "{{period_end}}||-300s",
+                      "lte": "{{period_end}}"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 0
+        }
+      }
+    }
+  ],
+  "monitor_type": "bucket_level_monitor",
+  "name": "wazuh4 rule 100200: myapp: repeated failures from <srcip>",
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "triggers": [
+    {
+      "bucket_level_trigger": {
+        "actions": [],
+        "condition": {
+          "buckets_path": {
+            "count": "_count"
+          },
+          "parent_bucket_path": "by_group",
+          "script": {
+            "lang": "painless",
+            "source": "params.count >= 8"
+          }
+        },
+        "name": "8 or more in 300 s (4.x rule 100200)",
+        "severity": "2"
+      }
+    }
+  ],
+  "type": "monitor"
+}

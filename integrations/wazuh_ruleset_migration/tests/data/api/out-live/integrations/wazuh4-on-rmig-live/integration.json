@@ -1,0 +1,18 @@
+{
+  "kind": "on-stock",
+  "local_id": "5b5ed38c-38e0-52be-9789-2fc20c5808ef",
+  "resource": {
+    "category": "access-management",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "rmig recorded check",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:5b5ed38c-38e0-52be-9789-2fc20c5808ef"
+      ],
+      "title": "wazuh4-on-rmig-live"
+    }
+  },
+  "stock_integration": "system-auth"
+}

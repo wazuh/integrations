@@ -1,0 +1,12 @@
+<group name="myapp,">
+  <rule id="100500" level="7">
+    <decoded_as>myapp</decoded_as>
+    <match>disk full</match>
+    <description>myapp: disk full</description>
+  </rule>
+  <rule id="100501" level="7">
+    <decoded_as>myapp</decoded_as>
+    <regex>quota \d+/\d+</regex>
+    <description>myapp: quota line</description>
+  </rule>
+</group>

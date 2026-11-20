@@ -1,0 +1,18 @@
+{
+  "kind": "base",
+  "local_id": "1fa163e1-f74f-5a6a-9f59-a5e4d0fc0f15",
+  "resource": {
+    "category": "unclassified",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Base of the migrated decoders: the root decoder, recreated from the standard wazuh-core integration (Wazuh 5.0 catalog (public-ruleset-5, context rc3-t1-ruleset-5, offset 1062)), and the 4.x pre-decoding of the syslog header.",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:1fa163e1-f74f-5a6a-9f59-a5e4d0fc0f15"
+      ],
+      "title": "wazuh4-base"
+    }
+  },
+  "stock_integration": null
+}

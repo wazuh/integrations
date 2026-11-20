@@ -1,0 +1,34 @@
+{
+  "fidelity": "exact",
+  "local_id": "4375277d-21a0-549b-9a84-ea34d4bff329",
+  "reasons": [],
+  "resource": {
+    "check": "$event.original != ''",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "4.x decoder base",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:4375277d-21a0-549b-9a84-ea34d4bff329"
+      ],
+      "title": "wazuh4-root"
+    },
+    "name": "decoder/wazuh4-root/0",
+    "normalize": [
+      {
+        "map": [
+          {
+            "event.kind": "event"
+          }
+        ]
+      }
+    ]
+  },
+  "source": {
+    "file": "etc/decoders/local_decoder.xml",
+    "id": "base",
+    "kind": "base",
+    "line": 0
+  }
+}

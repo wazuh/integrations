@@ -1,0 +1,42 @@
+{
+  "fidelity": "approximate",
+  "local_id": "ba4d3927-0fec-5d75-9a66-5a4920d703ff",
+  "reasons": [
+    "RM-R-SHADOWING"
+  ],
+  "resource": {
+    "detection": {
+      "condition": "selection",
+      "selection": {
+        "tags": "wazuh4.rule.100501.c1",
+        "wazuh.integration.name": "wazuh4-myapp"
+      }
+    },
+    "enabled": true,
+    "level": "medium",
+    "logsource": {
+      "product": "wazuh4-myapp"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100501 (etc/rules/local_rules.xml:7).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:ba4d3927-0fec-5d75-9a66-5a4920d703ff",
+        "Migrated from Wazuh 4.x rule 100501 (etc/rules/local_rules.xml)"
+      ],
+      "title": "myapp: quota line"
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100501",
+      "wazuh4.group.myapp"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100501",
+    "kind": "rule",
+    "line": 7
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "fields": [
+    "rule_id_4x",
+    "state",
+    "reasons",
+    "integration",
+    "resource_title",
+    "local_id",
+    "server_id"
+  ],
+  "format": 1,
+  "rows": [
+    {
+      "integration": "wazuh4-sshd-tenant",
+      "local_id": "50375208-0b6d-58ed-865c-e8c3a2c4cba9",
+      "reasons": [
+        "RM-X-TRANSLATED"
+      ],
+      "resource_title": "sshd: login of tenant acme from {{ source.ip }}",
+      "rule_id_4x": "100400",
+      "server_id": "",
+      "state": "AUTO"
+    }
+  ]
+}

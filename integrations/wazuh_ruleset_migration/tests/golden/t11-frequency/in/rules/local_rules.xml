@@ -1,0 +1,31 @@
+<group name="myapp,">
+  <rule id="100100" level="5">
+    <decoded_as>myapp</decoded_as>
+    <match>failure</match>
+    <description>myapp: failure</description>
+    <group>authentication_failed,</group>
+  </rule>
+
+  <!-- the frequency rule and its child are RECIPE; the monitor counts 100100 -->
+  <rule id="100200" level="10" frequency="8" timeframe="120">
+    <if_matched_sid>100100</if_matched_sid>
+    <same_source_ip />
+    <description>myapp: repeated failures from $(srcip)</description>
+  </rule>
+  <rule id="100201" level="12">
+    <if_sid>100200</if_sid>
+    <match>admin</match>
+    <description>myapp: repeated failures of admin</description>
+  </rule>
+
+  <!-- child of a grouping-only rule stays AUTO -->
+  <rule id="100300" level="0">
+    <decoded_as>myapp</decoded_as>
+    <description>myapp: grouping</description>
+  </rule>
+  <rule id="100301" level="5">
+    <if_sid>100300</if_sid>
+    <match>shutdown</match>
+    <description>myapp: shutdown</description>
+  </rule>
+</group>

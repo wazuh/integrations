@@ -1,0 +1,6 @@
+rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
+100100,AUTO,RM-X-TRANSLATED,wazuh4-myapp,grandmother,50375208-0b6d-58ed-865c-e8c3a2c4cba9,
+100101,AUTO,RM-R-SHADOWING,wazuh4-myapp,mother,ba4d3927-0fec-5d75-9a66-5a4920d703ff,
+100102,AUTO,RM-R-SILENCER,wazuh4-myapp,,,
+100103,AUTO,RM-R-SHADOWING,wazuh4-myapp,sister,f54430a4-f4f6-52f7-95c2-407059494020,
+100104,AUTO,RM-R-SHADOWING,wazuh4-myapp,child of the sister,ae3c4935-45bf-5947-9874-ef1d87803ac4,

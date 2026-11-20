@@ -1,0 +1,35 @@
+{
+  "inserted_at": "2026-09-09T12:08:12.330953Z",
+  "name": "ae0abc37-774a-5dc9-a888-647845c36bbe",
+  "offset": 111,
+  "payload": {
+    "document": {
+      "enabled": true,
+      "id": "ae0abc37-774a-5dc9-a888-647845c36bbe",
+      "metadata": {
+        "author": "Wazuh, Inc.",
+        "date": "2025-09-30",
+        "description": "Base decoder to process Wazuh message format, parses location part and enriches the events that comes from a Wazuh agent with the host information.",
+        "documentation": "",
+        "modified": "2026-03-20",
+        "references": [
+          "https://documentation.wazuh.com/"
+        ],
+        "supports": [],
+        "title": "Wazuh message decoder"
+      },
+      "name": "decoder/core-wazuh-message/0",
+      "normalize": [
+        {
+          "map": [
+            {
+              "_tmp_json": "parse_json($event.original)"
+            }
+          ]
+        }
+      ]
+    },
+    "type": "decoder"
+  },
+  "version": 1
+}

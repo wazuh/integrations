@@ -1,0 +1,12 @@
+{
+  "category": "other",
+  "index": "wazuh-events-v5-other",
+  "integration": "wazuh4-myapp",
+  "name": "wazuh4-myapp-1",
+  "rules": [
+    "50375208-0b6d-58ed-865c-e8c3a2c4cba9",
+    "ba4d3927-0fec-5d75-9a66-5a4920d703ff",
+    "f54430a4-f4f6-52f7-95c2-407059494020",
+    "ae3c4935-45bf-5947-9874-ef1d87803ac4"
+  ]
+}

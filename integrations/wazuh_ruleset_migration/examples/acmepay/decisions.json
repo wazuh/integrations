@@ -1,0 +1,63 @@
+{
+  "fields": {
+    "acmepay.amount": {
+      "action": "drop",
+      "seen_in": "etc/decoders/local_decoder.xml:16",
+      "used_by": [
+        "decoder:acmepay-payment"
+      ],
+      "wcs": null
+    },
+    "acmepay.currency": {
+      "action": "drop",
+      "seen_in": "etc/decoders/local_decoder.xml:16",
+      "used_by": [
+        "decoder:acmepay-payment",
+        "rule:100204"
+      ],
+      "wcs": null
+    },
+    "acmepay.merchant": {
+      "action": "map",
+      "seen_in": "etc/decoders/local_decoder.xml:16",
+      "used_by": [
+        "decoder:acmepay-payment"
+      ],
+      "wcs": "organization.name"
+    },
+    "acmepay.tenant": {
+      "action": "map",
+      "seen_in": "etc/decoders/local_decoder.xml:9",
+      "used_by": [
+        "decoder:acmepay-login"
+      ],
+      "wcs": "organization.id"
+    }
+  },
+  "integrations": {
+    "acmepay": {
+      "category": "applications",
+      "category_source": "user",
+      "seen_in": "etc/decoders/local_decoder.xml:2",
+      "used_by": [
+        "decoder:acmepay",
+        "decoder:acmepay-login",
+        "decoder:acmepay-payment"
+      ]
+    }
+  },
+  "stock": {
+    "rule:5716": {
+      "integration": "system-auth",
+      "seen_in": "etc/rules/local_rules.xml:58",
+      "selection": {
+        "event.action": "authentication-failure",
+        "process.name": "sshd"
+      },
+      "used_by": [
+        "rule:100300"
+      ]
+    }
+  },
+  "version": 1
+}

@@ -1,0 +1,43 @@
+{
+  "fidelity": "approximate",
+  "local_id": "ba4d3927-0fec-5d75-9a66-5a4920d703ff",
+  "reasons": [
+    "RM-R-SHADOWING",
+    "RM-R-TITLE-SUFFIXED"
+  ],
+  "resource": {
+    "detection": {
+      "condition": "selection",
+      "selection": {
+        "event.action": "password-failed",
+        "wazuh.integration.name": "wazuh4-myapp"
+      }
+    },
+    "enabled": true,
+    "level": "low",
+    "logsource": {
+      "product": "wazuh4-myapp"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100101 (etc/rules/local_rules.xml:7).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:ba4d3927-0fec-5d75-9a66-5a4920d703ff",
+        "Migrated from Wazuh 4.x rule 100101 (etc/rules/local_rules.xml)"
+      ],
+      "title": "myapp: login failed (4.x rule 100101)"
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100101",
+      "wazuh4.group.myapp"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100101",
+    "kind": "rule",
+    "line": 7
+  }
+}

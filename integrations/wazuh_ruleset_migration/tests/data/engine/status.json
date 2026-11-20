@@ -1,0 +1,14 @@
+{
+ "engine": {
+  "version": "5.0.0",
+  "stage": "rc3",
+  "commit": "49f301e"
+ },
+ "request": {
+  "method": "GET",
+  "path": "/status",
+  "payload": null
+ },
+ "http": 200,
+ "raw": "{\"status\":\"OK\",\"ready\":false,\"spaces\":{\"standard\":{\"available\":false,\"enabled\":true,\"status\":\"failed\",\"hash\":\"\",\"last_successful_update\":0},\"custom\":{\"available\":false,\"enabled\":false,\"status\":\"ready\",\"hash\":\"\",\"last_successful_update\":0}},\"ioc\":{\"url_domain\":{\"available\":false,\"status\":\"failed\",\"hash\":\"\",\"last_successful_update\":0},\"hash_md5\":{\"available\":false,\"status\":\"failed\",\"hash\":\"\",\"last_successful_update\":0},\"url_full\":{\"available\":false,\"status\":\"failed\",\"hash\":\"\",\"last_successful_update\":0},\"hash_sha1\":{\"available\":false,\"status\":\"failed\",\"hash\":\"\",\"last_successful_update\":0},\"connection\":{\"available\":false,\"status\":\"failed\",\"hash\":\"\",\"last_successful_update\":0},\"hash_sha256\":{\"available\":false,\"status\":\"failed\",\"hash\":\"\",\"last_successful_update\":0}},\"geo\":{\"city\":{\"available\":true,\"status\":\"ready\",\"hash\":\"242c7d396f76fe670b80df4dc2b6e08e\",\"last_successful_update\":1794845309},\"asn\":{\"available\":true,\"status\":\"ready\",\"hash\":\"60e364265103cbda3677317aff2f8b5f\",\"last_successful_update\":1794845309}}}"
+}

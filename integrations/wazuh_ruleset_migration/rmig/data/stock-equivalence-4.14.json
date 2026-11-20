@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "source": "hand-maintained; every entry needs evidence",
+  "generated_by": "none (edited by hand, reviewed per entry)",
+  "entry_format": {
+    "decoders": {
+      "<4.x decoder name>": {
+        "integration": "<5.x integration name>",
+        "category": "<5.x category>",
+        "selection": "<Sigma selection that matches its events>",
+        "fields": {"<4.x field>": "<WCS field>"},
+        "text_field": "<WCS field that holds the 4.x match/regex text, or null>",
+        "fidelity": "exact | approximate",
+        "evidence": {"log": "<sample line>", "wazuh_4_14": "<alert seen>", "wazuh_5_detector": "<finding seen>"}
+      }
+    },
+    "rules": {
+      "<4.x rule id>": {"integration": "<5.x integration>", "selection": "<effective condition>", "fidelity": "exact | approximate", "evidence": {}}
+    },
+    "groups": {
+      "<4.x group>": {"integration": "<5.x integration>", "selection": "<effective condition>", "fidelity": "exact | approximate", "evidence": {}}
+    }
+  },
+  "decoders": {},
+  "rules": {},
+  "groups": {}
+}

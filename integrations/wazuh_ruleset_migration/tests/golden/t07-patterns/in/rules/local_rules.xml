@@ -1,0 +1,17 @@
+<group name="local,sshd,">
+  <rule id="100020" level="5">
+    <if_sid>5710</if_sid>
+    <match>Invalid user</match>
+    <description>sshd: invalid user (OS_Match with a space).</description>
+  </rule>
+  <rule id="100021" level="6">
+    <if_sid>5710</if_sid>
+    <regex>user (\w+) from (\S+)</regex>
+    <description>sshd: user and source (OS_Regex classes).</description>
+  </rule>
+  <rule id="100022" level="3">
+    <if_sid>5715</if_sid>
+    <match type="pcre2">^Accepted|^Failed</match>
+    <description>sshd: PCRE2 literal with anchors.</description>
+  </rule>
+</group>

@@ -1,0 +1,37 @@
+{
+  "fidelity": "exact",
+  "local_id": "e691deff-e3c9-5101-9ce9-36ecc337ae69",
+  "reasons": [],
+  "resource": {
+    "check": "$event.original != ''",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "4.x decoder base",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:e691deff-e3c9-5101-9ce9-36ecc337ae69"
+      ],
+      "title": "wazuh4-syslog"
+    },
+    "name": "decoder/wazuh4-syslog/0",
+    "normalize": [
+      {
+        "map": [
+          {
+            "event.kind": "event"
+          }
+        ]
+      }
+    ],
+    "parents": [
+      "decoder/wazuh4-root/0"
+    ]
+  },
+  "source": {
+    "file": "etc/decoders/local_decoder.xml",
+    "id": "base",
+    "kind": "base",
+    "line": 0
+  }
+}

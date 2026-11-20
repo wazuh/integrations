@@ -1,0 +1,17 @@
+<group name="myapp,">
+  <rule id="100100" level="5">
+    <decoded_as>myapp</decoded_as>
+    <action>login-failed</action>
+    <description>myapp: login failed</description>
+  </rule>
+  <rule id="100101" level="5">
+    <decoded_as>myapp</decoded_as>
+    <action>password-failed</action>
+    <description>myapp: login failed</description>
+  </rule>
+  <rule id="100102" level="3">
+    <decoded_as>myapp</decoded_as>
+    <action>run</action>
+    <description>myapp: user $(user) ran $(action)</description>
+  </rule>
+</group>

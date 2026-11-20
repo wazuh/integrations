@@ -1,0 +1,42 @@
+{
+  "fidelity": "exact",
+  "local_id": "4f4a1769-178a-5605-90dc-9aa819acaadd",
+  "reasons": [
+    "RM-X-TRANSLATED"
+  ],
+  "resource": {
+    "detection": {
+      "condition": "selection",
+      "selection": {
+        "message|re": ".*[Ss][Hh][Uu][Tt][Dd][Oo][Ww][Nn].*",
+        "wazuh.integration.name": "wazuh4-myapp"
+      }
+    },
+    "enabled": true,
+    "level": "low",
+    "logsource": {
+      "product": "wazuh4-myapp"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100301 (etc/rules/local_rules.xml:26).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:4f4a1769-178a-5605-90dc-9aa819acaadd",
+        "Migrated from Wazuh 4.x rule 100301 (etc/rules/local_rules.xml)"
+      ],
+      "title": "myapp: shutdown"
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100301",
+      "wazuh4.group.myapp"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100301",
+    "kind": "rule",
+    "line": 26
+  }
+}

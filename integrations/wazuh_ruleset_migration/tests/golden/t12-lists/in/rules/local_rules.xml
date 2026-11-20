@@ -1,0 +1,12 @@
+<group name="myapp,">
+  <rule id="100600" level="10">
+    <decoded_as>myapp</decoded_as>
+    <list field="srcip" lookup="address_match_key">etc/lists/bad-ips</list>
+    <description>myapp: login from a listed address $(srcip)</description>
+  </rule>
+  <rule id="100601" level="6">
+    <decoded_as>myapp</decoded_as>
+    <list field="srcip" lookup="match_key_value" check_value="scanner">etc/lists/bad-ips</list>
+    <description>myapp: login from a scanner</description>
+  </rule>
+</group>

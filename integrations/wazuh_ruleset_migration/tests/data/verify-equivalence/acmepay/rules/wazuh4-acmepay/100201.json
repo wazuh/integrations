@@ -1,0 +1,71 @@
+{
+  "fidelity": "approximate",
+  "local_id": "f0ca4c7e-d3d3-59bf-9ecf-47d2071afc46",
+  "reasons": [
+    "RM-R-SHADOWING"
+  ],
+  "resource": {
+    "compliance": {
+      "pci_dss": [
+        "10.2.4",
+        "10.2.5"
+      ]
+    },
+    "detection": {
+      "condition": "selection and not filter",
+      "filter": {
+        "event.outcome|re": "[Ff][Aa][Ii][Ll][Ee][Dd]",
+        "user.name|re": "[Hh][Ee][Aa][Ll][Tt][Hh][Cc][Hh][Ee][Cc][Kk]"
+      },
+      "selection": {
+        "event.outcome|re": "[Ff][Aa][Ii][Ll][Ee][Dd]",
+        "wazuh.integration.name": "wazuh4-acmepay"
+      }
+    },
+    "enabled": true,
+    "level": "low",
+    "logsource": {
+      "product": "wazuh4-acmepay"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100201 (etc/rules/local_rules.xml:9).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:f0ca4c7e-d3d3-59bf-9ecf-47d2071afc46",
+        "Migrated from Wazuh 4.x rule 100201 (etc/rules/local_rules.xml)"
+      ],
+      "title": "acmepay: failed login for user {{ user.name }} from {{ source.ip }}."
+    },
+    "mitre": {
+      "tactic": {
+        "id": [
+          "TA0006"
+        ],
+        "name": [
+          "Credential Access"
+        ]
+      },
+      "technique": {
+        "id": [
+          "T1110"
+        ],
+        "name": [
+          "Brute Force"
+        ]
+      }
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100201",
+      "wazuh4.group.acmepay",
+      "wazuh4.group.authentication_failed"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100201",
+    "kind": "rule",
+    "line": 9
+  }
+}

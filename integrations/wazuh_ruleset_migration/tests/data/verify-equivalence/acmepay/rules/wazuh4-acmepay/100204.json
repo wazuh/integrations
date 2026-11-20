@@ -1,0 +1,47 @@
+{
+  "fidelity": "exact",
+  "local_id": "a01f50b0-8fb1-515f-9adc-fd243566fd2e",
+  "reasons": [
+    "RM-F-DECODER-CHECK"
+  ],
+  "resource": {
+    "compliance": {
+      "pci_dss": [
+        "10.6.1"
+      ]
+    },
+    "detection": {
+      "condition": "selection",
+      "selection": {
+        "tags": "wazuh4.rule.100204.c1",
+        "wazuh.integration.name": "wazuh4-acmepay"
+      }
+    },
+    "enabled": true,
+    "level": "high",
+    "logsource": {
+      "product": "wazuh4-acmepay"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100204 (etc/rules/local_rules.xml:34).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:a01f50b0-8fb1-515f-9adc-fd243566fd2e",
+        "Migrated from Wazuh 4.x rule 100204 (etc/rules/local_rules.xml)"
+      ],
+      "title": "acmepay: payment in a non-authorized currency (<acmepay.currency>) for merchant {{ organization.name }}."
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100204",
+      "wazuh4.group.acmepay"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100204",
+    "kind": "rule",
+    "line": 34
+  }
+}

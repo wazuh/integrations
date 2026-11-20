@@ -1,0 +1,32 @@
+{
+  "inserted_at": "2026-09-09T12:08:11.960499Z",
+  "name": "045d50e0-816d-5047-a94b-e14912fde7c0",
+  "offset": 7,
+  "payload": {
+    "document": {
+      "category": "system-activity",
+      "decoders": [
+        "70ca1500-4c4b-5e26-a555-7cd326675c89"
+      ],
+      "enabled": true,
+      "id": "045d50e0-816d-5047-a94b-e14912fde7c0",
+      "kvdbs": [],
+      "metadata": {
+        "author": "Wazuh, Inc.",
+        "date": "2026-09-09",
+        "description": "This integration processes system authentication logs, mainly Linux and macOS.",
+        "documentation": "",
+        "modified": "2026-09-09",
+        "references": [
+          "https://wazuh.com"
+        ],
+        "supports": [],
+        "title": "system-auth"
+      },
+      "mode": "protected",
+      "rules": []
+    },
+    "type": "integration"
+  },
+  "version": 1
+}

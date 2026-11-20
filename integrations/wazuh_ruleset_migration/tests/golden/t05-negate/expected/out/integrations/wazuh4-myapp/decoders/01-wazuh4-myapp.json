@@ -1,0 +1,31 @@
+{
+  "fidelity": "exact",
+  "local_id": "1c8e78f6-e1eb-52ac-b1fa-922d6d1308fa",
+  "reasons": [
+    "RM-X-TRANSLATED"
+  ],
+  "resource": {
+    "check": "regex_match($process.name, '(?i)^myapp$')",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x decoder myapp (etc/decoders/myapp.xml:1).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:1c8e78f6-e1eb-52ac-b1fa-922d6d1308fa",
+        "Migrated from Wazuh 4.x decoder myapp (etc/decoders/myapp.xml)"
+      ],
+      "title": "wazuh4-myapp"
+    },
+    "name": "decoder/wazuh4-myapp/0",
+    "parents": [
+      "decoder/wazuh4-predecoder/0"
+    ]
+  },
+  "source": {
+    "file": "etc/decoders/myapp.xml",
+    "id": "myapp",
+    "kind": "decoder",
+    "line": 1
+  }
+}

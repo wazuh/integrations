@@ -1,0 +1,42 @@
+{
+  "fidelity": "exact",
+  "local_id": "50375208-0b6d-58ed-865c-e8c3a2c4cba9",
+  "reasons": [
+    "RM-X-TRANSLATED"
+  ],
+  "resource": {
+    "detection": {
+      "condition": "selection",
+      "selection": {
+        "tags": "wazuh4.rule.100500.c1",
+        "wazuh.integration.name": "wazuh4-myapp"
+      }
+    },
+    "enabled": true,
+    "level": "medium",
+    "logsource": {
+      "product": "wazuh4-myapp"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100500 (etc/rules/local_rules.xml:2).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:50375208-0b6d-58ed-865c-e8c3a2c4cba9",
+        "Migrated from Wazuh 4.x rule 100500 (etc/rules/local_rules.xml)"
+      ],
+      "title": "myapp: disk full"
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100500",
+      "wazuh4.group.myapp"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100500",
+    "kind": "rule",
+    "line": 2
+  }
+}

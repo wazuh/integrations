@@ -1,0 +1,2 @@
+rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
+100900,AUTO,,wazuh4-on-rmig-live,rmig live: sshd failed password,942e15cc-743e-54b7-9c66-117d12c6645a,

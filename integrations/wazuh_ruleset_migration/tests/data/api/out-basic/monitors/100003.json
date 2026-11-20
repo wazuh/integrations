@@ -1,0 +1,5 @@
+{
+  "monitor_type": "bucket_level_monitor",
+  "name": "wazuh4-rule-100003",
+  "type": "monitor"
+}

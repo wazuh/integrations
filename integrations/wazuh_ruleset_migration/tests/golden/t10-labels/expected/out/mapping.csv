@@ -1,0 +1,3 @@
+rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
+100500,AUTO,RM-X-TRANSLATED,wazuh4-myapp,myapp: disk full,50375208-0b6d-58ed-865c-e8c3a2c4cba9,
+100501,AUTO,RM-R-SHADOWING,wazuh4-myapp,myapp: quota line,ba4d3927-0fec-5d75-9a66-5a4920d703ff,

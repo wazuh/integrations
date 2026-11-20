@@ -1,0 +1,43 @@
+{
+  "fidelity": "exact",
+  "local_id": "1eaedd93-393a-5009-a67e-c3f45b04fe66",
+  "reasons": [
+    "RM-D-DUAL-DOCUMENT"
+  ],
+  "resource": {
+    "check": "regex_match($message, '(?i:^Banner )')",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x decoder sshd-banner (etc/decoders/b_sshd_other.xml:1).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:1eaedd93-393a-5009-a67e-c3f45b04fe66",
+        "Migrated from Wazuh 4.x decoder sshd-banner (etc/decoders/b_sshd_other.xml)"
+      ],
+      "title": "wazuh4-sshd-banner"
+    },
+    "name": "decoder/wazuh4-sshd-banner/0",
+    "normalize": [
+      {
+        "map": [
+          {
+            "_c1": "regex_extract($message, '(?i:^Banner )(?i:sent to ([^ ]+))')"
+          },
+          {
+            "source.ip": "parse_ip($_c1)"
+          }
+        ]
+      }
+    ],
+    "parents": [
+      "decoder/wazuh4-sshd/0"
+    ]
+  },
+  "source": {
+    "file": "etc/decoders/b_sshd_other.xml",
+    "id": "sshd-banner",
+    "kind": "decoder",
+    "line": 1
+  }
+}

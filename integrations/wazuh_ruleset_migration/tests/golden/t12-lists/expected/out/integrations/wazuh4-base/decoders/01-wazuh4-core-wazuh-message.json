@@ -1,0 +1,36 @@
+{
+  "fidelity": "exact",
+  "local_id": "358fe15c-fd2e-549a-9ee4-75e116b02c4a",
+  "reasons": [],
+  "resource": {
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Base decoder to process Wazuh message format, parses location part and enriches the events that comes from a Wazuh agent with the host information.",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:358fe15c-fd2e-549a-9ee4-75e116b02c4a",
+        "Recreated from the standard decoder/core-wazuh-message/0 of wazuh-core (Wazuh 5.0 catalog (public-ruleset-5, context rc3-t1-ruleset-5, offset 1062))",
+        "https://documentation.wazuh.com/"
+      ],
+      "supports": [],
+      "title": "wazuh4-core-wazuh-message"
+    },
+    "name": "decoder/wazuh4-core-wazuh-message/0",
+    "normalize": [
+      {
+        "map": [
+          {
+            "_tmp_json": "parse_json($event.original)"
+          }
+        ]
+      }
+    ]
+  },
+  "source": {
+    "file": "rmig/data/wazuh4-base.json",
+    "id": "decoder/core-wazuh-message/0",
+    "kind": "base",
+    "line": 1
+  }
+}

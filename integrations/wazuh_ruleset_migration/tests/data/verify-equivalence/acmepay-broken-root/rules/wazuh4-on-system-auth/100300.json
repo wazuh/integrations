@@ -1,0 +1,54 @@
+{
+  "fidelity": "approximate",
+  "local_id": "a4419701-ace5-5f70-8e48-43092f3f65de",
+  "reasons": [
+    "RM-R-SHADOWING"
+  ],
+  "resource": {
+    "compliance": {
+      "pci_dss": [
+        "10.2.4"
+      ]
+    },
+    "detection": {
+      "condition": "selection and not filter",
+      "filter": {
+        "source.ip|cidr": "10.0.0.0/8"
+      },
+      "selection": {
+        "event.action": "authentication-failure",
+        "process.name": "sshd",
+        "source.ip|exists": true,
+        "wazuh.integration.name": "system-auth"
+      }
+    },
+    "enabled": true,
+    "level": "high",
+    "logsource": {
+      "product": "wazuh4-on-system-auth"
+    },
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x rule 100300 (etc/rules/local_rules.xml:58).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:a4419701-ace5-5f70-8e48-43092f3f65de",
+        "Migrated from Wazuh 4.x rule 100300 (etc/rules/local_rules.xml)"
+      ],
+      "title": "sshd: authentication failed from an address outside the corporate network ({{ source.ip }})."
+    },
+    "status": "experimental",
+    "tags": [
+      "wazuh4.rule.100300",
+      "wazuh4.group.local",
+      "wazuh4.group.sshd",
+      "wazuh4.group.authentication_failed"
+    ]
+  },
+  "source": {
+    "file": "etc/rules/local_rules.xml",
+    "id": "100300",
+    "kind": "rule",
+    "line": 58
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "category": "access-management",
+  "index": "wazuh-events-v5-access-management",
+  "integration": "wazuh4-on-system-auth",
+  "name": "wazuh4-on-system-auth-1",
+  "rules": [
+    "cf1d6a6f-d9f7-5fa5-94a9-64daa693ea4a"
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "fidelity": "exact",
+  "local_id": "e0709973-314c-511b-bd18-7ecf4c0d44f2",
+  "reasons": [
+    "RM-X-TRANSLATED"
+  ],
+  "resource": {
+    "check": "regex_match($message, '(?i:^auth )')",
+    "enabled": true,
+    "metadata": {
+      "author": "wazuh-ruleset-migration",
+      "description": "Migrated from Wazuh 4.x decoder myapp-auth (etc/decoders/myapp.xml:5).",
+      "documentation": "",
+      "references": [
+        "wazuh4-migration:e0709973-314c-511b-bd18-7ecf4c0d44f2",
+        "Migrated from Wazuh 4.x decoder myapp-auth (etc/decoders/myapp.xml)"
+      ],
+      "title": "wazuh4-myapp-auth"
+    },
+    "name": "decoder/wazuh4-myapp-auth/0",
+    "normalize": [
+      {
+        "map": [
+          {
+            "_c1": "regex_extract($message, '(?i:^auth )(?i:user=([^ ]+?) src=(?:[^ ]+?) action=(?:[-0-9@A-Z_a-z]+))')"
+          },
+          {
+            "_c2": "regex_extract($message, '(?i:^auth )(?i:user=(?:[^ ]+?) src=([^ ]+?) action=(?:[-0-9@A-Z_a-z]+))')"
+          },
+          {
+            "_c3": "regex_extract($message, '(?i:^auth )(?i:user=(?:[^ ]+?) src=(?:[^ ]+?) action=([-0-9@A-Z_a-z]+))')"
+          },
+          {
+            "user.name": "$_c1"
+          },
+          {
+            "source.ip": "parse_ip($_c2)"
+          },
+          {
+            "event.action": "$_c3"
+          }
+        ]
+      },
+      {
+        "check": "regex_match($message, '(?i)disk full')",
+        "map": [
+          {
+            "tags": "array_append_unique('wazuh4.rule.100500.c1')"
+          }
+        ]
+      },
+      {
+        "check": "regex_match($message, '(?i)quota [0-9]+?/[0-9]+')",
+        "map": [
+          {
+            "tags": "array_append_unique('wazuh4.rule.100501.c1')"
+          }
+        ]
+      }
+    ],
+    "parents": [
+      "decoder/wazuh4-myapp/0"
+    ]
+  },
+  "source": {
+    "file": "etc/decoders/myapp.xml",
+    "id": "myapp-auth",
+    "kind": "decoder",
+    "line": 5
+  }
+}

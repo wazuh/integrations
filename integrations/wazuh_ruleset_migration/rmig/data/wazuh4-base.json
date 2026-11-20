@@ -1,0 +1,1169 @@
+{
+  "decoders": [
+    {
+      "resource": {
+        "enabled": true,
+        "metadata": {
+          "author": "Wazuh, Inc.",
+          "description": "Base decoder to process Wazuh message format, parses location part and enriches the events that comes from a Wazuh agent with the host information.",
+          "documentation": "",
+          "references": [
+            "https://documentation.wazuh.com/"
+          ],
+          "supports": [],
+          "title": "wazuh4-core-wazuh-message"
+        },
+        "name": "decoder/wazuh4-core-wazuh-message/0",
+        "normalize": [
+          {
+            "map": [
+              {
+                "_tmp_json": "parse_json($event.original)"
+              }
+            ]
+          }
+        ]
+      },
+      "stock_name": "decoder/core-wazuh-message/0"
+    },
+    {
+      "resource": {
+        "enabled": true,
+        "metadata": {
+          "description": "Wazuh 4.x pre-decoding (OS_CleanMSG): syslog header, hostname and program name, as analysisd 4.14 splits them before decoding. Every migrated root decoder hangs from it.",
+          "documentation": "",
+          "references": [
+            "https://github.com/wazuh/wazuh/blob/v4.14.10/src/analysisd/cleanevent.c"
+          ],
+          "supports": [],
+          "title": "wazuh4-predecoder"
+        },
+        "name": "decoder/wazuh4-predecoder/0",
+        "normalize": [
+          {
+            "map": [
+              {
+                "_w4.ts.a": "regex_extract($event.original, '(?s)^.{3} .{2} .{2}:.{2}:.{2} (.+)$')"
+              },
+              {
+                "_w4.ts.b": "regex_extract($event.original, '(?s)^.{4}-.{2}-.{2} .{2}:.{2}:.{2},.{4}(.*)$')"
+              },
+              {
+                "_w4.ts.c1": "regex_extract($event.original, '(?s)^.{4}-.{2}-.{2}T.{2}:.{2}:.{5}:.{2} (.{7}.*)$')"
+              },
+              {
+                "_w4.ts.c2": "regex_extract($event.original, '(?s)^.{4}-.{2}-.{2}T.{2}:.{2}:.{2}\\\\..{6}:.{3}(.{3}.*)$')"
+              },
+              {
+                "_w4.ts.c3": "regex_extract($event.original, '(?s)^.{4}-.{2}-.{2}T.{2}:.{2}:.{2}\\\\..{6}.{3}:.{3}(.*)$')"
+              },
+              {
+                "_w4.ts.c4": "regex_extract($event.original, '(?s)^.{4}-.{2}-.{2}T.{2}:.{2}:.{2}\\\\..{12}(.+)$')"
+              },
+              {
+                "_w4.ts.d": "regex_extract($event.original, '(?s)^[0-9].{3} .{3} .{2} .{2}:.{2}:.{2} (.*)$')"
+              },
+              {
+                "_w4.ts.e": "regex_extract($event.original, '(?s)^[0-9].{3}-.{2}-.{2} .{2}:.{2}:.{2}\\\\..{6}[-+].{4} (.+)$')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.a": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.a"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.b": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.b"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.c1": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.c1"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.c2": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.c2"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.c3": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.c3"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.c4": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.c4"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.d": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.d"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.ts.e": "exists()"
+              },
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.rest": "$_w4.ts.e"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.rest": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.r": "regex_extract($_w4.rest, '(?s)^ ?(.*)$')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.r": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.solaris.prog": "regex_extract($_w4.r, '(?s)^([()\\\\-./0-9@A-Z_a-z]*): ')"
+              },
+              {
+                "_w4.solaris.log": "regex_extract($_w4.r, '(?s)^[()\\\\-./0-9@A-Z_a-z]*: (.*)$')"
+              },
+              {
+                "_w4.host": "regex_extract($_w4.r, '(?s)^([()\\\\-./0-9@A-Z_a-z]*) ')"
+              },
+              {
+                "_w4.after": "regex_extract($_w4.r, '(?s)^[()\\\\-./0-9@A-Z_a-z]* (.*)$')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.after": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.p1.prog": "regex_extract($_w4.after, '(?s)^([()\\\\-./0-9@A-Z_a-z]*):')"
+              },
+              {
+                "_w4.p1.log": "regex_extract($_w4.after, '(?s)^[()\\\\-./0-9@A-Z_a-z]*: ?(.*)$')"
+              },
+              {
+                "_w4.p2.prog": "regex_extract($_w4.after, '(?s)^([()\\\\-./0-9@A-Z_a-z]*)\\\\[[0-9]+\\\\](?:: ?| )')"
+              },
+              {
+                "_w4.p2.log": "regex_extract($_w4.after, '(?s)^[()\\\\-./0-9@A-Z_a-z]*\\\\[[0-9]+\\\\](?:: ?| )(.*)$')"
+              },
+              {
+                "_w4.p3.prog": "regex_extract($_w4.after, '(?s)^[()\\\\-./0-9@A-Z_a-z]*\\\\|[a-z][0-9A-Za-z]*:[0-9A-Za-z]* ([()\\\\-./0-9@A-Z_a-z]*)(?:: |\\\\[[0-9]+\\\\]: )')"
+              },
+              {
+                "_w4.p3.log": "regex_extract($_w4.after, '(?s)^[()\\\\-./0-9@A-Z_a-z]*\\\\|[a-z][0-9A-Za-z]*:[0-9A-Za-z]* [()\\\\-./0-9@A-Z_a-z]*(?:: |\\\\[[0-9]+\\\\]: )(.*)$')"
+              },
+              {
+                "_w4.p4.prog": "regex_extract($_w4.after, '(?s)^[()\\\\-./0-9@A-Z_a-z]*\\\\|[a-z][0-9A-Za-z]*:[0-9A-Za-z]* ([()\\\\-./0-9@A-Z_a-z]*)')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.solaris.log": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.prog": "$_w4.solaris.prog"
+              },
+              {
+                "_w4.log": "$_w4.solaris.log"
+              },
+              {
+                "_w4.pieces": "true"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.p1.log": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.prog": "$_w4.p1.prog"
+              },
+              {
+                "_w4.log": "$_w4.p1.log"
+              },
+              {
+                "_w4.pieces": "true"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.p2.log": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.prog": "$_w4.p2.prog"
+              },
+              {
+                "_w4.log": "$_w4.p2.log"
+              },
+              {
+                "_w4.pieces": "true"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.p3.log": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.prog": "$_w4.p3.prog"
+              },
+              {
+                "_w4.log": "$_w4.p3.log"
+              },
+              {
+                "_w4.pieces": "true"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.p4.prog": "exists()"
+              },
+              {
+                "_w4.prog": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.prog": "$_w4.p4.prog"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.after": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.after"
+              }
+            ]
+          },
+          {
+            "map": [
+              {
+                "_w4.local": "regex_extract($wazuh.agent.id, '(?s)^(000)$')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "wazuh.agent.id": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.local": "true"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.solaris.log": "not_exists()"
+              },
+              {
+                "_w4.after": "exists()"
+              },
+              {
+                "_w4.local": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "observer.hostname": "$_w4.host"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.r": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.r"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.pieces": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.id": "regex_extract($_w4.log, '(?s)^\\\\[ID [^\\\\]]*\\\\].(.*)$')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.id": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.id"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.rest": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.other.xferlog": "regex_extract($event.original, '(?s)^.{3} .{3} .{2} .{2}:.{2}:.{2} .{4} (. .+)$')"
+              },
+              {
+                "_w4.other.snort": "regex_extract($event.original, '(?s)^.{2}/.{2}-.{2}:.{2}:.{2}\\\\..{6} .(.+)$')"
+              },
+              {
+                "_w4.other.suricata": "regex_extract($event.original, '(?s)^.{2}/.{2}/.{4}-.{2}:.{2}:.{2}\\\\..{6} .(.*)$')"
+              },
+              {
+                "_w4.other.apache": "regex_extract($event.original, '(?s)^\\\\[.{3} .{3} .{2} .{2}:.{2}:.{2} .{4}\\\\].(.*)$')"
+              },
+              {
+                "_w4.asl_header": "regex_extract($event.original, '(?s)^(\\\\[T.{3} .{4}\\\\..{2}\\\\..{2} .{2}:.{7})')"
+              },
+              {
+                "_w4.squid": "regex_extract($event.original, '(?s)^(1)[0-9]{3}.{6}\\\\..{2}[0-9] (?:.{6} .{10}|.{7} .{9})')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.other.xferlog": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.other.xferlog"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.other.snort": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.other.snort"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.other.suricata": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.other.suricata"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.other.apache": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.other.apache"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.asl_header": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "regex_extract($event.original, '(?s)^.{25}(.*)$')"
+              },
+              {
+                "_w4.asl.msg": "regex_extract($event.original, '(?s)\\\\[Message ([^\\\\]]*)')"
+              },
+              {
+                "_w4.prog": "regex_extract($event.original, '(?s)\\\\[Sender ([^\\\\]]*)\\\\]')"
+              },
+              {
+                "_w4.asl.host": "regex_extract($event.original, '(?s)\\\\[Host ([^\\\\]]*)\\\\]')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.asl.msg": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "$_w4.asl.msg"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.asl.host": "exists()"
+              },
+              {
+                "_w4.local": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "observer.hostname": "$_w4.asl.host"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.squid": "exists()"
+              },
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "_w4.log": "regex_extract($event.original, '(?s)^.{14} *(.*)$')"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.log": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "message": "$_w4.log"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.log": "not_exists()"
+              }
+            ],
+            "map": [
+              {
+                "message": "$event.original"
+              }
+            ]
+          },
+          {
+            "check": [
+              {
+                "_w4.prog": "exists()"
+              }
+            ],
+            "map": [
+              {
+                "process.name": "$_w4.prog"
+              }
+            ]
+          }
+        ],
+        "parents": [
+          "decoder/wazuh4-core-wazuh-message/0"
+        ]
+      },
+      "stock_name": "4.x pre-decoding"
+    }
+  ],
+  "engine_helpers": "5.0",
+  "generated_by": "scripts/build_base.py",
+  "integration": {
+    "category": "unclassified",
+    "stock_integration": "wazuh-core",
+    "title": "wazuh4-base"
+  },
+  "kvdbs": [],
+  "predecoder": "decoder/wazuh4-predecoder/0",
+  "root": "decoder/wazuh4-core-wazuh-message/0",
+  "snapshot": {
+    "context": "rc3-t1-ruleset-5",
+    "ndjson_sha256": "96682727db751d9edd79343ca4d8ebca212cbe4b7c615b554bfc0c5fc5b53ec9",
+    "offset": 1062,
+    "snapshot_at": "2026-11-04T18:16:28.582084Z"
+  },
+  "source": "Wazuh 5.0 catalog (public-ruleset-5, context rc3-t1-ruleset-5, offset 1062)",
+  "standard_integrations": {
+    "anthropic": {
+      "category": "access-management",
+      "enabled": false
+    },
+    "apache-http": {
+      "category": "applications",
+      "enabled": true
+    },
+    "apache-tomcat": {
+      "category": "applications",
+      "enabled": false
+    },
+    "auditd": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "aws": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "aws-amazon-security-lake": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "aws-bedrock": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "aws-fargate": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "aws-firehose": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "azure": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "azure-app-service": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "azure-blob-storage": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "azure-frontdoor": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "azure-functions": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "azure-metrics": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "azure-network-watcher-nsg": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "azure-network-watcher-vnet": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "azure-openai": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "barracuda": {
+      "category": "security",
+      "enabled": false
+    },
+    "bitwarden": {
+      "category": "access-management",
+      "enabled": false
+    },
+    "box-events": {
+      "category": "applications",
+      "enabled": false
+    },
+    "carbon-black-cloud": {
+      "category": "security",
+      "enabled": false
+    },
+    "carbonblack-edr": {
+      "category": "security",
+      "enabled": false
+    },
+    "checkpoint": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-aironet": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-asa": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-ftd": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-ios": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-ise": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-meraki": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-nexus": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "cisco-secure-email-gateway": {
+      "category": "security",
+      "enabled": false
+    },
+    "cisco-umbrella": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "citrix": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "clamav": {
+      "category": "security",
+      "enabled": false
+    },
+    "cloud-detection": {
+      "category": "cloud-services",
+      "enabled": true
+    },
+    "cloudflare": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "containerd": {
+      "category": "system-activity",
+      "enabled": false
+    },
+    "coredns": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "crowdstrike": {
+      "category": "security",
+      "enabled": false
+    },
+    "cursor": {
+      "category": "applications",
+      "enabled": false
+    },
+    "cybereason": {
+      "category": "security",
+      "enabled": false
+    },
+    "docker": {
+      "category": "system-activity",
+      "enabled": false
+    },
+    "eset-protect": {
+      "category": "security",
+      "enabled": false
+    },
+    "f5-bigip": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "fireeye": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "fortinet": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "gcp": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "github": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "gitlab": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "google-scc": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "google-workspace": {
+      "category": "applications",
+      "enabled": false
+    },
+    "haproxy": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "iis": {
+      "category": "applications",
+      "enabled": false
+    },
+    "infoblox-bloxone-ddi": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "iptables": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "jamf-protect": {
+      "category": "security",
+      "enabled": false
+    },
+    "jumpcloud": {
+      "category": "access-management",
+      "enabled": false
+    },
+    "juniper-junos": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "juniper-srx": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "kafka": {
+      "category": "applications",
+      "enabled": false
+    },
+    "keycloak": {
+      "category": "access-management",
+      "enabled": false
+    },
+    "kubernetes": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "lastpass": {
+      "category": "access-management",
+      "enabled": false
+    },
+    "linux": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "m365-defender": {
+      "category": "security",
+      "enabled": false
+    },
+    "macos": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "menlo": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "microsoft-defender-cloud": {
+      "category": "security",
+      "enabled": false
+    },
+    "microsoft-defender-endpoint": {
+      "category": "security",
+      "enabled": false
+    },
+    "microsoft-dhcp": {
+      "category": "system-activity",
+      "enabled": false
+    },
+    "microsoft-dnsserver": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "microsoft-exchange-online-message-trace": {
+      "category": "applications",
+      "enabled": false
+    },
+    "microsoft-exchange-server": {
+      "category": "system-activity",
+      "enabled": false
+    },
+    "microsoft-sqlserver": {
+      "category": "other",
+      "enabled": false
+    },
+    "mimecast": {
+      "category": "security",
+      "enabled": false
+    },
+    "modsecurity": {
+      "category": "security",
+      "enabled": false
+    },
+    "mongodb": {
+      "category": "other",
+      "enabled": false
+    },
+    "mysql": {
+      "category": "other",
+      "enabled": false
+    },
+    "netflow": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "netscout": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "nginx": {
+      "category": "applications",
+      "enabled": false
+    },
+    "nginx-ingress-controller": {
+      "category": "applications",
+      "enabled": false
+    },
+    "o365": {
+      "category": "cloud-services",
+      "enabled": false
+    },
+    "okta": {
+      "category": "access-management",
+      "enabled": false
+    },
+    "opencanary": {
+      "category": "security",
+      "enabled": false
+    },
+    "oracle": {
+      "category": "applications",
+      "enabled": false
+    },
+    "oracle-weblogic": {
+      "category": "applications",
+      "enabled": false
+    },
+    "osquery": {
+      "category": "security",
+      "enabled": false
+    },
+    "panw-cortex-xdr": {
+      "category": "security",
+      "enabled": false
+    },
+    "pfsense": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "ping-one": {
+      "category": "access-management",
+      "enabled": false
+    },
+    "postgresql": {
+      "category": "other",
+      "enabled": false
+    },
+    "prisma-cloud": {
+      "category": "security",
+      "enabled": false
+    },
+    "proofpoint-tap": {
+      "category": "security",
+      "enabled": false
+    },
+    "rapid7-insightvm": {
+      "category": "security",
+      "enabled": false
+    },
+    "redis": {
+      "category": "other",
+      "enabled": false
+    },
+    "salesforce": {
+      "category": "applications",
+      "enabled": false
+    },
+    "sentinel-one": {
+      "category": "security",
+      "enabled": false
+    },
+    "slack": {
+      "category": "applications",
+      "enabled": false
+    },
+    "snort": {
+      "category": "security",
+      "enabled": false
+    },
+    "sonicwall-firewall": {
+      "category": "network-activity",
+      "enabled": false
+    },
+    "sophos": {
+      "category": "security",
+      "enabled": false
+    },
+    "springboot": {
+      "category": "applications",
+      "enabled": false
+    },
+    "squid": {
+      "category": "applications",
+      "enabled": false
+    },
+    "suricata": {
+      "category": "security",
+      "enabled": false
+    },
+    "system-auth": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "tenable-io": {
+      "category": "security",
+      "enabled": false
+    },
+    "tenable-sc": {
+      "category": "security",
+      "enabled": false
+    },
+    "wazuh-core": {
+      "category": "unclassified",
+      "enabled": true
+    },
+    "wazuh-dashboard": {
+      "category": "applications",
+      "enabled": true
+    },
+    "wazuh-fim": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "wazuh-generic-1": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "wazuh-generic-2": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "wazuh-ioc": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "wazuh-it-hygiene": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "wazuh-manager": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "wazuh-rootcheck": {
+      "category": "security",
+      "enabled": true
+    },
+    "wazuh-sca": {
+      "category": "security",
+      "enabled": true
+    },
+    "wazuh-vd": {
+      "category": "security",
+      "enabled": true
+    },
+    "wazuh-wodle": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "websphere": {
+      "category": "applications",
+      "enabled": false
+    },
+    "windows": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "windows-rules": {
+      "category": "system-activity",
+      "enabled": true
+    },
+    "wiz": {
+      "category": "security",
+      "enabled": false
+    },
+    "zeek": {
+      "category": "security",
+      "enabled": false
+    },
+    "zoom": {
+      "category": "applications",
+      "enabled": false
+    }
+  },
+  "version": 2
+}

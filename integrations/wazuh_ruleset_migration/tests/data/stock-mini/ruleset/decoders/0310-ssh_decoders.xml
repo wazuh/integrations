@@ -1,0 +1,25 @@
+<!-- Synthetic test decoders for an SSH daemon. -->
+<decoder name="sshd">
+  <program_name>^sshd</program_name>
+</decoder>
+
+<decoder name="sshd-success">
+  <parent>sshd</parent>
+  <prematch>^Login accepted </prematch>
+  <regex offset="after_prematch">^user=(\S+) addr=(\S+)</regex>
+  <order>dstuser, srcip</order>
+</decoder>
+
+<decoder name="sshd-failed">
+  <parent>sshd</parent>
+  <prematch>^Failed login </prematch>
+  <regex offset="after_prematch">^user=(\S+) addr=(\S+) port=(\d+)</regex>
+  <order>srcuser, srcip, srcport</order>
+</decoder>
+
+<decoder name="sshd-invalid">
+  <parent>sshd</parent>
+  <prematch>^No such user </prematch>
+  <regex offset="after_prematch">^user=(\S+) addr=(\S+)</regex>
+  <order>srcuser, srcip</order>
+</decoder>

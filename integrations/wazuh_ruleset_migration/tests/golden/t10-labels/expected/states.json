@@ -1,0 +1,6 @@
+{
+  "decoder:myapp-auth@5": "AUTO",
+  "decoder:myapp@1": "AUTO",
+  "rule:100500@2": "AUTO",
+  "rule:100501@7": "AUTO"
+}

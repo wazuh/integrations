@@ -1,0 +1,9 @@
+{
+  "category": "system-activity",
+  "index": "wazuh-events-v5-system-activity",
+  "integration": "wazuh4-on-system-auth",
+  "name": "wazuh4-on-system-auth-1",
+  "rules": [
+    "f21b17c2-db26-5cab-9b0c-ab3ee6bfd0fe"
+  ]
+}

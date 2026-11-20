@@ -1,0 +1,11 @@
+<!-- Synthetic test decoder: firewall key=value records. -->
+<decoder name="fortigate-firewall-v5">
+  <type>syslog</type>
+  <prematch>date=\S+\s+time=\S+\s+devname=\S+\s+devid=\S+</prematch>
+</decoder>
+
+<decoder name="fortigate-firewall-v5">
+  <parent>fortigate-firewall-v5</parent>
+  <regex>action=(\S+)</regex>
+  <order>action</order>
+</decoder>

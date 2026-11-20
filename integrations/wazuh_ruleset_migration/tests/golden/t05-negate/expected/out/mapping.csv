@@ -1,0 +1,2 @@
+rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
+100100,AUTO,RM-X-TRANSLATED,wazuh4-myapp,myapp: unexpected login of {{ user.name }} from {{ source.ip }}.,50375208-0b6d-58ed-865c-e8c3a2c4cba9,

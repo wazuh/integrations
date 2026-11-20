@@ -1,0 +1,18 @@
+{
+ "engine": {
+  "version": "5.0.0",
+  "stage": "rc3",
+  "commit": "49f301e"
+ },
+ "request": {
+  "method": "POST",
+  "path": "/content/validate/policy",
+  "payload": {
+   "space": "rmig_contract",
+   "load_in_tester": true,
+   "full_policy": "<slice wazuh-core + auditd, unmigrated>"
+  }
+ },
+ "http": 400,
+ "raw": "{\"status\":\"ERROR\",\"error\":\"Failed to create the testing environment: Error building decoder decoder/syslog/0 from integration 'wazuh-core': In stage 'normalize' builder for block 'map' failed with error: Operation builder 'kvdb_get' not found\"}"
+}
