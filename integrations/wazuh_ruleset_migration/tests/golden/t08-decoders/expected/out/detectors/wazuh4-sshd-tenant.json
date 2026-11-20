@@ -1,9 +1,0 @@
-{
-  "category": "other",
-  "index": "wazuh-events-v5-other",
-  "integration": "wazuh4-sshd-tenant",
-  "name": "wazuh4-sshd-tenant-1",
-  "rules": [
-    "50375208-0b6d-58ed-865c-e8c3a2c4cba9"
-  ]
-}

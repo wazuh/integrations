@@ -25,12 +25,10 @@ Rules:
 ## Changing the code
 
 - Python 3.9, standard library only. No new dependency.
-- Tests, from `tests/`: `python3 -m unittest discover -s . -q`. They are offline and must stay offline.
-- No 4.x ruleset data in the tree: the stock index is built at run time from `--stock-dir`. Tests write synthetic
-  stock files (`tests/data/stock-mini/`).
-- Test fakes replay the recorded answers in `tests/data/api/recorded/` and `tests/data/engine/`. Do not invent a
-  request or response shape.
-- `tests/golden/` changes only on purpose (`RMIG_UPDATE_GOLDEN=1`); the diff is part of the review.
+- Check a change offline with steps 1 and 2 of the README example on `examples/acmepay/`: the counts must not change
+  unless the change means them to.
+- No 4.x ruleset data in the tree: the stock index is built at run time from `--stock-dir`.
+- Do not invent an indexer or engine request or response shape: follow what a real 5.x indexer and engine answer.
 - After a change to a reason code: `python3 scripts/gen_reason_codes_doc.py`, then `--check` must pass.
 - A value read from the input never becomes a path, a URL part or report text without `translate/meta.slug`,
   `textsafe.md` or `textsafe.plain`. A value of `ossec.conf` goes through `parse/ossec_conf.mask_value`.

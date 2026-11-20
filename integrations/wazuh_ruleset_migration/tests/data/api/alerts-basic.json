@@ -1,7 +1,0 @@
-{"data": {"srcuser": "root"}, "full_log": "event.action=login user.name=root", "id": "1761991202.2", "location": "/var/log/myapp.log", "rule": {"description": "myapp: root login", "id": "100001", "level": 10}, "timestamp": "2026-11-01T10:00:02.000+0000"}
-{"data": {"srcuser": "root"}, "full_log": "event.action=login user.name=root", "id": "1761991201.1", "location": "/var/log/myapp.log", "rule": {"description": "myapp: root login", "id": "100001", "level": 10}, "timestamp": "2026-11-01T10:00:01.000+0000"}
-{"data": {"srcuser": "root"}, "id": "1761991203.3", "location": "/var/log/myapp.log", "rule": {"description": "myapp: root login", "id": "100001", "level": 10}, "timestamp": "2026-11-01T10:00:03.000+0000"}
-{"data": {"srcuser": "bob"}, "full_log": "event.action=logout user.name=bob", "id": "1761991260.4", "location": "/var/log/myapp.log", "rule": {"description": "myapp: logout", "id": "100002", "level": 3}, "timestamp": "2026-11-01T10:01:00.000+0000"}
-{"data": {"dstport": "2222"}, "full_log": "event.action=ssh-fail destination.port=2222", "id": "1761991320.5", "location": "journald", "rule": {"description": "sshd: failure on a custom port", "id": "100010", "level": 5}, "timestamp": "2026-11-01T10:02:00.000+0000"}
-{"full_log": "whatever", "id": "1761991380.6", "location": "journald", "rule": {"description": "stock", "id": "5715", "level": 3}, "timestamp": "2026-11-01T10:03:00.000+0000"}
-this line is not JSON

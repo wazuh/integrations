@@ -3,8 +3,8 @@
 For every log source of the custom rules (a custom root decoder, a feed, or a
 family of stock 4.x content the rules hang from) this module finds the 5.x
 stock integration that decodes it, from the bundled stock 5.x index
-(``rmig/data/stock5-index.json``, built by ``scripts/build_stock5_index.py``
-from a catalog snapshot), and estimates whether a stock 5.x rule already
+(``rmig/data/stock5-index.json``, built by the maintainers from a snapshot of
+the public 5.x CTI catalog), and estimates whether a stock 5.x rule already
 detects what each custom rule detects.
 
 Everything here is an offline estimate: no event is decoded and no rule is

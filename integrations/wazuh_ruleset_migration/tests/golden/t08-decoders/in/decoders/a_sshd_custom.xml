@@ -1,6 +1,0 @@
-<decoder name="sshd-tenant">
-  <parent>sshd</parent>
-  <prematch>^Accepted </prematch>
-  <regex offset="after_prematch">^(\S+) for (\S+) from (\S+) tenant=(\w+)</regex>
-  <order>action, user, srcip, sshd.tenant</order>
-</decoder>

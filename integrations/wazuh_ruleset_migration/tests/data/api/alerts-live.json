@@ -1,1 +1,0 @@
-{"full_log": "Nov 17 10:02:00 gw01 sshd[4410]: Failed password for root from 198.51.100.23 port 52144 ssh2", "id": "1763373720.1", "location": "/var/log/auth.log", "rule": {"id": "100900", "level": 5}, "timestamp": "2026-11-17T10:02:00.000+0000"}

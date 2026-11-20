@@ -540,7 +540,7 @@ condition with no 5.x field) and `RM-S-WIN-DISCARDED` (the 5.x base decoder disc
 
 `report.md` has a section "5.x stock for your sources" (`stock5` in `report.json`). It answers, offline: which 5.x
 stock integration decodes each source of your rules, and which custom rules a stock 5.x rule may already detect. It
-reads `rmig/data/stock5-index.json`, built by `scripts/build_stock5_index.py` from a catalog snapshot; the section
+reads `rmig/data/stock5-index.json`, built by the maintainers from a snapshot of the public 5.x CTI catalog; the section
 prints the catalog offset. Nothing is decoded and no rule runs: every result is an estimate for the live `coverage`
 command (planned). The tool recommends; it never drops a rule.
 

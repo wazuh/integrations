@@ -1,7 +1,7 @@
 """Client of the Wazuh 5.x engine API on its unix socket (``verify --engine-socket``).
 
-Contract (the engine's public API, as recorded on 5.0.0 rc2 and a 5.0.0 nightly, 2026-11-16; records in
-``tests/data/engine/``): HTTP over a unix socket, one request per connection.
+Contract (the engine's public API, as recorded on 5.0.0 rc2 and a 5.0.0 nightly, 2026-11-16): HTTP over a unix
+socket, one request per connection.
 
 * ``GET /status``: ``{"status": "OK", "spaces": {...}, "ioc": {<type>: {"available": bool, ...}}, ...}``;
 * ``POST /content/validate/policy`` ``{"space", "load_in_tester", "full_policy"}``: ``{"status": "OK"}`` or HTTP 400

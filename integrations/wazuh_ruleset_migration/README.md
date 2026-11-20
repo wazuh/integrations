@@ -130,9 +130,8 @@ The tool needs no change to either manager. The source is a Wazuh 4.14 manager (
 | `rmig/` | The tool (Python package, run with `python3 -m rmig`) |
 | `rmig/data/` | 5.x side data: stock 5.x index, Windows field map, WCS fields, helper names, the `wazuh4-base` package, MITRE ATT&CK names |
 | `examples/acmepay/` | A small 4.14 ruleset used in the example below |
-| `scripts/` | Maintainer scripts: rebuild the 5.x index, inspect a stock index, regenerate the reason codes below |
+| `scripts/` | Helper scripts: inspect a stock index, regenerate the reason codes below |
 | `docs/reference.md` | Every command in detail, the translation rules and the report sections |
-| `tests/` | Offline test suite |
 | `AGENTS.md` | Short guide for automated agents that run or change the tool |
 | `NOTICE` | Third-party notices (MITRE ATT&CK, Elastic Common Schema) |
 
@@ -415,7 +414,7 @@ the report sections are in [docs/reference.md](docs/reference.md).
 - `verify` before `activate` relies on logtest, which differs from the live detector in regular expressions and
   letter case. The emitted rules avoid the forms that differ; `--via-detector` after `activate` checks the rest.
 - `verify --engine-socket` checks the rules with the tool's own Sigma reader, not with Security Analytics. Its
-  verdicts match the indexer's on the recorded verification runs (`tests/data/verify-equivalence/`); what it does not cover is
+  verdicts match the indexer's on the recorded verification runs of the maintainers; what it does not cover is
   `NOT_CHECKED`. Frequency and correlation rules (Alerting monitors) are not checked in either mode. The policy
   document the tool sends for `out/` has the fields of the indexer's own; the indexer may add others.
 - `activate` promotes only the tool's content. When the test space has changes someone else made that are not in
@@ -438,22 +437,13 @@ On your data: `verify` replays your 4.x alerts against the migrated content in t
 against a 5.x engine (see [verify without an indexer](docs/reference.md#verify-without-an-indexer)). The example
 `examples/acmepay/` walks through every step with its expected output.
 
-The tool's own tests run offline. From the `tests/` folder:
+To check your install, run steps 1 and 2 of the [example](#example-end-to-end) on `examples/acmepay/`. They need no
+indexer and no network. The printed counts must match the ones shown there.
 
-```bash
-python3 -m unittest discover -s . -q                       # no network; a fake indexer fails forbidden calls
-RMIG_STOCK_DIR=<checkout of wazuh 4.14.x> RMIG_CORPUS_DIR=<rules tree> python3 -m unittest discover -s . -q
-RMIG_UPDATE_GOLDEN=1 python3 -m unittest discover -s . -q   # rewrite tests/golden after an intended change
-```
-
-The suite uses a small synthetic stock ruleset (`tests/data/stock-mini/`). Tests that need the real 4.14 ruleset
-run only with `RMIG_STOCK_DIR`.
-
-Maintainer scripts, from this folder:
+Helper scripts, from this folder:
 
 ```bash
 python3 scripts/build_stock_index.py --stock-dir <4.x ruleset/> --out <file>   # inspect the stock index migrate builds
-python3 scripts/build_stock5_index.py <5.x catalog snapshot>             # rmig/data/stock5-index.json
 python3 scripts/gen_reason_codes_doc.py [--check]               # regenerate the reason codes section below
 ```
 

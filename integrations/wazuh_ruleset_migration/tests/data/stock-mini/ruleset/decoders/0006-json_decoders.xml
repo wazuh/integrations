@@ -1,5 +1,0 @@
-<!-- Synthetic test decoder: JSON events. -->
-<decoder name="json">
-  <prematch>^{"</prematch>
-  <plugin_decoder>JSON_Decoder</plugin_decoder>
-</decoder>

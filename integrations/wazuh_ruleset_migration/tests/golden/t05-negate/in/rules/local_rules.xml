@@ -1,8 +1,0 @@
-<group name="myapp,">
-  <rule id="100100" level="9">
-    <decoded_as>myapp</decoded_as>
-    <user negate="yes">^root$|^admin$</user>
-    <srcip negate="yes">192.168.0.0/16</srcip>
-    <description>myapp: unexpected login of $(user) from $(srcip).</description>
-  </rule>
-</group>

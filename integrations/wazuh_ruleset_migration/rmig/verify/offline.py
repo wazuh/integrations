@@ -12,8 +12,8 @@ Two tester sessions, as the indexer's two logtest paths:
 Document shapes. Catalog documents are sent as the snapshot holds them (``payload.document``). ``out/`` resources
 get the keys the indexer adds when it stores them, and nothing else: ``id`` (the tool's local id), and on an
 integration ``decoders``, ``kvdbs``, ``rules`` (empty: rules are not engine content) and ``mode: user-managed``
-(the indexer's integration documents, ``tests/data/api/recorded/05-apply-after-external-reset.json``). The tool's
-policy document has the fields of the indexer's own policy document (``02-apply.json``, draft policy).
+(as in the integration documents the indexer returns). The tool's policy document has the fields of the indexer's
+own draft policy document.
 """
 
 import os
@@ -71,7 +71,7 @@ def _document(env):
 
 class Catalog:
     """A 5.x catalog snapshot directory: ``policies/``, ``integrations/``, ``decoders/``, ``kvdbs/``, one JSON per
-    asset (``payload.document``), ``manifest.json`` (the layout ``scripts/build_stock5_index.py`` reads)."""
+    asset (``payload.document``), ``manifest.json`` (the layout of a CTI catalog snapshot)."""
 
     def __init__(self, path):
         self.path = path

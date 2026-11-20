@@ -294,9 +294,9 @@ def to_dialect(res, dialect):
 
 
 def to_current(res):
-    """A decoder resource in rc1 names rewritten to the current ones (for
-    ``scripts/build_base.py``). Raises HelperError on an old name with no
-    plain rewrite."""
+    """A decoder resource in rc1 names rewritten to the current ones (used
+    when the bundled base package is rebuilt). Raises HelperError on an old
+    name with no plain rewrite."""
     names = {o: n for o, n in renames().items() if o != CIDR_OLD}
     out = _walk(res, lambda t, expr: _rewrite_text(t, names, (CIDR_OLD, _cidr_to_new), expr))
     left = sorted(n for n in names_in(out) if n in _load(RENAMES_PATH)["renames"] and n not in known(CURRENT))

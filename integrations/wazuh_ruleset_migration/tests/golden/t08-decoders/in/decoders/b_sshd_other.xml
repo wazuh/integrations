@@ -1,6 +1,0 @@
-<decoder name="sshd-banner">
-  <parent>sshd</parent>
-  <prematch>^Banner </prematch>
-  <regex offset="after_prematch">^sent to (\S+)</regex>
-  <order>srcip</order>
-</decoder>

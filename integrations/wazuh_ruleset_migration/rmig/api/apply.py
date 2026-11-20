@@ -37,7 +37,7 @@ DELETE_ORDER = ("rule", "decoder", "kvdb", "integration")
 CONTENT_TYPES = ("rule", "decoder", "kvdb")
 # Security Analytics keeps the integration's log type while a copy of one of its
 # rules is in another space: the DELETE answers 500 with this text (seen against a live
-# indexer, tests/data/api/recorded/07-rollback.json). The integration is deleted after the next promotion.
+# indexer). The integration is deleted after the next promotion.
 LOGTYPE_BUSY = "cannot be deleted because active rules exist"
 PARKED_WAITS = (2, 5, 10)  # seconds rollback waits before trying a parked integration again
 

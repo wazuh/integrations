@@ -1,9 +1,0 @@
-{
-  "category": "access-management",
-  "index": "wazuh-events-v5-access-management",
-  "integration": "wazuh4-on-rmig-live",
-  "name": "wazuh4-on-rmig-live-1",
-  "rules": [
-    "942e15cc-743e-54b7-9c66-117d12c6645a"
-  ]
-}

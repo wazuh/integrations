@@ -1,6 +1,0 @@
-rule_id_4x,state,reasons,integration,resource_title,local_id,server_id
-100100,AUTO,RM-X-TRANSLATED,wazuh4-myapp,myapp: failure,50375208-0b6d-58ed-865c-e8c3a2c4cba9,
-100200,RECIPE,RM-R-FREQUENCY;RM-R-SHADOWING,wazuh4-myapp,,,
-100201,RECIPE,RM-R-FREQUENCY;RM-R-PARENT-RECIPE;RM-R-SHADOWING,wazuh4-myapp,,,
-100300,NOT_APPLICABLE,RM-R-GROUPING-ONLY,,,,
-100301,AUTO,RM-X-TRANSLATED,wazuh4-myapp,myapp: shutdown,4f4a1769-178a-5605-90dc-9aa819acaadd,

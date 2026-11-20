@@ -1,7 +1,0 @@
-<group name="sshd,">
-  <rule id="100400" level="3">
-    <decoded_as>sshd-tenant</decoded_as>
-    <field name="sshd.tenant">^acme$</field>
-    <description>sshd: login of tenant acme from $(srcip)</description>
-  </rule>
-</group>

@@ -1,4 +1,0 @@
-<!-- Synthetic test decoder: Linux audit records. -->
-<decoder name="auditd">
-  <prematch>^type=</prematch>
-</decoder>

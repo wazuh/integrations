@@ -1,3 +1,0 @@
-# The repository root ignores test* and test_*: keep the test suite of this tool.
-!tests/
-!test_*.py
