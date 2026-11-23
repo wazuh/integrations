@@ -19,8 +19,9 @@ unchanged.
 
 The current Windows identity and counting rules were not tested on 5.0.0-rc1. No run executed the
 publication commit itself. That commit's own checks are offline: unit tests, harness self-tests and
-the clean-checkout check. Its record is added by the commit that follows the snapshot, under
-`2026-11-23-publication/`. The check covers 68 unit tests and 48 harness self-tests, and checks
+the clean-checkout check. Its record is
+[2026-11-23-publication/clean-checkout-f0edcc5/clean_checkout.json](2026-11-23-publication/clean-checkout-f0edcc5/clean_checkout.json)
+(PASS 18/18 on the snapshot commit f0edcc5). The check covers 68 unit tests and 48 harness self-tests, and checks
 that rendered monitors equal `expected/` and that documentation references resolve.
 
 ## Provenance of the contributed files
