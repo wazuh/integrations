@@ -1,0 +1,64 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.235: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.235: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "5 distinct users over 660 s (every 10-minute window holds at most 4)",
+  "expected": {
+    "wcp_ssh_password_spray": {
+      "001|203.0.113.235": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.484Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:55:01 wcp-ep1 sshd[40509]: Failed password for invalid user wcpt-u01 from 203.0.113.235 port 50338 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:57:46 wcp-ep1 sshd[4897]: Failed password for invalid user wcpt-u02 from 203.0.113.235 port 43906 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:00:31 wcp-ep1 sshd[28751]: Failed password for invalid user wcpt-u03 from 203.0.113.235 port 43010 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:03:16 wcp-ep1 sshd[52220]: Failed password for invalid user wcpt-u04 from 203.0.113.235 port 56787 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:06:01 wcp-ep1 sshd[58737]: Failed password for invalid user wcpt-u05 from 203.0.113.235 port 45373 ssh2"
+    }
+  ],
+  "inputs_total_lines": 5,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.235": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.235": 5
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__spray_beyond_window",
+  "started": "2026-11-21T09:06:03.527Z",
+  "timings_s": {
+    "searchable_after_replay": {
+      "001|203.0.113.235": 28.2
+    }
+  },
+  "verdict": "PASS"
+}

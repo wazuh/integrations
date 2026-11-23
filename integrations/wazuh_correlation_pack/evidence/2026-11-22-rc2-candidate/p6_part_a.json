@@ -1,0 +1,307 @@
+{
+  "checks": [
+    {
+      "check": "monitor disabled",
+      "detail": false,
+      "pass": true
+    },
+    {
+      "check": "monitor re-enabled with a new enabled_time",
+      "detail": "2026-11-22T23:12:02.908Z",
+      "pass": true
+    },
+    {
+      "check": "no alert created while the monitor was disabled",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "no catch-up run at re-enable: first run after it ~E+60 (kept alerted at E+60 +- 5s)",
+      "detail": 60.02,
+      "pass": true
+    },
+    {
+      "check": "second run after re-enable ~E+120 (grid anchored to the new enabled_time)",
+      "detail": 120.01,
+      "pass": true
+    },
+    {
+      "check": "gap: never counted (detection gap caused by the disable)",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "kept: counted by the first run after re-enable",
+      "detail": "2026-11-22T23:13:02.924Z",
+      "pass": true
+    },
+    {
+      "check": "cleanup: temporary monitor and index deleted",
+      "detail": {
+        "index": "deleted",
+        "monitor": "deleted"
+      },
+      "pass": true
+    }
+  ],
+  "cleanup": {
+    "index": "deleted",
+    "monitor": "deleted"
+  },
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 0,
+      "machines": []
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {},
+  "finished": "2026-11-22T23:15:23.355Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "d090875ac4b109112ccb2486794472f9c0d78d01",
+    "head": "484e099e2b3d18143db7d6c52159ed0941764bf8",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [
+    {
+      "case": "probe",
+      "first_event": "2026-11-22T23:06:43.096Z",
+      "last_event": "2026-11-22T23:06:50.096Z",
+      "visible": "2026-11-22T23:06:51.997Z"
+    },
+    {
+      "case": "continuing",
+      "first_event": "2026-11-22T23:07:54.236Z",
+      "last_event": "2026-11-22T23:08:01.236Z",
+      "visible": "2026-11-22T23:08:03.046Z"
+    },
+    {
+      "case": "gap",
+      "first_event": "2026-11-22T23:07:25.355Z",
+      "last_event": "2026-11-22T23:07:32.355Z",
+      "visible": "2026-11-22T23:09:13.159Z"
+    },
+    {
+      "case": "kept",
+      "first_event": "2026-11-22T23:10:54.370Z",
+      "last_event": "2026-11-22T23:11:01.370Z",
+      "visible": "2026-11-22T23:11:03.324Z"
+    },
+    {
+      "case": "after",
+      "first_event": "2026-11-22T23:13:00.640Z",
+      "last_event": "2026-11-22T23:13:07.640Z",
+      "visible": "2026-11-22T23:13:09.529Z"
+    }
+  ],
+  "observations": [
+    {
+      "observation": "continuing group: alert states before the disable",
+      "value": {
+        "iBmEBaIB8xfpA6fn_Vew": "ACTIVE"
+      }
+    },
+    {
+      "observation": "continuing group: alerts (id, start, states) across disable/enable",
+      "value": [
+        [
+          "iBmEBaIB8xfpA6fn_Vew",
+          "2026-11-22T23:08:51.488Z",
+          [
+            [
+              "2026-11-22T23:08:51.231Z",
+              "ACTIVE"
+            ]
+          ]
+        ],
+        [
+          "EBmIBaIB8xfpA6fn01nN",
+          "2026-11-22T23:13:02.924Z",
+          [
+            [
+              "2026-11-22T23:13:03.533Z",
+              "ACTIVE"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "observation": "continuing group: NEW alert(s) created after the re-enable (duplicates of an episode)",
+      "value": 1
+    }
+  ],
+  "observed": {
+    "continuing_alerts": [
+      {
+        "first": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "009",
+            "192.0.2.121"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "iBmEBaIB8xfpA6fn_Vew",
+          "last_notification_time": "2026-11-22T23:08:51.488Z",
+          "score": 14,
+          "start_time": "2026-11-22T23:08:51.488Z",
+          "state": "ACTIVE"
+        },
+        "first_seen": "2026-11-22T23:08:51.231Z",
+        "id": "iBmEBaIB8xfpA6fn_Vew",
+        "keys": [
+          "009",
+          "192.0.2.121"
+        ],
+        "last": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "009",
+            "192.0.2.121"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "iBmEBaIB8xfpA6fn_Vew",
+          "last_notification_time": "2026-11-22T23:08:51.488Z",
+          "score": 14,
+          "start_time": "2026-11-22T23:08:51.488Z",
+          "state": "ACTIVE"
+        },
+        "last_seen": "2026-11-22T23:15:22.052Z",
+        "start_ms": 1795388931488,
+        "start_time": "2026-11-22T23:08:51.488Z",
+        "states": [
+          [
+            "2026-11-22T23:08:51.231Z",
+            "ACTIVE"
+          ]
+        ]
+      },
+      {
+        "first": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "009",
+            "192.0.2.121"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "EBmIBaIB8xfpA6fn01nN",
+          "last_notification_time": "2026-11-22T23:13:02.924Z",
+          "score": 12,
+          "start_time": "2026-11-22T23:13:02.924Z",
+          "state": "ACTIVE"
+        },
+        "first_seen": "2026-11-22T23:13:03.533Z",
+        "id": "EBmIBaIB8xfpA6fn01nN",
+        "keys": [
+          "009",
+          "192.0.2.121"
+        ],
+        "last": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "009",
+            "192.0.2.121"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "EBmIBaIB8xfpA6fn01nN",
+          "last_notification_time": "2026-11-22T23:13:02.924Z",
+          "score": 12,
+          "start_time": "2026-11-22T23:13:02.924Z",
+          "state": "ACTIVE"
+        },
+        "last_seen": "2026-11-22T23:15:22.052Z",
+        "start_ms": 1795389182924,
+        "start_time": "2026-11-22T23:13:02.924Z",
+        "states": [
+          [
+            "2026-11-22T23:13:03.533Z",
+            "ACTIVE"
+          ]
+        ]
+      }
+    ],
+    "disabled_at": "2026-11-22T23:09:02.277Z",
+    "enabled_time_after_reenable": "2026-11-22T23:12:02.908Z",
+    "gap": {
+      "alerted": null,
+      "first_event": "2026-11-22T23:07:25.355Z",
+      "margin_at_first_run_after_enable_s": -37.6,
+      "margin_at_suppressed_run_s": 153.9,
+      "visible": "2026-11-22T23:09:13.159Z",
+      "would_have_been_counted_at": "2026-11-22T23:09:51.487Z"
+    },
+    "heartbeats_indexed_while_disabled": 6,
+    "monitor_capacity_before": {
+      "max_monitors": 10,
+      "monitor_documents": 4,
+      "to_create": 1
+    },
+    "probe_run": "2026-11-22T23:07:51.487Z"
+  },
+  "plan": {
+    "expected": {
+      "continuing": "recorded: alert across disable/enable",
+      "first_run_after_enable": "E+60 (+-5s)",
+      "gap": "never counted (detection gap)",
+      "kept": "counted at E+60",
+      "runs_while_disabled": 0,
+      "second_run_after_enable": "E+120"
+    },
+    "index": "wcp-test-p6",
+    "interval_s": 60,
+    "lookback_s": 300,
+    "monitor": "[wcp-test] p6 scheduler recovery",
+    "part": "a",
+    "source_ips": {
+      "after": "192.0.2.124",
+      "continuing": "192.0.2.121",
+      "gap": "192.0.2.122",
+      "kept": "192.0.2.123",
+      "probe": "192.0.2.240",
+      "probe2": "192.0.2.241"
+    },
+    "timeline": [
+      [
+        "R+10",
+        "continuing burst + one event every 10 s until E+130"
+      ],
+      [
+        "D = R+70",
+        "disable"
+      ],
+      [
+        "D+10",
+        "gap: visible, last event 100 s earlier (first = D-97; lookback ends D+203)"
+      ],
+      [
+        "D+120",
+        "kept: visible, delay ~1 s (first ~ D+112)"
+      ],
+      [
+        "E = D+180",
+        "re-enable"
+      ],
+      [
+        "E+65",
+        "after: visible, delay ~1 s"
+      ]
+    ]
+  },
+  "started": "2026-11-22T23:06:50.753Z",
+  "status": "PASS",
+  "test": "p6",
+  "timings_s": {},
+  "title": "P6: missed scheduler runs and recovery"
+}

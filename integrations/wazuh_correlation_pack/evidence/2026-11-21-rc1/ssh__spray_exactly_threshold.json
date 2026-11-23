@@ -1,0 +1,114 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.232: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.232: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.232: score 5",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.232: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "5 distinct users, one failure each (threshold 5 in 10m)",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.232": null
+    },
+    "wcp_ssh_password_spray": {
+      "001|203.0.113.232": 5
+    }
+  },
+  "finished": "2026-11-21T09:11:33.482Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:01 wcp-ep1 sshd[24898]: Failed password for invalid user wcpt-u01 from 203.0.113.232 port 52340 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:11 wcp-ep1 sshd[31780]: Failed password for invalid user wcpt-u02 from 203.0.113.232 port 41035 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:21 wcp-ep1 sshd[40875]: Failed password for invalid user wcpt-u03 from 203.0.113.232 port 41527 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[31800]: Failed password for invalid user wcpt-u04 from 203.0.113.232 port 42315 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:41 wcp-ep1 sshd[33907]: Failed password for invalid user wcpt-u05 from 203.0.113.232 port 48572 ssh2"
+    }
+  ],
+  "inputs_total_lines": 5,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.232": []
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.232": [
+          {
+            "acknowledged_time": null,
+            "bucket_keys": [
+              "001",
+              "203.0.113.232"
+            ],
+            "detail": {
+              "distinct_values_sample": [
+                "wcpt-u01",
+                "wcpt-u02",
+                "wcpt-u03",
+                "wcpt-u04",
+                "wcpt-u05"
+              ],
+              "duplicates_skipped": 0,
+              "events_in_lookback": 5,
+              "overflow_dropped": 0,
+              "score": 5,
+              "window_end": 1795251941000,
+              "window_start": 1795251901000
+            },
+            "doc_count": 5,
+            "end_time": null,
+            "id": "Mphc_aEB4cT_k7OXFd5x",
+            "last_notification_time": "2026-11-21T09:07:12.880Z",
+            "severity": "2",
+            "start_time": "2026-11-21T09:07:12.880Z",
+            "state": "ACTIVE",
+            "trigger_name": "wcp_ssh_password_spray: distinct user.name >= 5 in 10m per wazuh.agent.id + source.ip"
+          }
+        ]
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.232": 5
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__spray_exactly_threshold",
+  "started": "2026-11-21T09:06:03.526Z",
+  "timings_s": {
+    "alert_seen_after_replay": {
+      "wcp_ssh_password_spray 001|203.0.113.232": 78.8
+    },
+    "searchable_after_replay": {
+      "001|203.0.113.232": 27.9
+    }
+  },
+  "verdict": "PASS"
+}

@@ -1,0 +1,23 @@
+## apply without --bind-manifest (expected refusal)
+refusing: manifest <workstation-home>\.config\wazuh_correlation_pack\rc2\state\rc2-lab-10.10.0.130.manifest.json has no cluster identity (written before it was recorded). Check that it belongs to the connected cluster RC2-LAB-CLUSTER-UUID, then re-run with --bind-manifest to record it.
+state: <workstation-home>\.config\wazuh_correlation_pack\rc2\state\rc2-lab-10.10.0.130.manifest.json (environment)
+rc=1
+## apply --bind-manifest (manifest current ids verified equal to the live pack monitors)
+state: <workstation-home>\.config\wazuh_correlation_pack\rc2\state\rc2-lab-10.10.0.130.manifest.json (environment)
+pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9202 (0 unrelated monitor(s) left untouched)
+  noop    [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint HHWuBKIByQfosLFu3SN0  (up to date)
+  noop    [wcp] SSH password spraying - one source failing against many accounts on one endpoint H3WuBKIByQfosLFu3SOi  (up to date)
+  noop    [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint InWuBKIByQfosLFu3SPs  (up to date)
+  update  [wcp] Windows password spraying - one source failing against many accounts on one endpoint JXWuBKIByQfosLFu3iMq  (content 0603b54f3c657714 -> 4564e84945edcf3a)
+applied: 1 change(s), 3 unchanged; manifest <workstation-home>\.config\wazuh_correlation_pack\rc2\state\rc2-lab-10.10.0.130.manifest.json
+  update [wcp] Windows password spraying - one source failing against many accounts on one endpoint -> JXWuBKIByQfosLFu3iMq
+rc=0
+## status
+state: <workstation-home>\.config\wazuh_correlation_pack\rc2\state\rc2-lab-10.10.0.130.manifest.json (environment)
+wcp_ssh_bruteforce                   id=HHWuBKIByQfosLFu3SN0 enabled=True version=0.1.0 in_sync=True active=0 total=0
+wcp_ssh_password_spray               id=H3WuBKIByQfosLFu3SOi enabled=True version=0.1.0 in_sync=True active=0 total=0
+wcp_windows_failed_logon_burst       id=InWuBKIByQfosLFu3SPs enabled=True version=0.1.0 in_sync=True active=0 total=0
+wcp_windows_password_spray           id=JXWuBKIByQfosLFu3iMq enabled=True version=0.1.0 in_sync=True active=0 total=0
+(0 unrelated monitor(s) not managed by the pack)
+## plan after update
+plan: 0 change(s); run 'apply' to execute

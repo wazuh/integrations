@@ -1,0 +1,875 @@
+{
+  "checks": [
+    {
+      "check": "wcp_ssh_bruteforce deployed with the frozen content hash",
+      "detail": "007c0a436059d016",
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray deployed with the frozen content hash",
+      "detail": "172cc43b9dfcc25c",
+      "pass": true
+    },
+    {
+      "check": "target accounts do not exist on the endpoint (no lockout, no success possible)",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "check": "precondition: no ACTIVE brute-force alert for ['001', '10.10.0.1']",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "precondition: no counted attempt from 10.10.0.1 in the last 300 s",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "ground truth: 9 'Failed password' lines in the endpoint's sshd journal",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "one counted event per attempt (event.reason Failed password == 9)",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "scheduler created an ACTIVE brute-force alert for ['001', '10.10.0.1']",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "alert score == 9 attempts",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "no spray alert for 3 distinct accounts (< 5)",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "three further runs keep one alert for the group (no duplicates)",
+      "detail": [
+        "lBlZBaIB8xfpA6fnvT6J"
+      ],
+      "pass": true
+    },
+    {
+      "check": "alert left ACTIVE after the attempts left the 300 s lookback",
+      "detail": [
+        [
+          "2026-11-22T22:21:38.537Z",
+          "ACTIVE"
+        ],
+        [
+          "2026-11-22T22:25:37.074Z",
+          "ABSENT"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "check": "dry run after resolution: group no longer triggers",
+      "detail": [],
+      "pass": true
+    },
+    {
+      "check": "second episode creates a NEW alert with a different id",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "episode 2 alert score == 9",
+      "detail": 9,
+      "pass": true
+    }
+  ],
+  "cleanup": {},
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 1,
+      "machines": [
+        {
+          "aliases": [
+            "linux_replay"
+          ],
+          "fingerprint": "acd9762bb99da1df",
+          "label": "linux-1",
+          "locked": false
+        }
+      ]
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {},
+  "finished": "2026-11-22T22:26:44.586Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "d090875ac4b109112ccb2486794472f9c0d78d01",
+    "head": "484e099e2b3d18143db7d6c52159ed0941764bf8",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [
+    {
+      "attempts": 9,
+      "attempts_per_connection": 3,
+      "client": "workstation",
+      "client_ip": "10.10.0.1",
+      "end": "2026-11-22T22:20:45.712Z",
+      "kind": "live ssh",
+      "start": "2026-11-22T22:20:16.419Z",
+      "target": "10.10.0.132",
+      "users": [
+        "wcpt-alice",
+        "wcpt-bob",
+        "wcpt-carol"
+      ]
+    },
+    {
+      "attempts": 9,
+      "end": "2026-11-22T22:26:08.456Z",
+      "kind": "live ssh (episode 2)",
+      "start": "2026-11-22T22:25:37.110Z"
+    }
+  ],
+  "observations": [
+    {
+      "observation": "indexed events for the source by event.reason",
+      "value": {
+        "Accepted publickey": 5,
+        "Failed password": 9,
+        "None": 0
+      }
+    }
+  ],
+  "observed": {
+    "alert_states": [
+      [
+        "2026-11-22T22:21:38.537Z",
+        "ACTIVE"
+      ],
+      [
+        "2026-11-22T22:25:37.074Z",
+        "ABSENT"
+      ]
+    ],
+    "all_events_for_source": [
+      {
+        "@timestamp": "2026-11-22T22:20:21.189508603Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:15 lab-linux-1 sshd[147364]: Accepted publickey for <access-account> from 10.10.0.1 port 54369 ssh2: ED25519 SHA256:pVsAoeiM0Gu4z/lgRng/hq6kyUIObD47Xhlu1KPRifc",
+          "outcome": "success",
+          "reason": "Accepted publickey",
+          "start": "2026-11-22T22:20:15.000Z",
+          "type": [
+            "start"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189523118Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:15 lab-linux-1 sshd[147413]: Received disconnect from 10.10.0.1 port 54369:11: disconnected by user",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:15.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189523307Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:15 lab-linux-1 sshd[147413]: Disconnected from user <access-account> 10.10.0.1 port 54369",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:15.000Z",
+          "type": [
+            "end"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189525815Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:15 lab-linux-1 sshd[147422]: Accepted publickey for <access-account> from 10.10.0.1 port 54370 ssh2: ED25519 SHA256:pVsAoeiM0Gu4z/lgRng/hq6kyUIObD47Xhlu1KPRifc",
+          "outcome": "success",
+          "reason": "Accepted publickey",
+          "start": "2026-11-22T22:20:15.000Z",
+          "type": [
+            "start"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189527636Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:16 lab-linux-1 sshd[147471]: Received disconnect from 10.10.0.1 port 54370:11: disconnected by user",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:16.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189527798Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:16 lab-linux-1 sshd[147471]: Disconnected from user <access-account> 10.10.0.1 port 54370",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:16.000Z",
+          "type": [
+            "end"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189529335Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:16 lab-linux-1 sshd[147474]: Accepted publickey for <access-account> from 10.10.0.1 port 54372 ssh2: ED25519 SHA256:pVsAoeiM0Gu4z/lgRng/hq6kyUIObD47Xhlu1KPRifc",
+          "outcome": "success",
+          "reason": "Accepted publickey",
+          "start": "2026-11-22T22:20:16.000Z",
+          "type": [
+            "start"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189532122Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:16 lab-linux-1 sshd[147523]: Received disconnect from 10.10.0.1 port 54372:11: disconnected by user",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:16.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189546621Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:16 lab-linux-1 sshd[147534]: Invalid user wcpt-alice from 10.10.0.1 port 54377",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:16.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189532287Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:16 lab-linux-1 sshd[147523]: Disconnected from user <access-account> 10.10.0.1 port 54372",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:16.000Z",
+          "type": [
+            "end"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189548175Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:16 lab-linux-1 sshd[147534]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.10.0.1",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:16.000Z",
+          "type": [
+            "info"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:21.189548374Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:19 lab-linux-1 sshd[147534]: Failed password for invalid user wcpt-alice from 10.10.0.1 port 54377 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:19.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:31.242838162Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:21 lab-linux-1 sshd[147534]: Failed password for invalid user wcpt-alice from 10.10.0.1 port 54377 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:21.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:31.242866293Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:26 lab-linux-1 sshd[147534]: Failed password for invalid user wcpt-alice from 10.10.0.1 port 54377 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:26.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:31.242866851Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:26 lab-linux-1 sshd[147534]: Connection reset by invalid user wcpt-alice 10.10.0.1 port 54377 [preauth]",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:26.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        },
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:31.242901662Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:26 lab-linux-1 sshd[147590]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.10.0.1",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:26.000Z",
+          "type": [
+            "info"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:31.242868196Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:26 lab-linux-1 sshd[147590]: Invalid user wcpt-bob from 10.10.0.1 port 54137",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:26.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:31.242903124Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:28 lab-linux-1 sshd[147590]: Failed password for invalid user wcpt-bob from 10.10.0.1 port 54137 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:28.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:41.292994628Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:31 lab-linux-1 sshd[147590]: Failed password for invalid user wcpt-bob from 10.10.0.1 port 54137 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:31.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:41.293022672Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:35 lab-linux-1 sshd[147590]: Failed password for invalid user wcpt-bob from 10.10.0.1 port 54137 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:35.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:41.293023323Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:37 lab-linux-1 sshd[147590]: Connection reset by invalid user wcpt-bob 10.10.0.1 port 54137 [preauth]",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:37.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        },
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:41.293024487Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:37 lab-linux-1 sshd[147658]: Invalid user wcpt-carol from 10.10.0.1 port 61203",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:37.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:41.293025922Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:37 lab-linux-1 sshd[147658]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.10.0.1",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:37.000Z",
+          "type": [
+            "info"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:41.293026166Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:39 lab-linux-1 sshd[147658]: Failed password for invalid user wcpt-carol from 10.10.0.1 port 61203 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:39.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348289315Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:41 lab-linux-1 sshd[147658]: Failed password for invalid user wcpt-carol from 10.10.0.1 port 61203 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:41.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348321035Z",
+        "event": {
+          "category": [
+            "authentication"
+          ],
+          "original": "Nov 22 22:20:44 lab-linux-1 sshd[147658]: Failed password for invalid user wcpt-carol from 10.10.0.1 port 61203 ssh2",
+          "outcome": "failure",
+          "reason": "Failed password",
+          "start": "2026-11-22T22:20:44.000Z",
+          "type": [
+            "info"
+          ]
+        },
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348321606Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:46 lab-linux-1 sshd[147658]: Connection reset by invalid user wcpt-carol 10.10.0.1 port 61203 [preauth]",
+          "outcome": "failure",
+          "start": "2026-11-22T22:20:46.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        },
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348323765Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:46 lab-linux-1 sshd[147708]: Accepted publickey for <access-account> from 10.10.0.1 port 61205 ssh2: ED25519 SHA256:pVsAoeiM0Gu4z/lgRng/hq6kyUIObD47Xhlu1KPRifc",
+          "outcome": "success",
+          "reason": "Accepted publickey",
+          "start": "2026-11-22T22:20:46.000Z",
+          "type": [
+            "start"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348326621Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:46 lab-linux-1 sshd[147710]: Accepted publickey for <access-account> from 10.10.0.1 port 61206 ssh2: ED25519 SHA256:pVsAoeiM0Gu4z/lgRng/hq6kyUIObD47Xhlu1KPRifc",
+          "outcome": "success",
+          "reason": "Accepted publickey",
+          "start": "2026-11-22T22:20:46.000Z",
+          "type": [
+            "start"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348340766Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:46 lab-linux-1 sshd[147817]: Disconnected from user <access-account> 10.10.0.1 port 61205",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:46.000Z",
+          "type": [
+            "end"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348340522Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:46 lab-linux-1 sshd[147817]: Received disconnect from 10.10.0.1 port 61205:11: disconnected by user",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:46.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348347282Z",
+        "event": {
+          "category": [
+            "network"
+          ],
+          "original": "Nov 22 22:20:46 lab-linux-1 sshd[147833]: Received disconnect from 10.10.0.1 port 61206:11: disconnected by user",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:46.000Z",
+          "type": [
+            "connection",
+            "end"
+          ]
+        }
+      },
+      {
+        "@timestamp": "2026-11-22T22:20:51.348347473Z",
+        "event": {
+          "category": [
+            "authentication",
+            "session"
+          ],
+          "original": "Nov 22 22:20:46 lab-linux-1 sshd[147833]: Disconnected from user <access-account> 10.10.0.1 port 61206",
+          "outcome": "success",
+          "start": "2026-11-22T22:20:46.000Z",
+          "type": [
+            "end"
+          ]
+        },
+        "user": {
+          "name": "<access-account>"
+        }
+      }
+    ],
+    "bruteforce_alert": {
+      "first": {
+        "action_execution_results": [],
+        "bucket_keys": [
+          "001",
+          "10.10.0.1"
+        ],
+        "distinct_values_sample": [],
+        "end_time": null,
+        "error_message": null,
+        "id": "lBlZBaIB8xfpA6fnvT6J",
+        "last_notification_time": "2026-11-22T22:21:37.033Z",
+        "score": 9,
+        "start_time": "2026-11-22T22:21:37.033Z",
+        "state": "ACTIVE"
+      },
+      "first_seen": "2026-11-22T22:21:38.537Z",
+      "id": "lBlZBaIB8xfpA6fnvT6J",
+      "keys": [
+        "001",
+        "10.10.0.1"
+      ],
+      "last": {
+        "action_execution_results": [],
+        "bucket_keys": [
+          "001",
+          "10.10.0.1"
+        ],
+        "distinct_values_sample": [],
+        "end_time": null,
+        "error_message": null,
+        "id": "lBlZBaIB8xfpA6fnvT6J",
+        "last_notification_time": "2026-11-22T22:21:37.033Z",
+        "score": 9,
+        "start_time": "2026-11-22T22:21:37.033Z",
+        "state": "ACTIVE"
+      },
+      "last_seen": "2026-11-22T22:25:31.987Z",
+      "start_ms": 1795386097033,
+      "start_time": "2026-11-22T22:21:37.033Z",
+      "states": [
+        [
+          "2026-11-22T22:21:38.537Z",
+          "ACTIVE"
+        ],
+        [
+          "2026-11-22T22:25:37.074Z",
+          "ABSENT"
+        ]
+      ]
+    },
+    "dry_run_after_resolution_triggering_groups": [],
+    "episode2_alert": {
+      "first": {
+        "action_execution_results": [],
+        "bucket_keys": [
+          "001",
+          "10.10.0.1"
+        ],
+        "distinct_values_sample": [],
+        "end_time": null,
+        "error_message": null,
+        "id": "eRleBaIB8xfpA6fnUT9u",
+        "last_notification_time": "2026-11-22T22:26:37.037Z",
+        "score": 9,
+        "start_time": "2026-11-22T22:26:37.037Z",
+        "state": "ACTIVE"
+      },
+      "first_seen": "2026-11-22T22:26:39.271Z",
+      "id": "eRleBaIB8xfpA6fnUT9u",
+      "keys": [
+        "001",
+        "10.10.0.1"
+      ],
+      "last": {
+        "action_execution_results": [],
+        "bucket_keys": [
+          "001",
+          "10.10.0.1"
+        ],
+        "distinct_values_sample": [],
+        "end_time": null,
+        "error_message": null,
+        "id": "eRleBaIB8xfpA6fnUT9u",
+        "last_notification_time": "2026-11-22T22:26:37.037Z",
+        "score": 9,
+        "start_time": "2026-11-22T22:26:37.037Z",
+        "state": "ACTIVE"
+      },
+      "last_seen": "2026-11-22T22:26:39.271Z",
+      "start_ms": 1795386397037,
+      "start_time": "2026-11-22T22:26:37.037Z",
+      "states": [
+        [
+          "2026-11-22T22:26:39.271Z",
+          "ACTIVE"
+        ]
+      ]
+    },
+    "journal_failed_password_lines": [
+      "Failed password for invalid user wcpt-alice from 10.10.0.1 port 54377 ssh2",
+      "Failed password for invalid user wcpt-alice from 10.10.0.1 port 54377 ssh2",
+      "Failed password for invalid user wcpt-alice from 10.10.0.1 port 54377 ssh2",
+      "Failed password for invalid user wcpt-bob from 10.10.0.1 port 54137 ssh2",
+      "Failed password for invalid user wcpt-bob from 10.10.0.1 port 54137 ssh2",
+      "Failed password for invalid user wcpt-bob from 10.10.0.1 port 54137 ssh2",
+      "Failed password for invalid user wcpt-carol from 10.10.0.1 port 61203 ssh2",
+      "Failed password for invalid user wcpt-carol from 10.10.0.1 port 61203 ssh2",
+      "Failed password for invalid user wcpt-carol from 10.10.0.1 port 61203 ssh2"
+    ],
+    "spray_alerts": []
+  },
+  "plan": {
+    "attempts": 9,
+    "attempts_per_connection": 3,
+    "client": "workstation (not a monitored endpoint)",
+    "expected": {
+      "bruteforce_alert": "ACTIVE, score 9",
+      "dedup": "same alert over 3 further runs",
+      "failed_password_events": 9,
+      "new_episode": "second burst -> new alert id",
+      "resolution": "leaves ACTIVE after the 300 s lookback; dry run no longer triggers",
+      "spray_alert": "none (3 accounts < 5)"
+    },
+    "password": "wcp-not-a-password",
+    "target": "endpoints.linux_replay",
+    "users": [
+      "wcpt-alice",
+      "wcpt-bob",
+      "wcpt-carol"
+    ]
+  },
+  "started": "2026-11-22T22:20:15.084Z",
+  "status": "PASS",
+  "test": "ssh_live",
+  "timings_s": {
+    "alert_active_after_last_attempt": 57.9,
+    "alert_left_active_after_last_attempt": 291.4,
+    "episode2_alert_active_after_last_attempt": 35.8,
+    "events_searchable_after_last_attempt": 22.3
+  },
+  "title": "Live SSH burst against the monitored Linux endpoint (port of the RC1 test)"
+}

@@ -1,0 +1,14 @@
+{
+  "config_id": "wcp-test-p5-webhook",
+  "config": {
+    "name": "[wcp-test] P5 webhook receiver",
+    "description": "Temporary channel of the wazuh_correlation_pack notification test (P5). Delete after the run.",
+    "config_type": "webhook",
+    "is_enabled": true,
+    "webhook": {
+      "url": "http://<listener address>:<port>/wcp-p5/<path token>",
+      "method": "POST",
+      "header_params": {"Content-Type": "text/plain; charset=utf-8"}
+    }
+  }
+}

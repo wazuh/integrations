@@ -1,0 +1,128 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.231: 10 counted events searchable",
+      "detail": 10,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.231: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.231: score 10",
+      "detail": 10,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.231: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "10 failures for one user: brute force yes, spray no",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.231": 10
+    },
+    "wcp_ssh_password_spray": {
+      "001|203.0.113.231": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.481Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:01 wcp-ep1 sshd[15719]: Failed password for wcpt-alice from 203.0.113.231 port 59493 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:06 wcp-ep1 sshd[12517]: Failed password for wcpt-alice from 203.0.113.231 port 35802 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:11 wcp-ep1 sshd[46542]: Failed password for wcpt-alice from 203.0.113.231 port 54642 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:16 wcp-ep1 sshd[54879]: Failed password for wcpt-alice from 203.0.113.231 port 53884 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:21 wcp-ep1 sshd[32811]: Failed password for wcpt-alice from 203.0.113.231 port 39314 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:26 wcp-ep1 sshd[59417]: Failed password for wcpt-alice from 203.0.113.231 port 53177 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[19832]: Failed password for wcpt-alice from 203.0.113.231 port 57398 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:36 wcp-ep1 sshd[44253]: Failed password for wcpt-alice from 203.0.113.231 port 40939 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:41 wcp-ep1 sshd[9228]: Failed password for wcpt-alice from 203.0.113.231 port 42349 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:46 wcp-ep1 sshd[46196]: Failed password for wcpt-alice from 203.0.113.231 port 42826 ssh2"
+    }
+  ],
+  "inputs_total_lines": 10,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.231": [
+          {
+            "acknowledged_time": null,
+            "bucket_keys": [
+              "001",
+              "203.0.113.231"
+            ],
+            "detail": {
+              "distinct_values_sample": [],
+              "duplicates_skipped": 0,
+              "events_in_lookback": 10,
+              "overflow_dropped": 0,
+              "score": 10,
+              "window_end": 1795251946000,
+              "window_start": 1795251901000
+            },
+            "doc_count": 10,
+            "end_time": null,
+            "id": "LZhc_aEB4cT_k7OXFd5F",
+            "last_notification_time": "2026-11-21T09:07:12.824Z",
+            "severity": "2",
+            "start_time": "2026-11-21T09:07:12.824Z",
+            "state": "ACTIVE",
+            "trigger_name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip"
+          }
+        ]
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.231": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.231": 10
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__spray_one_user_repeated",
+  "started": "2026-11-21T09:06:03.526Z",
+  "timings_s": {
+    "alert_seen_after_replay": {
+      "wcp_ssh_bruteforce 001|203.0.113.231": 78.8
+    },
+    "searchable_after_replay": {
+      "001|203.0.113.231": 27.9
+    }
+  },
+  "verdict": "PASS"
+}

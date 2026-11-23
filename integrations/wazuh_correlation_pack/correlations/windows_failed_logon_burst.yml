@@ -1,0 +1,25 @@
+title: Windows failed logon burst - repeated 4625 from one source on one endpoint
+id: 4db1accb-03e6-49a1-8b56-d788753a3252
+name: wcp_windows_failed_logon_burst
+status: experimental
+description: |
+  10 or more failed Windows logons (event 4625) from the same source IP on the same Wazuh
+  agent within any 2-minute event-time window, regardless of account. Not RDP-specific:
+  the stock decoders do not expose the logon type of 4625 (see the base rule).
+  Counterpart of 4.x rule 60204 ("Multiple Windows logon failures").
+author: wazuh_correlation_pack contributors
+date: 2026-11-21
+taxonomy: wcs
+correlation:
+  type: event_count
+  rules:
+    - wcp_windows_failed_logon
+  group-by:
+    - wazuh.agent.id
+    - source.ip
+  timespan: 2m
+  condition:
+    gte: 10
+falsepositives:
+  - Services or scheduled tasks running with an expired password
+level: high

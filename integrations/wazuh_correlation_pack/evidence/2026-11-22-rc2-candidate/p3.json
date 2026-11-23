@@ -1,0 +1,655 @@
+{
+  "checks": [
+    {
+      "check": "wcp_windows_failed_logon_burst deployed with the frozen content hash",
+      "detail": "d31fc5d758665c2e",
+      "pass": true
+    },
+    {
+      "check": "wcp_windows_password_spray deployed with the frozen content hash",
+      "detail": "4564e84945edcf3a",
+      "pass": true
+    },
+    {
+      "check": "precondition: Audit Logon failure enabled on the endpoint",
+      "detail": "Success and Failure",
+      "pass": true
+    },
+    {
+      "check": "precondition: no 4625 from the source on this agent in the last 15 min",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "precondition: no ACTIVE alert for ['002', '10.10.0.132']",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "one 4625 per attempt in the Security log",
+      "detail": {
+        "wcpt-p3-burst": 10,
+        "wcpt-p3-rdp": 3,
+        "wcpt-p3-s01": 1,
+        "wcpt-p3-s02": 1,
+        "wcpt-p3-s03": 1,
+        "wcpt-p3-s04": 1,
+        "wcpt-p3-s05": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "collection: indexed EventRecordIDs = Security log EventRecordIDs",
+      "detail": {
+        "missing": [],
+        "unexpected": []
+      },
+      "pass": true
+    },
+    {
+      "check": "collection: each record indexed exactly once",
+      "detail": {},
+      "pass": true
+    },
+    {
+      "check": "event.original = Windows rendering, sample format",
+      "detail": [],
+      "pass": true
+    },
+    {
+      "check": "normalization of every record (fields, event time, identity)",
+      "detail": [],
+      "pass": true
+    },
+    {
+      "check": "wcp_windows_failed_logon_burst: one scheduler alert for ['002', '10.10.0.132']",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_windows_failed_logon_burst: score 18 (from the Security log)",
+      "detail": {
+        "sample": [],
+        "score": 18
+      },
+      "pass": true
+    },
+    {
+      "check": "wcp_windows_password_spray: one scheduler alert for ['002', '10.10.0.132']",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_windows_password_spray: score 7 and account sample (from the Security log)",
+      "detail": {
+        "sample": [
+          "?\\wcpt-p3-burst",
+          "?\\wcpt-p3-rdp",
+          "?\\wcpt-p3-s01",
+          "?\\wcpt-p3-s02",
+          "?\\wcpt-p3-s03",
+          "?\\wcpt-p3-s04",
+          "?\\wcpt-p3-s05"
+        ],
+        "score": 7
+      },
+      "pass": true
+    }
+  ],
+  "cleanup": {},
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 2,
+      "machines": [
+        {
+          "aliases": [
+            "linux_source"
+          ],
+          "fingerprint": "acd9762bb99da1df",
+          "label": "linux-1",
+          "locked": false
+        },
+        {
+          "aliases": [
+            "windows"
+          ],
+          "fingerprint": "75c0ed67dd4481bf",
+          "label": "windows-1",
+          "locked": false
+        }
+      ]
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {
+    "burst_alert": true,
+    "burst_score": 18,
+    "spray_alert": true,
+    "spray_sample": [
+      "?\\wcpt-p3-burst",
+      "?\\wcpt-p3-rdp",
+      "?\\wcpt-p3-s01",
+      "?\\wcpt-p3-s02",
+      "?\\wcpt-p3-s03",
+      "?\\wcpt-p3-s04",
+      "?\\wcpt-p3-s05"
+    ],
+    "spray_score": 7
+  },
+  "finished": "2026-11-22T23:06:39.375Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "d090875ac4b109112ccb2486794472f9c0d78d01",
+    "head": "484e099e2b3d18143db7d6c52159ed0941764bf8",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [
+    {
+      "end": "2026-11-22T23:05:36.166Z",
+      "kind": "smb spray",
+      "start": "2026-11-22T23:05:25.711Z",
+      "users": [
+        "wcpt-p3-s01",
+        "wcpt-p3-s02",
+        "wcpt-p3-s03",
+        "wcpt-p3-s04",
+        "wcpt-p3-s05"
+      ]
+    },
+    {
+      "end": "2026-11-22T23:05:46.870Z",
+      "kind": "smb burst",
+      "start": "2026-11-22T23:05:36.167Z",
+      "users": [
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst",
+        "wcpt-p3-burst"
+      ]
+    },
+    {
+      "end": "2026-11-22T23:05:55.305Z",
+      "kind": "rdp",
+      "start": "2026-11-22T23:05:46.870Z",
+      "tool_output": [
+        "wrapper=xvfb-run",
+        "-a",
+        "134",
+        "134",
+        "134"
+      ],
+      "users": [
+        "wcpt-p3-rdp",
+        "wcpt-p3-rdp",
+        "wcpt-p3-rdp"
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "observation": "LogonType values (SMB + RDP)",
+      "value": {
+        "3": [
+          "wcpt-p3-burst",
+          "wcpt-p3-rdp",
+          "wcpt-p3-s01",
+          "wcpt-p3-s02",
+          "wcpt-p3-s03",
+          "wcpt-p3-s04",
+          "wcpt-p3-s05"
+        ]
+      }
+    },
+    {
+      "observation": "LogonType values appearing in the indexed document of a record (other than event.original)",
+      "value": []
+    }
+  ],
+  "observed": {
+    "alerts": {
+      "wcp_windows_failed_logon_burst": [
+        {
+          "first": {
+            "action_execution_results": [],
+            "bucket_keys": [
+              "002",
+              "10.10.0.132"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "qxmCBaIB8xfpA6fn8Fbz",
+            "last_notification_time": "2026-11-22T23:06:37.171Z",
+            "score": 18,
+            "start_time": "2026-11-22T23:06:37.171Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T23:06:38.481Z",
+          "id": "qxmCBaIB8xfpA6fn8Fbz",
+          "keys": [
+            "002",
+            "10.10.0.132"
+          ],
+          "last": {
+            "action_execution_results": [],
+            "bucket_keys": [
+              "002",
+              "10.10.0.132"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "qxmCBaIB8xfpA6fn8Fbz",
+            "last_notification_time": "2026-11-22T23:06:37.171Z",
+            "score": 18,
+            "start_time": "2026-11-22T23:06:37.171Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T23:06:38.481Z",
+          "start_ms": 1795388797171,
+          "start_time": "2026-11-22T23:06:37.171Z",
+          "states": [
+            [
+              "2026-11-22T23:06:38.481Z",
+              "ACTIVE"
+            ]
+          ]
+        }
+      ],
+      "wcp_windows_password_spray": [
+        {
+          "first": {
+            "action_execution_results": [],
+            "bucket_keys": [
+              "002",
+              "10.10.0.132"
+            ],
+            "distinct_values_sample": [
+              "?\\wcpt-p3-burst",
+              "?\\wcpt-p3-rdp",
+              "?\\wcpt-p3-s01",
+              "?\\wcpt-p3-s02",
+              "?\\wcpt-p3-s03",
+              "?\\wcpt-p3-s04",
+              "?\\wcpt-p3-s05"
+            ],
+            "end_time": null,
+            "error_message": null,
+            "id": "rRmCBaIB8xfpA6fn8VYk",
+            "last_notification_time": "2026-11-22T23:06:37.220Z",
+            "score": 7,
+            "start_time": "2026-11-22T23:06:37.220Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T23:06:38.511Z",
+          "id": "rRmCBaIB8xfpA6fn8VYk",
+          "keys": [
+            "002",
+            "10.10.0.132"
+          ],
+          "last": {
+            "action_execution_results": [],
+            "bucket_keys": [
+              "002",
+              "10.10.0.132"
+            ],
+            "distinct_values_sample": [
+              "?\\wcpt-p3-burst",
+              "?\\wcpt-p3-rdp",
+              "?\\wcpt-p3-s01",
+              "?\\wcpt-p3-s02",
+              "?\\wcpt-p3-s03",
+              "?\\wcpt-p3-s04",
+              "?\\wcpt-p3-s05"
+            ],
+            "end_time": null,
+            "error_message": null,
+            "id": "rRmCBaIB8xfpA6fn8VYk",
+            "last_notification_time": "2026-11-22T23:06:37.220Z",
+            "score": 7,
+            "start_time": "2026-11-22T23:06:37.220Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T23:06:38.511Z",
+          "start_ms": 1795388797220,
+          "start_time": "2026-11-22T23:06:37.220Z",
+          "states": [
+            [
+              "2026-11-22T23:06:38.511Z",
+              "ACTIVE"
+            ]
+          ]
+        }
+      ]
+    },
+    "indexed": {
+      "distinct_record_ids": 18,
+      "documents": 18,
+      "duplicates": {}
+    },
+    "records": [
+      {
+        "account": "?\\wcpt-p3-s01",
+        "event_start": "2026-11-22T23:05:26.429971000Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3598",
+        "target": "wcpt-p3-s01",
+        "time_created": "2026-11-22T23:05:26.429971000Z",
+        "timestamp": "2026-11-22T23:05:33.388787892Z"
+      },
+      {
+        "account": "?\\wcpt-p3-s02",
+        "event_start": "2026-11-22T23:05:28.450032900Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3599",
+        "target": "wcpt-p3-s02",
+        "time_created": "2026-11-22T23:05:28.450032900Z",
+        "timestamp": "2026-11-22T23:05:33.388788404Z"
+      },
+      {
+        "account": "?\\wcpt-p3-s03",
+        "event_start": "2026-11-22T23:05:30.469413800Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3600",
+        "target": "wcpt-p3-s03",
+        "time_created": "2026-11-22T23:05:30.469413800Z",
+        "timestamp": "2026-11-22T23:05:33.388789334Z"
+      },
+      {
+        "account": "?\\wcpt-p3-s04",
+        "event_start": "2026-11-22T23:05:32.506838100Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3601",
+        "target": "wcpt-p3-s04",
+        "time_created": "2026-11-22T23:05:32.506838100Z",
+        "timestamp": "2026-11-22T23:05:43.430377529Z"
+      },
+      {
+        "account": "?\\wcpt-p3-s05",
+        "event_start": "2026-11-22T23:05:34.544028400Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3602",
+        "target": "wcpt-p3-s05",
+        "time_created": "2026-11-22T23:05:34.544028400Z",
+        "timestamp": "2026-11-22T23:05:43.430386968Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:36.888889600Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3603",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:36.888889600Z",
+        "timestamp": "2026-11-22T23:05:43.430404677Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:37.929765000Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3604",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:37.929765000Z",
+        "timestamp": "2026-11-22T23:05:43.430409517Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:38.968045300Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3605",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:38.968045300Z",
+        "timestamp": "2026-11-22T23:05:43.430412085Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:40.005641600Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3606",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:40.005641600Z",
+        "timestamp": "2026-11-22T23:05:43.430414710Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:41.045759000Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3607",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:41.045759000Z",
+        "timestamp": "2026-11-22T23:05:43.430415121Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:42.087485200Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3608",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:42.087485200Z",
+        "timestamp": "2026-11-22T23:05:43.430415471Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:43.132456200Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3609",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:43.132456200Z",
+        "timestamp": "2026-11-22T23:05:53.477656017Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:44.168631300Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3610",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:44.168631300Z",
+        "timestamp": "2026-11-22T23:05:53.477665350Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:45.207094300Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3611",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:45.207094300Z",
+        "timestamp": "2026-11-22T23:05:53.477669376Z"
+      },
+      {
+        "account": "?\\wcpt-p3-burst",
+        "event_start": "2026-11-22T23:05:46.248579800Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3612",
+        "target": "wcpt-p3-burst",
+        "time_created": "2026-11-22T23:05:46.248579800Z",
+        "timestamp": "2026-11-22T23:05:53.477671045Z"
+      },
+      {
+        "account": "?\\wcpt-p3-rdp",
+        "event_start": "2026-11-22T23:05:48.286482400Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3613",
+        "target": "wcpt-p3-rdp",
+        "time_created": "2026-11-22T23:05:48.286482400Z",
+        "timestamp": "2026-11-22T23:05:53.477692303Z"
+      },
+      {
+        "account": "?\\wcpt-p3-rdp",
+        "event_start": "2026-11-22T23:05:50.920706700Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3614",
+        "target": "wcpt-p3-rdp",
+        "time_created": "2026-11-22T23:05:50.920706700Z",
+        "timestamp": "2026-11-22T23:05:53.477692973Z"
+      },
+      {
+        "account": "?\\wcpt-p3-rdp",
+        "event_start": "2026-11-22T23:05:53.569546100Z",
+        "ip": "10.10.0.132",
+        "logon_type": "3",
+        "record_id": "3615",
+        "target": "wcpt-p3-rdp",
+        "time_created": "2026-11-22T23:05:53.569546100Z",
+        "timestamp": "2026-11-22T23:06:03.524918974Z"
+      }
+    ],
+    "sanitized_file": {
+      "file": "p3_captured_4625.sanitized.xml.log",
+      "leftovers_found": 0,
+      "records": 1,
+      "saved": true
+    },
+    "security_log": {
+      "attempts_per_user": {
+        "wcpt-p3-burst": 10,
+        "wcpt-p3-rdp": 3,
+        "wcpt-p3-s01": 1,
+        "wcpt-p3-s02": 1,
+        "wcpt-p3-s03": 1,
+        "wcpt-p3-s04": 1,
+        "wcpt-p3-s05": 1
+      },
+      "per_user": {
+        "wcpt-p3-burst": 10,
+        "wcpt-p3-rdp": 3,
+        "wcpt-p3-s01": 1,
+        "wcpt-p3-s02": 1,
+        "wcpt-p3-s03": 1,
+        "wcpt-p3-s04": 1,
+        "wcpt-p3-s05": 1
+      },
+      "records": 18
+    }
+  },
+  "plan": {
+    "attempts": [
+      {
+        "user": "wcpt-p3-s01",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-s02",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-s03",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-s04",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-s05",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-burst",
+        "via": "smb"
+      },
+      {
+        "user": "wcpt-p3-rdp",
+        "via": "rdp"
+      },
+      {
+        "user": "wcpt-p3-rdp",
+        "via": "rdp"
+      },
+      {
+        "user": "wcpt-p3-rdp",
+        "via": "rdp"
+      }
+    ],
+    "expected_if_all_within_2_minutes": {
+      "burst_alert": true,
+      "burst_score": 18,
+      "spray_accounts": [
+        "<realm>\\wcpt-p3-burst",
+        "<realm>\\wcpt-p3-rdp",
+        "<realm>\\wcpt-p3-s01",
+        "<realm>\\wcpt-p3-s02",
+        "<realm>\\wcpt-p3-s03",
+        "<realm>\\wcpt-p3-s04",
+        "<realm>\\wcpt-p3-s05"
+      ],
+      "spray_alert": true
+    },
+    "expected_records": 18,
+    "note": "final expected scores are computed from the Security log records (TimeCreated, IpAddress)",
+    "provenance": "captured (generated against the lab Windows endpoint)"
+  },
+  "started": "2026-11-22T23:05:22.839Z",
+  "status": "PASS",
+  "test": "p3",
+  "timings_s": {
+    "all_indexed_after_last_attempt": 12.3,
+    "event_time_to_timestamp": {
+      "max": 10.92,
+      "min": 1.34
+    },
+    "wcp_windows_failed_logon_burst_alert_after_last_attempt": 41.9,
+    "wcp_windows_password_spray_alert_after_last_attempt": 41.9
+  },
+  "title": "P3: real Windows EventChannel collection to correlation"
+}

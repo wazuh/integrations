@@ -1,0 +1,19 @@
+wazuh_correlation_pack
+Distributed under the license of the repository that holds it (GNU Affero General Public License v3.0).
+
+Approach reused from:
+  * Wazuh rule migration guide 4.x -> 5.x, "Alerting on repeated events"
+    https://github.com/wazuh/wazuh/blob/main/docs/guide/migration/rules-4x-to-5x.md
+  * Wazuh ruleset migration tool, frequency-rule monitor generator (wazuh/integrations PR #134,
+    integrations/wazuh_ruleset_migration/rmig/translate/recipes.py), Copyright (C) 2015-2026 Wazuh Inc., AGPL-3.0.
+  No code was copied verbatim; see README.md "Provenance and maintenance".
+
+Third-party data:
+  * samples/windows/4625_smb_bruteforce.sanitized.xml.log is derived from
+    evtx/smb-password-guessing-security.evtx of sans-blue-team/DeepBlueCLI
+    (https://github.com/sans-blue-team/DeepBlueCLI), licensed GNU General Public License v3.0.
+    Changes: converted to one XML event per line, source IP and computer name replaced.
+    GPL-3.0 section 13 permits combining with AGPL-3.0 work.
+
+Specifications referenced (not included): Sigma correlation rules specification (SigmaHQ),
+Wazuh Common Schema.

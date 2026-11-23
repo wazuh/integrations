@@ -1,0 +1,18 @@
+Nov 21 08:57:09 wcp-ep1 sshd[3439]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-alice
+Nov 21 08:57:11 wcp-ep1 sshd[3439]: Failed password for wcpt-alice from 10.231.40.118 port 60238 ssh2
+Nov 21 08:57:15 wcp-ep1 sshd[3439]: Failed password for wcpt-alice from 10.231.40.118 port 60238 ssh2
+Nov 21 08:57:17 wcp-ep1 sshd[3439]: Failed password for wcpt-alice from 10.231.40.118 port 60238 ssh2
+Nov 21 08:57:17 wcp-ep1 sshd[3439]: Connection closed by authenticating user wcpt-alice 10.231.40.118 port 60238 [preauth]
+Nov 21 08:57:17 wcp-ep1 sshd[3439]: PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-alice
+Nov 21 08:57:18 wcp-ep1 sshd[3441]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-bob
+Nov 21 08:57:20 wcp-ep1 sshd[3441]: Failed password for wcpt-bob from 10.231.40.118 port 60240 ssh2
+Nov 21 08:57:23 wcp-ep1 sshd[3441]: Failed password for wcpt-bob from 10.231.40.118 port 60240 ssh2
+Nov 21 08:57:26 wcp-ep1 sshd[3441]: Failed password for wcpt-bob from 10.231.40.118 port 60240 ssh2
+Nov 21 08:57:28 wcp-ep1 sshd[3443]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-carol
+Nov 21 08:57:28 wcp-ep1 sshd[3441]: Connection closed by authenticating user wcpt-bob 10.231.40.118 port 60240 [preauth]
+Nov 21 08:57:28 wcp-ep1 sshd[3441]: PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-bob
+Nov 21 08:57:30 wcp-ep1 sshd[3443]: Failed password for wcpt-carol from 10.231.40.118 port 42638 ssh2
+Nov 21 08:57:33 wcp-ep1 sshd[3443]: Failed password for wcpt-carol from 10.231.40.118 port 42638 ssh2
+Nov 21 08:57:36 wcp-ep1 sshd[3443]: Failed password for wcpt-carol from 10.231.40.118 port 42638 ssh2
+Nov 21 08:57:36 wcp-ep1 sshd[3443]: Connection closed by authenticating user wcpt-carol 10.231.40.118 port 42638 [preauth]
+Nov 21 08:57:36 wcp-ep1 sshd[3443]: PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-carol

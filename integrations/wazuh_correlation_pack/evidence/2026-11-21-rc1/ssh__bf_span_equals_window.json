@@ -1,0 +1,76 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.214: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.214: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "8 attempts whose first and last are exactly 120 s apart (half-open window: max 7)",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.214": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.477Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:03:51 wcp-ep1 sshd[17137]: Failed password for wcpt-alice from 203.0.113.214 port 33260 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:11 wcp-ep1 sshd[4692]: Failed password for wcpt-alice from 203.0.113.214 port 47173 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:31 wcp-ep1 sshd[23193]: Failed password for wcpt-alice from 203.0.113.214 port 45290 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:51 wcp-ep1 sshd[5143]: Failed password for wcpt-alice from 203.0.113.214 port 57731 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:11 wcp-ep1 sshd[32333]: Failed password for wcpt-alice from 203.0.113.214 port 54412 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[53327]: Failed password for wcpt-alice from 203.0.113.214 port 54055 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:41 wcp-ep1 sshd[45039]: Failed password for wcpt-alice from 203.0.113.214 port 51558 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:51 wcp-ep1 sshd[14625]: Failed password for wcpt-alice from 203.0.113.214 port 49178 ssh2"
+    }
+  ],
+  "inputs_total_lines": 8,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.214": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.214": 8
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__bf_span_equals_window",
+  "started": "2026-11-21T09:06:03.525Z",
+  "timings_s": {
+    "searchable_after_replay": {
+      "001|203.0.113.214": 27.1
+    }
+  },
+  "verdict": "PASS"
+}

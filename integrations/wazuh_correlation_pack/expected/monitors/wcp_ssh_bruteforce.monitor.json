@@ -1,0 +1,189 @@
+{
+  "enabled": true,
+  "inputs": [
+    {
+      "search": {
+        "indices": [
+          "wazuh-events-v5-system-activity"
+        ],
+        "query": {
+          "aggregations": {
+            "wcp_groups": {
+              "aggregations": {
+                "ctx_wazuh_agent_name": {
+                  "terms": {
+                    "field": "wazuh.agent.name",
+                    "size": 5
+                  }
+                },
+                "wcp_detail": {
+                  "scripted_metric": {
+                    "combine_script": {
+                      "lang": "painless",
+                      "source": "return state.p;"
+                    },
+                    "init_script": {
+                      "lang": "painless",
+                      "source": "state.p = new ArrayList();"
+                    },
+                    "map_script": {
+                      "lang": "painless",
+                      "source": "if (!doc.containsKey(params.ts) || doc[params.ts].size() == 0) { return; }\nlong t = doc[params.ts].value.toInstant().toEpochMilli();\ndef v = null;\nif (params.vf != '') {\n  if (!doc.containsKey(params.vf) || doc[params.vf].size() == 0) { return; }\n  v = doc[params.vf].value.toString();\n}\ndef id = null;\nif (params.idf != '' && doc.containsKey(params.idf) && doc[params.idf].size() > 0) { id = doc[params.idf].value.toString(); }\nstate.p.add([t, v, id]);"
+                    },
+                    "params": {
+                      "detail": true,
+                      "distinct": false,
+                      "idf": "",
+                      "max_events": 100000,
+                      "ts": "event.start",
+                      "vf": "",
+                      "window_ms": 120000
+                    },
+                    "reduce_script": {
+                      "lang": "painless",
+                      "source": "List p = new ArrayList();\nfor (s in states) { if (s != null) { p.addAll(s); } }\np.sort((x, y) -> Long.compare((long) x.get(0), (long) y.get(0)));\nint overflow = 0;\nif (p.size() > params.max_events) { overflow = p.size() - params.max_events; p = p.subList(p.size() - params.max_events, p.size()); }\nSet seen = new HashSet();\nList q = new ArrayList();\nint dups = 0;\nfor (e in p) {\n  def id = e.get(2);\n  if (id != null) { if (seen.contains(id)) { dups++; continue; } seen.add(id); }\n  q.add(e);\n}\nlong w = params.window_ms;\nint best = 0; long bs = 0; long be = 0; int i = 0; List sample = new ArrayList();\nMap cnt = new HashMap();\nfor (int j = 0; j < q.size(); ++j) {\n  long tj = (long) q.get(j).get(0);\n  def vj = q.get(j).get(1);\n  if (vj != null) { cnt.put(vj, cnt.getOrDefault(vj, 0) + 1); }\n  while (tj - (long) q.get(i).get(0) >= w) {\n    def vi = q.get(i).get(1);\n    if (vi != null) { int c = cnt.get(vi) - 1; if (c == 0) { cnt.remove(vi); } else { cnt.put(vi, c); } }\n    i++;\n  }\n  int score = params.distinct ? cnt.size() : (j - i + 1);\n  if (score > best) {\n    best = score; bs = (long) q.get(i).get(0); be = tj;\n    if (params.detail && params.distinct) { sample = new ArrayList(cnt.keySet()); }\n  }\n}\nif (!params.detail) { return best; }\nif (sample.size() > 25) { sample = sample.subList(0, 25); }\nCollections.sort(sample);\nreturn ['score': best, 'events_in_lookback': q.size(), 'duplicates_skipped': dups, 'overflow_dropped': overflow,\n        'window_start': bs, 'window_end': be, 'distinct_values_sample': sample];"
+                    }
+                  }
+                },
+                "wcp_score": {
+                  "scripted_metric": {
+                    "combine_script": {
+                      "lang": "painless",
+                      "source": "return state.p;"
+                    },
+                    "init_script": {
+                      "lang": "painless",
+                      "source": "state.p = new ArrayList();"
+                    },
+                    "map_script": {
+                      "lang": "painless",
+                      "source": "if (!doc.containsKey(params.ts) || doc[params.ts].size() == 0) { return; }\nlong t = doc[params.ts].value.toInstant().toEpochMilli();\ndef v = null;\nif (params.vf != '') {\n  if (!doc.containsKey(params.vf) || doc[params.vf].size() == 0) { return; }\n  v = doc[params.vf].value.toString();\n}\ndef id = null;\nif (params.idf != '' && doc.containsKey(params.idf) && doc[params.idf].size() > 0) { id = doc[params.idf].value.toString(); }\nstate.p.add([t, v, id]);"
+                    },
+                    "params": {
+                      "detail": false,
+                      "distinct": false,
+                      "idf": "",
+                      "max_events": 100000,
+                      "ts": "event.start",
+                      "vf": "",
+                      "window_ms": 120000
+                    },
+                    "reduce_script": {
+                      "lang": "painless",
+                      "source": "List p = new ArrayList();\nfor (s in states) { if (s != null) { p.addAll(s); } }\np.sort((x, y) -> Long.compare((long) x.get(0), (long) y.get(0)));\nint overflow = 0;\nif (p.size() > params.max_events) { overflow = p.size() - params.max_events; p = p.subList(p.size() - params.max_events, p.size()); }\nSet seen = new HashSet();\nList q = new ArrayList();\nint dups = 0;\nfor (e in p) {\n  def id = e.get(2);\n  if (id != null) { if (seen.contains(id)) { dups++; continue; } seen.add(id); }\n  q.add(e);\n}\nlong w = params.window_ms;\nint best = 0; long bs = 0; long be = 0; int i = 0; List sample = new ArrayList();\nMap cnt = new HashMap();\nfor (int j = 0; j < q.size(); ++j) {\n  long tj = (long) q.get(j).get(0);\n  def vj = q.get(j).get(1);\n  if (vj != null) { cnt.put(vj, cnt.getOrDefault(vj, 0) + 1); }\n  while (tj - (long) q.get(i).get(0) >= w) {\n    def vi = q.get(i).get(1);\n    if (vi != null) { int c = cnt.get(vi) - 1; if (c == 0) { cnt.remove(vi); } else { cnt.put(vi, c); } }\n    i++;\n  }\n  int score = params.distinct ? cnt.size() : (j - i + 1);\n  if (score > best) {\n    best = score; bs = (long) q.get(i).get(0); be = tj;\n    if (params.detail && params.distinct) { sample = new ArrayList(cnt.keySet()); }\n  }\n}\nif (!params.detail) { return best; }\nif (sample.size() > 25) { sample = sample.subList(0, 25); }\nCollections.sort(sample);\nreturn ['score': best, 'events_in_lookback': q.size(), 'duplicates_skipped': dups, 'overflow_dropped': overflow,\n        'window_start': bs, 'window_end': be, 'distinct_values_sample': sample];"
+                    }
+                  }
+                }
+              },
+              "composite": {
+                "size": 500,
+                "sources": [
+                  {
+                    "g0_wazuh_agent_id": {
+                      "terms": {
+                        "field": "wazuh.agent.id"
+                      }
+                    }
+                  },
+                  {
+                    "g1_source_ip": {
+                      "terms": {
+                        "field": "source.ip"
+                      }
+                    }
+                  }
+                ]
+              },
+              "meta": {
+                "wcp": {
+                  "content_hash": "007c0a436059d016",
+                  "correlation_id": "e7a75f10-f719-4ba8-9553-46597596c888",
+                  "correlation_name": "wcp_ssh_bruteforce",
+                  "pack": "wazuh_correlation_pack",
+                  "pack_version": "0.1.0"
+                }
+              }
+            }
+          },
+          "query": {
+            "bool": {
+              "filter": [
+                {
+                  "bool": {
+                    "filter": [
+                      {
+                        "terms": {
+                          "process.name": [
+                            "sshd",
+                            "sshd-session",
+                            "sshd-auth"
+                          ]
+                        }
+                      },
+                      {
+                        "terms": {
+                          "event.reason": [
+                            "Failed password",
+                            "Failed keyboard-interactive/pam"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "exists": {
+                    "field": "wazuh.agent.id"
+                  }
+                },
+                {
+                  "exists": {
+                    "field": "source.ip"
+                  }
+                },
+                {
+                  "range": {
+                    "event.start": {
+                      "format": "epoch_millis",
+                      "gte": "{{period_end}}||-300s",
+                      "lte": "{{period_end}}"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "size": 0
+        }
+      }
+    }
+  ],
+  "monitor_type": "bucket_level_monitor",
+  "name": "[wcp] SSH brute force - repeated failed password attempts from one source on one endpoint",
+  "schedule": {
+    "period": {
+      "interval": 1,
+      "unit": "MINUTES"
+    }
+  },
+  "triggers": [
+    {
+      "bucket_level_trigger": {
+        "actions": [],
+        "condition": {
+          "buckets_path": {
+            "score": "wcp_score.value"
+          },
+          "parent_bucket_path": "wcp_groups",
+          "script": {
+            "lang": "painless",
+            "source": "params.score >= 8"
+          }
+        },
+        "name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip",
+        "severity": "2"
+      }
+    }
+  ],
+  "type": "monitor"
+}

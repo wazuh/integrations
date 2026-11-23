@@ -1,0 +1,57 @@
+commit: f3af740 (detection code identical to 105573d)
+python: Python 3.12.3, PyYAML 6.0.2
+run: 2026-11-22T08:01:12Z
+test_actions_policy (test_alerting.TestMonitor.test_actions_policy) ... ok
+test_group_fields_required (test_alerting.TestMonitor.test_group_fields_required) ... ok
+test_hash_stable_and_sensitive (test_alerting.TestMonitor.test_hash_stable_and_sensitive) ... ok
+test_settings_validation (test_alerting.TestMonitor.test_settings_validation) ... ok
+test_shape (test_alerting.TestMonitor.test_shape) ... ok
+test_below_at_above_threshold (test_alerting.TestSlidingWindow.test_below_at_above_threshold) ... ok
+test_distinct_values (test_alerting.TestSlidingWindow.test_distinct_values) ... ok
+test_distinct_window_slides (test_alerting.TestSlidingWindow.test_distinct_window_slides) ... ok
+test_identity_dedup (test_alerting.TestSlidingWindow.test_identity_dedup) ... ok
+test_max_events_keeps_latest (test_alerting.TestSlidingWindow.test_max_events_keeps_latest) ... ok
+test_random_against_bruteforce (test_alerting.TestSlidingWindow.test_random_against_bruteforce) ... ok
+test_spread_outside_window (test_alerting.TestSlidingWindow.test_spread_outside_window) ... ok
+test_window_boundary_is_half_open (test_alerting.TestSlidingWindow.test_window_boundary_is_half_open) ... ok
+test_window_not_widened_by_lookback (test_alerting.TestSlidingWindow.test_window_not_widened_by_lookback) ... ok
+test_adopt_markerless_monitor_from_manifest (test_deploy.TestDeploy.test_adopt_markerless_monitor_from_manifest) ... ok
+test_duplicate_pack_monitor_is_removed (test_deploy.TestDeploy.test_duplicate_pack_monitor_is_removed) ... ok
+test_install_then_idempotent (test_deploy.TestDeploy.test_install_then_idempotent) ... ok
+test_marker_alone_identifies_monitors (test_deploy.TestDeploy.test_marker_alone_identifies_monitors) ... ok
+test_only_does_not_prune (test_deploy.TestDeploy.test_only_does_not_prune) ... ok
+test_prune_only_pack_monitors (test_deploy.TestDeploy.test_prune_only_pack_monitors) ... ok
+test_remove_leaves_foreign (test_deploy.TestDeploy.test_remove_leaves_foreign) ... ok
+test_rollback_restores_previous_bodies (test_deploy.TestDeploy.test_rollback_restores_previous_bodies) ... ok
+test_update_on_setting_change (test_deploy.TestDeploy.test_update_on_setting_change) ... ok
+test_update_on_version_change (test_deploy.TestDeploy.test_update_on_version_change) ... ok
+test_rendering_matches_expected (test_identity.TestExpectedMonitors.test_rendering_matches_expected) ... ok
+test_other_monitors_use_shared_map_script (test_identity.TestRendering.test_other_monitors_use_shared_map_script) ... ok
+test_virtual_field_rules (test_identity.TestRendering.test_virtual_field_rules) ... ok
+test_windows_spray_uses_derived_account (test_identity.TestRendering.test_windows_spray_uses_derived_account) ... ok
+test_case_insensitive (test_identity.TestWindowsTargetAccount.test_case_insensitive) ... ok
+test_domain_only_with_matching_sids (test_identity.TestWindowsTargetAccount.test_domain_only_with_matching_sids) ... ok
+test_dot_is_reporting_computer (test_identity.TestWindowsTargetAccount.test_dot_is_reporting_computer) ... ok
+test_flattened_and_list_values (test_identity.TestWindowsTargetAccount.test_flattened_and_list_values) ... ok
+test_missing_domain (test_identity.TestWindowsTargetAccount.test_missing_domain) ... ok
+test_missing_or_dash_user_not_counted (test_identity.TestWindowsTargetAccount.test_missing_or_dash_user_not_counted) ... ok
+test_observed_rc1_shape (test_identity.TestWindowsTargetAccount.test_observed_rc1_shape) ... ok
+test_same_username_across_domains (test_identity.TestWindowsTargetAccount.test_same_username_across_domains) ... ok
+test_subject_identity_never_used (test_identity.TestWindowsTargetAccount.test_subject_identity_never_used) ... ok
+test_subject_present_uses_target_domain (test_identity.TestWindowsTargetAccount.test_subject_present_uses_target_domain) ... ok
+test_base_rejections (test_sigma.TestLoad.test_base_rejections) ... ok
+test_chained_correlation_rejected (test_sigma.TestLoad.test_chained_correlation_rejected) ... ok
+test_gt_is_threshold_plus_one (test_sigma.TestLoad.test_gt_is_threshold_plus_one) ... ok
+test_rejections (test_sigma.TestLoad.test_rejections) ... ok
+test_rule_reference_by_id (test_sigma.TestLoad.test_rule_reference_by_id) ... ok
+test_valid_pack (test_sigma.TestLoad.test_valid_pack) ... ok
+test_value_count_field_not_in_group_by (test_sigma.TestLoad.test_value_count_field_not_in_group_by) ... ok
+test_value_count_requires_field (test_sigma.TestLoad.test_value_count_requires_field) ... ok
+test_compile (test_sigma.TestQuery.test_compile) ... ok
+test_condition_precedence (test_sigma.TestQuery.test_condition_precedence) ... ok
+test_modifiers (test_sigma.TestQuery.test_modifiers) ... ok
+
+----------------------------------------------------------------------
+Ran 49 tests in 0.408s
+
+OK

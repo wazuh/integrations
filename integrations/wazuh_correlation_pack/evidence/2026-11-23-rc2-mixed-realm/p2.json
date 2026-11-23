@@ -1,0 +1,629 @@
+{
+  "checks": [
+    {
+      "check": "one 4625 in the Security log per attempt",
+      "detail": {
+        "attempts": {
+          "wcpt-p2-n1": 1,
+          "wcpt-p2-n2": 1,
+          "wcpt-p2-same": 3,
+          "wcpt-p2-smb": 1,
+          "wcpt-p2-t1": 1,
+          "wcpt-p2-t2": 1,
+          "wcpt-p2-t3": 1,
+          "wcpt-p2-t4": 1,
+          "wcpt-p2-t5": 1
+        },
+        "log": {
+          "wcpt-p2-n1": 1,
+          "wcpt-p2-n2": 1,
+          "wcpt-p2-same": 3,
+          "wcpt-p2-smb": 1,
+          "wcpt-p2-t1": 1,
+          "wcpt-p2-t2": 1,
+          "wcpt-p2-t3": 1,
+          "wcpt-p2-t4": 1,
+          "wcpt-p2-t5": 1
+        }
+      },
+      "pass": true
+    },
+    {
+      "check": "LogonUser records carry a reporting subject that differs from the target",
+      "detail": 10,
+      "pass": true
+    },
+    {
+      "check": "every captured record indexed exactly once",
+      "detail": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "pass": true
+    },
+    {
+      "check": "decoded identity fields = decoder model (subject-present shape on real events)",
+      "detail": [],
+      "pass": true
+    },
+    {
+      "check": "wcp.identity on decoded events = account from the raw target fields",
+      "detail": [
+        [
+          "?\\wcpt-p2-smb",
+          "?\\wcpt-p2-smb"
+        ],
+        [
+          "wcp-win-rc2\\wcpt-p2-n2",
+          "wcp-win-rc2\\wcpt-p2-n2"
+        ],
+        [
+          "wcp-win-rc2\\wcpt-p2-n1",
+          "wcp-win-rc2\\wcpt-p2-n1"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-same",
+          "wcpotherdom\\wcpt-p2-same"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-same",
+          "wcpotherdom\\wcpt-p2-same"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-same",
+          "wcpotherdom\\wcpt-p2-same"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-t5",
+          "wcpotherdom\\wcpt-p2-t5"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-t4",
+          "wcpotherdom\\wcpt-p2-t4"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-t3",
+          "wcpotherdom\\wcpt-p2-t3"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-t2",
+          "wcpotherdom\\wcpt-p2-t2"
+        ],
+        [
+          "wcpotherdom\\wcpt-p2-t1",
+          "wcpotherdom\\wcpt-p2-t1"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "check": "the realm is never the reporting subject's domain",
+      "detail": [],
+      "pass": true
+    },
+    {
+      "check": "Painless probe: distinct accounts = target accounts (9) for 1 reporting subject(s)",
+      "detail": {
+        "sample": [
+          "?\\wcpt-p2-smb",
+          "wcpotherdom\\wcpt-p2-same",
+          "wcpotherdom\\wcpt-p2-t1",
+          "wcpotherdom\\wcpt-p2-t2",
+          "wcpotherdom\\wcpt-p2-t3",
+          "wcpotherdom\\wcpt-p2-t4",
+          "wcpotherdom\\wcpt-p2-t5",
+          "wcp-win-rc2\\wcpt-p2-n1",
+          "wcp-win-rc2\\wcpt-p2-n2"
+        ],
+        "score": 9
+      },
+      "pass": true
+    }
+  ],
+  "cleanup": {},
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "compile_limit_retries": [],
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 2,
+      "machines": [
+        {
+          "aliases": [
+            "linux_source"
+          ],
+          "fingerprint": "acd9762bb99da1df",
+          "label": "linux-1",
+          "locked": false
+        },
+        {
+          "aliases": [
+            "windows"
+          ],
+          "fingerprint": "75c0ed67dd4481bf",
+          "label": "windows-1",
+          "locked": false
+        }
+      ]
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {},
+  "finished": "2026-11-23T11:57:40.127Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "6ee23001184108654b461bdff9347a6d1325dc5c",
+    "head": "4b78d7973676d012114970ee0c256776308ead7e",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [
+    {
+      "kind": "LogonUser on the Windows endpoint",
+      "results": [
+        {
+          "at": "2026-11-23T11:57:15.5506611Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-t1",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:15.9881752Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-t2",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:16.3942960Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-t3",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:16.8006287Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-t4",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:17.2070104Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-t5",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:17.6132275Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-same",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:18.0191598Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-same",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:18.4257585Z",
+          "domain": "WCPOTHERDOM",
+          "succeeded": false,
+          "type": 2,
+          "user": "wcpt-p2-same",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:18.8472124Z",
+          "domain": ".",
+          "succeeded": false,
+          "type": 3,
+          "user": "wcpt-p2-n1",
+          "win32_error": 1326
+        },
+        {
+          "at": "2026-11-23T11:57:19.2534989Z",
+          "domain": ".",
+          "succeeded": false,
+          "type": 3,
+          "user": "wcpt-p2-n2",
+          "win32_error": 1326
+        }
+      ]
+    },
+    {
+      "domain": "WCPOTHERDOM",
+      "end": "2026-11-23T11:57:20.621Z",
+      "kind": "smbclient from linux_source",
+      "start": "2026-11-23T11:57:19.040Z",
+      "users": [
+        "wcpt-p2-smb"
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "observation": "SMB record with explicit domain: source.ip, subject, account",
+      "value": [
+        [
+          "10.10.0.132",
+          "-\\-",
+          "?\\wcpt-p2-smb"
+        ]
+      ]
+    }
+  ],
+  "observed": {
+    "distinct_reporting_subjects": [
+      "WCP-WIN-RC2\\<access-account>"
+    ],
+    "logon_types": {
+      "3954": "2",
+      "3955": "2",
+      "3956": "2",
+      "3957": "2",
+      "3958": "2",
+      "3959": "2",
+      "3960": "2",
+      "3961": "2",
+      "3962": "3",
+      "3963": "3",
+      "3966": "3"
+    },
+    "painless_probe_by_agent": {
+      "sample": [
+        "?\\wcpt-p2-smb",
+        "wcpotherdom\\wcpt-p2-same",
+        "wcpotherdom\\wcpt-p2-t1",
+        "wcpotherdom\\wcpt-p2-t2",
+        "wcpotherdom\\wcpt-p2-t3",
+        "wcpotherdom\\wcpt-p2-t4",
+        "wcpotherdom\\wcpt-p2-t5",
+        "wcp-win-rc2\\wcpt-p2-n1",
+        "wcp-win-rc2\\wcpt-p2-n2"
+      ],
+      "score": 9
+    },
+    "records": [
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCPOTHERDOM",
+          "user.id": "S-1-0-0",
+          "user.name": "wcpt-p2-smb",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-smb"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "3",
+        "provenance": "captured",
+        "python_reference_account": "?\\wcpt-p2-smb",
+        "record_id": "3966",
+        "source_ip": "10.10.0.132",
+        "spec_account": "?\\wcpt-p2-smb",
+        "subject": "-\\-"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCP-WIN-RC2",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-n2"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "3",
+        "provenance": "captured",
+        "python_reference_account": "wcp-win-rc2\\wcpt-p2-n2",
+        "record_id": "3963",
+        "source_ip": null,
+        "spec_account": "wcp-win-rc2\\wcpt-p2-n2",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCP-WIN-RC2",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-n1"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "3",
+        "provenance": "captured",
+        "python_reference_account": "wcp-win-rc2\\wcpt-p2-n1",
+        "record_id": "3962",
+        "source_ip": null,
+        "spec_account": "wcp-win-rc2\\wcpt-p2-n1",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-same"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-same",
+        "record_id": "3961",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-same",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-same"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-same",
+        "record_id": "3960",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-same",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-same"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-same",
+        "record_id": "3959",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-same",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-t5"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-t5",
+        "record_id": "3958",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-t5",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-t4"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-t4",
+        "record_id": "3957",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-t4",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-t3"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-t3",
+        "record_id": "3956",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-t3",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-t2"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-t2",
+        "record_id": "3955",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-t2",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      },
+      {
+        "decoded_identity": {
+          "host.name": "WCP-WIN-RC2",
+          "user.domain": "WCP-WIN-RC2",
+          "user.id": "S-1-5-21-3625973307-93845053-2421587606-500",
+          "user.name": "<access-account>",
+          "user.target.domain": "WCPOTHERDOM",
+          "user.target.id": "S-1-0-0",
+          "user.target.name": "wcpt-p2-t1"
+        },
+        "diffs_vs_decoder_model": [],
+        "indexed_copies": 1,
+        "logon_type": "2",
+        "provenance": "captured",
+        "python_reference_account": "wcpotherdom\\wcpt-p2-t1",
+        "record_id": "3954",
+        "source_ip": null,
+        "spec_account": "wcpotherdom\\wcpt-p2-t1",
+        "subject": "WCP-WIN-RC2\\<access-account>"
+      }
+    ],
+    "sanitized_file": {
+      "file": "p2_captured_4625.sanitized.xml.log",
+      "leftovers_found": 0,
+      "records": 11,
+      "saved": true
+    },
+    "security_log_records": 11
+  },
+  "plan": {
+    "attempts": [
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "A",
+        "type": 2,
+        "user": "wcpt-p2-t1"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "A",
+        "type": 2,
+        "user": "wcpt-p2-t2"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "A",
+        "type": 2,
+        "user": "wcpt-p2-t3"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "A",
+        "type": 2,
+        "user": "wcpt-p2-t4"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "A",
+        "type": 2,
+        "user": "wcpt-p2-t5"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "B",
+        "type": 2,
+        "user": "wcpt-p2-same"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "B",
+        "type": 2,
+        "user": "wcpt-p2-same"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "B",
+        "type": 2,
+        "user": "wcpt-p2-same"
+      },
+      {
+        "domain": ".",
+        "set": "C",
+        "type": 3,
+        "user": "wcpt-p2-n1"
+      },
+      {
+        "domain": ".",
+        "set": "C",
+        "type": 3,
+        "user": "wcpt-p2-n2"
+      },
+      {
+        "domain": "WCPOTHERDOM",
+        "set": "D",
+        "user": "wcpt-p2-smb",
+        "via": "smbclient from linux_source"
+      }
+    ],
+    "expected_distinct_reporting_subjects_A_B_C": 1,
+    "expected_distinct_target_accounts": 9,
+    "expected_records": 11,
+    "expected_target_accounts_if_realm_written_as_given": [
+      "<computer>\\wcpt-p2-n1",
+      "<computer>\\wcpt-p2-n2",
+      "wcpotherdom\\wcpt-p2-same",
+      "wcpotherdom\\wcpt-p2-smb",
+      "wcpotherdom\\wcpt-p2-t1",
+      "wcpotherdom\\wcpt-p2-t2",
+      "wcpotherdom\\wcpt-p2-t3",
+      "wcpotherdom\\wcpt-p2-t4",
+      "wcpotherdom\\wcpt-p2-t5"
+    ],
+    "provenance": "captured (generated on the lab Windows endpoint)"
+  },
+  "started": "2026-11-23T11:57:03.865Z",
+  "status": "PASS",
+  "test": "p2",
+  "timings_s": {
+    "all_indexed_after_first_poll": 12.4
+  },
+  "title": "P2-captured: reporting subject vs failed target on real 4625 events"
+}

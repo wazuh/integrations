@@ -1,0 +1,223 @@
+{
+  "layer": "query-api (indexed fixtures, _execute dry run)",
+  "run_at": "2026-11-21T08:48:53.608723+00:00",
+  "index": "wcp-test-fixtures",
+  "index_deleted": true,
+  "cases": [
+    {
+      "case": "below",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 7,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "execute_ms": 56,
+      "query_took_ms": 5
+    },
+    {
+      "case": "exact",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.2": 8
+      },
+      "triggered": {
+        "001|192.0.2.2": 8
+      },
+      "pass": true,
+      "execute_ms": 43,
+      "query_took_ms": 5
+    },
+    {
+      "case": "above",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 20,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.3": 20
+      },
+      "triggered": {
+        "001|192.0.2.3": 20
+      },
+      "pass": true,
+      "execute_ms": 28,
+      "query_took_ms": 5
+    },
+    {
+      "case": "ms_edge_out",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "execute_ms": 51,
+      "query_took_ms": 4
+    },
+    {
+      "case": "ms_edge_in",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.5": 8
+      },
+      "triggered": {
+        "001|192.0.2.5": 8
+      },
+      "pass": true,
+      "execute_ms": 32,
+      "query_took_ms": 3
+    },
+    {
+      "case": "selection",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 27,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "execute_ms": 73,
+      "query_took_ms": 3
+    },
+    {
+      "case": "no_source_ip",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 10,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "execute_ms": 60,
+      "query_took_ms": 3
+    },
+    {
+      "case": "groups",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 22,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.7": 8
+      },
+      "triggered": {
+        "001|192.0.2.7": 8
+      },
+      "pass": true,
+      "execute_ms": 24,
+      "query_took_ms": 4
+    },
+    {
+      "case": "identity_dedup_on",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {
+        "event_identity_field": "wazuh.event.id"
+      },
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "execute_ms": 52,
+      "query_took_ms": 7
+    },
+    {
+      "case": "identity_dedup_off",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.9": 8
+      },
+      "triggered": {
+        "001|192.0.2.9": 8
+      },
+      "pass": true,
+      "execute_ms": 38,
+      "query_took_ms": 3
+    },
+    {
+      "case": "spray_exact",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.10": 5
+      },
+      "triggered": {
+        "001|192.0.2.10": 5
+      },
+      "pass": true,
+      "execute_ms": 43,
+      "query_took_ms": 3
+    },
+    {
+      "case": "spray_repeat",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 40,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "execute_ms": 72,
+      "query_took_ms": 4
+    },
+    {
+      "case": "spray_window",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "execute_ms": 60,
+      "query_took_ms": 4
+    },
+    {
+      "case": "spray_large",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 5000,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.13": 5000
+      },
+      "triggered": {
+        "001|192.0.2.13": 5000
+      },
+      "pass": true,
+      "execute_ms": 117,
+      "query_took_ms": 85
+    },
+    {
+      "case": "win_burst",
+      "correlation": "wcp_windows_failed_logon_burst",
+      "docs": 10,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.20": 10
+      },
+      "triggered": {
+        "003|192.0.2.20": 10
+      },
+      "pass": true,
+      "execute_ms": 41,
+      "query_took_ms": 4
+    },
+    {
+      "case": "win_spray",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 12,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.21": 6
+      },
+      "triggered": {
+        "003|192.0.2.21": 6
+      },
+      "pass": true,
+      "execute_ms": 39,
+      "query_took_ms": 2
+    }
+  ],
+  "verdict": "PASS"
+}

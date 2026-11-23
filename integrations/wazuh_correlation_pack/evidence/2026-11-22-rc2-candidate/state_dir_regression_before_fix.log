@@ -1,0 +1,69 @@
+# tests/unit/test_cli_state.py run against the unchanged wcp/ of d7ad03f (before the fix)
+# 2026-11-22T20:55:46Z
+test_default_when_nothing_is_set (tests.unit.test_cli_state.CliStateTest.test_default_when_nothing_is_set) ... ok
+test_environment_beats_env_file (tests.unit.test_cli_state.CliStateTest.test_environment_beats_env_file) ... ok
+test_manifest_of_another_cluster_is_refused_before_any_mutation (tests.unit.test_cli_state.CliStateTest.test_manifest_of_another_cluster_is_refused_before_any_mutation) ... ERROR
+test_option_beats_environment_and_env_file (tests.unit.test_cli_state.CliStateTest.test_option_beats_environment_and_env_file) ... ok
+test_rc1_like_and_rc2_like_configurations_stay_separate (tests.unit.test_cli_state.CliStateTest.test_rc1_like_and_rc2_like_configurations_stay_separate) ... FAIL
+test_state_dir_from_env_file_is_used (tests.unit.test_cli_state.CliStateTest.test_state_dir_from_env_file_is_used)
+The regression: WCP_STATE_DIR only in the selected env file. ... FAIL
+FAIL
+
+======================================================================
+ERROR: test_manifest_of_another_cluster_is_refused_before_any_mutation (tests.unit.test_cli_state.CliStateTest.test_manifest_of_another_cluster_is_refused_before_any_mutation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<workstation-home>\wazuh-correlation-pack\integrations\wazuh_correlation_pack\tests\unit\test_cli_state.py", line 173, in test_manifest_of_another_cluster_is_refused_before_any_mutation
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '<workstation-tmp>\\wcp-cli-state-znds7vp6\\shared\\same.manifest.json'
+
+======================================================================
+FAIL: test_rc1_like_and_rc2_like_configurations_stay_separate (tests.unit.test_cli_state.CliStateTest.test_rc1_like_and_rc2_like_configurations_stay_separate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<workstation-home>\wazuh-correlation-pack\integrations\wazuh_correlation_pack\tests\unit\test_cli_state.py", line 147, in test_rc1_like_and_rc2_like_configurations_stay_separate
+AssertionError: Lists differ: [] != ['rc1-state\\lab-rc1.manifest.json']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'rc1-state\\lab-rc1.manifest.json'
+
+- []
++ ['rc1-state\\lab-rc1.manifest.json']
+
+======================================================================
+FAIL: test_state_dir_from_env_file_is_used (tests.unit.test_cli_state.CliStateTest.test_state_dir_from_env_file_is_used)
+The regression: WCP_STATE_DIR only in the selected env file.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<workstation-home>\wazuh-correlation-pack\integrations\wazuh_correlation_pack\tests\unit\test_cli_state.py", line 104, in test_state_dir_from_env_file_is_used
+AssertionError: Lists differ: [] != ['rc2-state\\rc2.manifest.json']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'rc2-state\\rc2.manifest.json'
+
+- []
++ ['rc2-state\\rc2.manifest.json']
+
+======================================================================
+FAIL: test_unbound_existing_manifest_needs_explicit_binding_for_mutations (tests.unit.test_cli_state.CliStateTest.test_unbound_existing_manifest_needs_explicit_binding_for_mutations)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<workstation-home>\wazuh-correlation-pack\integrations\wazuh_correlation_pack\tests\unit\test_cli_state.py", line 197, in test_unbound_existing_manifest_needs_explicit_binding_for_mutations
+AssertionError: 0 == 0 : pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9202 (0 unrelated monitor(s) left untouched)
+  create  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint -  (not deployed)
+  create  [wcp] SSH password spraying - one source failing against many accounts on one endpoint -  (not deployed)
+  create  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint -  (not deployed)
+  create  [wcp] Windows password spraying - one source failing against many accounts on one endpoint -  (not deployed)
+applied: 4 change(s), 0 unchanged; manifest <workstation-tmp>\wcp-cli-state-o785y8po\home\.config\wazuh_correlation_pack\state\old.manifest.json
+  create [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint -> m1
+  create [wcp] SSH password spraying - one source failing against many accounts on one endpoint -> m2
+  create [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint -> m3
+  create [wcp] Windows password spraying - one source failing against many accounts on one endpoint -> m4
+
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.401s
+
+FAILED (failures=3, errors=1)

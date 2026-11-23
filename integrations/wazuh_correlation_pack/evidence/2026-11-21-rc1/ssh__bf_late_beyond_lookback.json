@@ -1,0 +1,76 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.223: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.223: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "8 attempts stamped 400 s before delivery (older than the 300 s lookback)",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.223": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.481Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:21 wcp-ep1 sshd[50328]: Failed password for wcpt-alice from 203.0.113.223 port 46764 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:22 wcp-ep1 sshd[49897]: Failed password for wcpt-alice from 203.0.113.223 port 47941 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:23 wcp-ep1 sshd[44372]: Failed password for wcpt-alice from 203.0.113.223 port 41292 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:24 wcp-ep1 sshd[32317]: Failed password for wcpt-alice from 203.0.113.223 port 36195 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:25 wcp-ep1 sshd[59727]: Failed password for wcpt-alice from 203.0.113.223 port 57803 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:26 wcp-ep1 sshd[38326]: Failed password for wcpt-alice from 203.0.113.223 port 37777 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:27 wcp-ep1 sshd[3611]: Failed password for wcpt-alice from 203.0.113.223 port 44406 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 08:59:28 wcp-ep1 sshd[58809]: Failed password for wcpt-alice from 203.0.113.223 port 42798 ssh2"
+    }
+  ],
+  "inputs_total_lines": 8,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.223": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.223": 8
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__bf_late_beyond_lookback",
+  "started": "2026-11-21T09:06:03.526Z",
+  "timings_s": {
+    "searchable_after_replay": {
+      "001|203.0.113.223": 27.8
+    }
+  },
+  "verdict": "PASS"
+}

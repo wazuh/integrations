@@ -1,0 +1,125 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.213: 12 counted events searchable",
+      "detail": 12,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.213: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.213: score 12",
+      "detail": 12,
+      "pass": true
+    }
+  ],
+  "description": "12 attempts in 55 s",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.213": 12
+    }
+  },
+  "finished": "2026-11-21T09:11:33.477Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:01 wcp-ep1 sshd[54514]: Failed password for wcpt-bob from 203.0.113.213 port 56337 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:06 wcp-ep1 sshd[43987]: Failed password for wcpt-bob from 203.0.113.213 port 50318 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:11 wcp-ep1 sshd[48794]: Failed password for wcpt-bob from 203.0.113.213 port 56978 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:16 wcp-ep1 sshd[33845]: Failed password for wcpt-bob from 203.0.113.213 port 57742 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:21 wcp-ep1 sshd[59467]: Failed password for wcpt-bob from 203.0.113.213 port 40033 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:26 wcp-ep1 sshd[7803]: Failed password for wcpt-bob from 203.0.113.213 port 50699 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[14530]: Failed password for wcpt-bob from 203.0.113.213 port 50093 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:36 wcp-ep1 sshd[4127]: Failed password for wcpt-bob from 203.0.113.213 port 41805 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:41 wcp-ep1 sshd[6105]: Failed password for wcpt-bob from 203.0.113.213 port 36930 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:46 wcp-ep1 sshd[6256]: Failed password for wcpt-bob from 203.0.113.213 port 47264 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:51 wcp-ep1 sshd[36692]: Failed password for wcpt-bob from 203.0.113.213 port 53847 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:56 wcp-ep1 sshd[20778]: Failed password for wcpt-bob from 203.0.113.213 port 35893 ssh2"
+    }
+  ],
+  "inputs_total_lines": 12,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.213": [
+          {
+            "acknowledged_time": null,
+            "bucket_keys": [
+              "001",
+              "203.0.113.213"
+            ],
+            "detail": {
+              "distinct_values_sample": [],
+              "duplicates_skipped": 0,
+              "events_in_lookback": 12,
+              "overflow_dropped": 0,
+              "score": 12,
+              "window_end": 1795251956000,
+              "window_start": 1795251901000
+            },
+            "doc_count": 12,
+            "end_time": null,
+            "id": "KZhc_aEB4cT_k7OXFd5F",
+            "last_notification_time": "2026-11-21T09:07:12.824Z",
+            "severity": "2",
+            "start_time": "2026-11-21T09:07:12.824Z",
+            "state": "ACTIVE",
+            "trigger_name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip"
+          }
+        ]
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.213": 12
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__bf_above_threshold",
+  "started": "2026-11-21T09:06:03.525Z",
+  "timings_s": {
+    "alert_seen_after_replay": {
+      "wcp_ssh_bruteforce 001|203.0.113.213": 78.8
+    },
+    "searchable_after_replay": {
+      "001|203.0.113.213": 27.1
+    }
+  },
+  "verdict": "PASS"
+}

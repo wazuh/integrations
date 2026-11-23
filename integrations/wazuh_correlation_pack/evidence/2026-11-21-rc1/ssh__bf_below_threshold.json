@@ -1,0 +1,72 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.211: 7 counted events searchable",
+      "detail": 7,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.211: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "7 attempts in 60 s (threshold 8 in 2m)",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.211": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.476Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:51 wcp-ep1 sshd[39772]: Failed password for wcpt-alice from 203.0.113.211 port 34009 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:01 wcp-ep1 sshd[43872]: Failed password for wcpt-alice from 203.0.113.211 port 45837 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:11 wcp-ep1 sshd[35463]: Failed password for wcpt-alice from 203.0.113.211 port 38152 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:21 wcp-ep1 sshd[42941]: Failed password for wcpt-alice from 203.0.113.211 port 42597 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[21404]: Failed password for wcpt-alice from 203.0.113.211 port 42442 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:41 wcp-ep1 sshd[14121]: Failed password for wcpt-alice from 203.0.113.211 port 33804 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:51 wcp-ep1 sshd[41918]: Failed password for wcpt-alice from 203.0.113.211 port 55422 ssh2"
+    }
+  ],
+  "inputs_total_lines": 7,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.211": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.211": 7
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__bf_below_threshold",
+  "started": "2026-11-21T09:06:03.525Z",
+  "timings_s": {
+    "searchable_after_replay": {
+      "001|203.0.113.211": 27.0
+    }
+  },
+  "verdict": "PASS"
+}

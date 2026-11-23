@@ -1,0 +1,1093 @@
+{
+  "checks": [
+    {
+      "check": "channel test message reached the lab receiver",
+      "detail": 0.014915,
+      "pass": true
+    },
+    {
+      "check": "new / probe: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new / probe: notifications {'NEW': 1, 'COMPLETED': 0}",
+      "detail": {
+        "COMPLETED": 0,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "new / normal: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new / normal: notifications {'NEW': 1, 'COMPLETED': 0}",
+      "detail": {
+        "COMPLETED": 0,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "new / continued: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new / continued: notifications {'NEW': 1, 'COMPLETED': 0}",
+      "detail": {
+        "COMPLETED": 0,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "new / single_run: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new / single_run: notifications {'NEW': 1, 'COMPLETED': 0}",
+      "detail": {
+        "COMPLETED": 0,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "new_completed / probe: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new_completed / probe: notifications {'NEW': 1, 'COMPLETED': 1}",
+      "detail": {
+        "COMPLETED": 1,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "new_completed / normal: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new_completed / normal: notifications {'NEW': 1, 'COMPLETED': 1}",
+      "detail": {
+        "COMPLETED": 1,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "new_completed / continued: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new_completed / continued: notifications {'NEW': 1, 'COMPLETED': 1}",
+      "detail": {
+        "COMPLETED": 1,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "new_completed / single_run: one alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "new_completed / single_run: notifications {'NEW': 1, 'COMPLETED': 1}",
+      "detail": {
+        "COMPLETED": 1,
+        "NEW": 1
+      },
+      "pass": true
+    },
+    {
+      "check": "every received notification attributable to a copy and a case",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "cleanup: temporary monitors, index, channel deleted",
+      "detail": {
+        "channel": "deleted",
+        "index": "deleted",
+        "monitor_new": "deleted",
+        "monitor_new_completed": "deleted"
+      },
+      "pass": true
+    }
+  ],
+  "cleanup": {
+    "channel": "deleted",
+    "index": "deleted",
+    "monitor_new": "deleted",
+    "monitor_new_completed": "deleted"
+  },
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 0,
+      "machines": []
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {
+    "single_run_counting_runs": {
+      "new": [
+        "2026-11-22T22:57:52.646Z"
+      ],
+      "new_completed": [
+        "2026-11-22T22:57:52.734Z"
+      ]
+    }
+  },
+  "finished": "2026-11-22T23:04:54.495Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "d090875ac4b109112ccb2486794472f9c0d78d01",
+    "head": "484e099e2b3d18143db7d6c52159ed0941764bf8",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [
+    {
+      "case": "normal",
+      "first_event": "2026-11-22T22:53:54.646Z",
+      "last_event": "2026-11-22T22:54:01.646Z",
+      "visible": "2026-11-22T22:54:03.193Z"
+    },
+    {
+      "case": "continued",
+      "first_event": "2026-11-22T22:54:54.646Z",
+      "last_event": "2026-11-22T22:55:01.646Z",
+      "visible": "2026-11-22T22:55:03.230Z"
+    },
+    {
+      "case": "single_run",
+      "first_event": "2026-11-22T22:53:16.419Z",
+      "last_event": "2026-11-22T22:53:23.419Z",
+      "visible": "2026-11-22T22:57:44.429Z"
+    }
+  ],
+  "observations": [
+    {
+      "observation": "new single_run alert states",
+      "value": [
+        [
+          "2026-11-22T22:57:52.662Z",
+          "ACTIVE"
+        ],
+        [
+          "2026-11-22T22:58:53.553Z",
+          "ABSENT"
+        ]
+      ]
+    },
+    {
+      "observation": "new_completed single_run alert states",
+      "value": [
+        [
+          "2026-11-22T22:57:52.690Z",
+          "ACTIVE"
+        ],
+        [
+          "2026-11-22T22:58:53.580Z",
+          "ABSENT"
+        ]
+      ]
+    }
+  ],
+  "observed": {
+    "alerts": {
+      "new": [
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795387972535,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.250"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "RBl2BaIB8xfpA6fnXE8n",
+            "last_notification_time": "2026-11-22T22:52:52.535Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:52:52.646Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:52:52.605Z",
+          "id": "RBl2BaIB8xfpA6fnXE8n",
+          "keys": [
+            "009",
+            "192.0.2.250"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795387972535,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.250"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "RBl2BaIB8xfpA6fnXE8n",
+            "last_notification_time": "2026-11-22T22:52:52.535Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:52:52.646Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T22:56:51.529Z",
+          "start_ms": 1795387972646,
+          "start_time": "2026-11-22T22:52:52.646Z",
+          "states": [
+            [
+              "2026-11-22T22:52:52.605Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T22:56:53.394Z",
+              "ABSENT"
+            ]
+          ]
+        },
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795388092667,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.101"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "VRl4BaIB8xfpA6fnMFD0",
+            "last_notification_time": "2026-11-22T22:54:52.667Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:54:52.646Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:54:52.452Z",
+          "id": "VRl4BaIB8xfpA6fnMFD0",
+          "keys": [
+            "009",
+            "192.0.2.101"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795388092667,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.101"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "VRl4BaIB8xfpA6fnMFD0",
+            "last_notification_time": "2026-11-22T22:54:52.667Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:54:52.646Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T22:59:50.775Z",
+          "start_ms": 1795388092646,
+          "start_time": "2026-11-22T22:54:52.646Z",
+          "states": [
+            [
+              "2026-11-22T22:54:52.452Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T22:59:52.798Z",
+              "ABSENT"
+            ]
+          ]
+        },
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795388152725,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.102"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "8Bl5BaIB8xfpA6fnG1Bb",
+            "last_notification_time": "2026-11-22T22:55:52.725Z",
+            "score": 12,
+            "start_time": "2026-11-22T22:55:52.649Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:55:53.305Z",
+          "id": "8Bl5BaIB8xfpA6fnG1Bb",
+          "keys": [
+            "009",
+            "192.0.2.102"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795388152725,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.102"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "8Bl5BaIB8xfpA6fnG1Bb",
+            "last_notification_time": "2026-11-22T22:55:52.725Z",
+            "score": 12,
+            "start_time": "2026-11-22T22:55:52.649Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T23:02:50.696Z",
+          "start_ms": 1795388152649,
+          "start_time": "2026-11-22T22:55:52.649Z",
+          "states": [
+            [
+              "2026-11-22T22:55:53.305Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T23:02:52.794Z",
+              "ABSENT"
+            ]
+          ]
+        },
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795388272653,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.103"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "MRl6BaIB8xfpA6fn8FIY",
+            "last_notification_time": "2026-11-22T22:57:52.653Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:57:52.647Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:57:52.662Z",
+          "id": "MRl6BaIB8xfpA6fn8FIY",
+          "keys": [
+            "009",
+            "192.0.2.103"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "Uxl1BaIB8xfpA6fncU67",
+                "last_execution_time": 1795388272653,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.103"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "MRl6BaIB8xfpA6fn8FIY",
+            "last_notification_time": "2026-11-22T22:57:52.653Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:57:52.647Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T22:58:51.725Z",
+          "start_ms": 1795388272647,
+          "start_time": "2026-11-22T22:57:52.647Z",
+          "states": [
+            [
+              "2026-11-22T22:57:52.662Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T22:58:53.553Z",
+              "ABSENT"
+            ]
+          ]
+        }
+      ],
+      "new_completed": [
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795387972735,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.250"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "Rxl2BaIB8xfpA6fnXE9-",
+            "last_notification_time": "2026-11-22T22:52:52.735Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:52:52.734Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:52:52.620Z",
+          "id": "Rxl2BaIB8xfpA6fnXE9-",
+          "keys": [
+            "009",
+            "192.0.2.250"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795387972735,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.250"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "Rxl2BaIB8xfpA6fnXE9-",
+            "last_notification_time": "2026-11-22T22:52:52.735Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:52:52.734Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T22:56:51.538Z",
+          "start_ms": 1795387972734,
+          "start_time": "2026-11-22T22:52:52.734Z",
+          "states": [
+            [
+              "2026-11-22T22:52:52.620Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T22:56:53.407Z",
+              "ABSENT"
+            ]
+          ]
+        },
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795388092667,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.101"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "WBl4BaIB8xfpA6fnMVBK",
+            "last_notification_time": "2026-11-22T22:54:52.667Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:54:52.735Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:54:52.481Z",
+          "id": "WBl4BaIB8xfpA6fnMVBK",
+          "keys": [
+            "009",
+            "192.0.2.101"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795388092667,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.101"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "WBl4BaIB8xfpA6fnMVBK",
+            "last_notification_time": "2026-11-22T22:54:52.667Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:54:52.735Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T22:59:50.786Z",
+          "start_ms": 1795388092735,
+          "start_time": "2026-11-22T22:54:52.735Z",
+          "states": [
+            [
+              "2026-11-22T22:54:52.481Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T22:59:52.823Z",
+              "ABSENT"
+            ]
+          ]
+        },
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795388152725,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.102"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "8xl5BaIB8xfpA6fnG1Ct",
+            "last_notification_time": "2026-11-22T22:55:52.725Z",
+            "score": 12,
+            "start_time": "2026-11-22T22:55:52.735Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:55:53.330Z",
+          "id": "8xl5BaIB8xfpA6fnG1Ct",
+          "keys": [
+            "009",
+            "192.0.2.102"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795388152725,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.102"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "8xl5BaIB8xfpA6fnG1Ct",
+            "last_notification_time": "2026-11-22T22:55:52.725Z",
+            "score": 12,
+            "start_time": "2026-11-22T22:55:52.735Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T23:02:50.727Z",
+          "start_ms": 1795388152735,
+          "start_time": "2026-11-22T22:55:52.735Z",
+          "states": [
+            [
+              "2026-11-22T22:55:53.330Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T23:02:52.870Z",
+              "ABSENT"
+            ]
+          ]
+        },
+        {
+          "first": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795388272653,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.103"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "NBl6BaIB8xfpA6fn8FJp",
+            "last_notification_time": "2026-11-22T22:57:52.653Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:57:52.733Z",
+            "state": "ACTIVE"
+          },
+          "first_seen": "2026-11-22T22:57:52.690Z",
+          "id": "NBl6BaIB8xfpA6fn8FJp",
+          "keys": [
+            "009",
+            "192.0.2.103"
+          ],
+          "last": {
+            "action_execution_results": [
+              {
+                "action_id": "WBl1BaIB8xfpA6fnck4W",
+                "last_execution_time": 1795388272653,
+                "throttled_count": 0
+              }
+            ],
+            "bucket_keys": [
+              "009",
+              "192.0.2.103"
+            ],
+            "distinct_values_sample": [],
+            "end_time": null,
+            "error_message": null,
+            "id": "NBl6BaIB8xfpA6fn8FJp",
+            "last_notification_time": "2026-11-22T22:57:52.653Z",
+            "score": 8,
+            "start_time": "2026-11-22T22:57:52.733Z",
+            "state": "ACTIVE"
+          },
+          "last_seen": "2026-11-22T22:58:51.756Z",
+          "start_ms": 1795388272733,
+          "start_time": "2026-11-22T22:57:52.733Z",
+          "states": [
+            [
+              "2026-11-22T22:57:52.690Z",
+              "ACTIVE"
+            ],
+            [
+              "2026-11-22T22:58:53.580Z",
+              "ABSENT"
+            ]
+          ]
+        }
+      ]
+    },
+    "channel": {
+      "existing": false,
+      "id": "wcp-test-p5-webhook"
+    },
+    "channel_test": {
+      "method": "POST",
+      "response": "{\"event_source\": {\"title\": \"Test Message Title-wcp-test-p5-webhook\", \"reference_id\": \"wcp-test-p5-webhook\", \"severity\": \"info\", \"tags\": []}, \"status_list\": [{\"config_id\": \"wcp-test-p5-webhook\", \"config_type\": \"webhook\", \"config_name\": \"[wcp-test] P5 webhook receiver\", \"email_recipient_status\": [], \"delivery_status\": {\"status_code\": \"200\", \"status_text\": \"ok\"}}]}"
+    },
+    "monitor_capacity_before": {
+      "max_monitors": 10,
+      "monitor_documents": 4,
+      "to_create": 2
+    },
+    "monitors": {
+      "new": "VBl1BaIB8xfpA6fncU7C",
+      "new_completed": "WRl1BaIB8xfpA6fnck4a"
+    },
+    "notification_counts": {
+      "new": {
+        "continued": {
+          "COMPLETED": 0,
+          "NEW": 1
+        },
+        "normal": {
+          "COMPLETED": 0,
+          "NEW": 1
+        },
+        "probe": {
+          "COMPLETED": 0,
+          "NEW": 1
+        },
+        "single_run": {
+          "COMPLETED": 0,
+          "NEW": 1
+        }
+      },
+      "new_completed": {
+        "continued": {
+          "COMPLETED": 1,
+          "NEW": 1
+        },
+        "normal": {
+          "COMPLETED": 1,
+          "NEW": 1
+        },
+        "probe": {
+          "COMPLETED": 1,
+          "NEW": 1
+        },
+        "single_run": {
+          "COMPLETED": 1,
+          "NEW": 1
+        }
+      }
+    },
+    "notifications_host_deny_list": [
+      "127.0.0.0/32",
+      "127.0.0.2/31",
+      "127.0.0.4/30",
+      "127.0.0.8/29",
+      "127.0.0.16/28",
+      "127.0.0.32/27",
+      "127.0.0.64/26",
+      "127.0.0.128/25",
+      "127.0.1.0/24",
+      "127.0.2.0/23",
+      "127.0.4.0/22",
+      "127.0.8.0/21",
+      "127.0.16.0/20",
+      "127.0.32.0/19",
+      "127.0.64.0/18",
+      "127.0.128.0/17",
+      "127.1.0.0/16",
+      "127.2.0.0/15",
+      "127.4.0.0/14",
+      "127.8.0.0/13",
+      "127.16.0.0/12",
+      "127.32.0.0/11",
+      "127.64.0.0/10",
+      "127.128.0.0/9",
+      "169.254.0.0/16",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "0.0.0.0/8",
+      "100.64.0.0/10",
+      "192.0.0.0/24",
+      "192.0.2.0/24",
+      "198.18.0.0/15",
+      "192.88.99.0/24",
+      "198.51.100.0/24",
+      "203.0.113.0/24",
+      "224.0.0.0/4",
+      "240.0.0.0/4",
+      "255.255.255.255/32",
+      "::1/128",
+      "fe80::/10",
+      "fc00::/7",
+      "::/128",
+      "2001:db8::/32",
+      "ff00::/8"
+    ],
+    "probe_run_times": {
+      "new": "2026-11-22T22:52:52.646Z",
+      "new_completed": "2026-11-22T22:52:52.734Z"
+    },
+    "received": [
+      {
+        "body": "Test message content body for config id wcp-test-p5-webhook",
+        "headers": {
+          "Content-Length": "59",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:51:51.965950+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.250] \nResolved: \nPeriod end: 2026-11-22T22:52:52.635Z",
+        "headers": {
+          "Content-Length": "175",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:52:52.270665+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.250] \nResolved: \nPeriod end: 2026-11-22T22:52:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:52:52.355403+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.101] \nResolved: \nPeriod end: 2026-11-22T22:54:52.635Z",
+        "headers": {
+          "Content-Length": "175",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:54:52.283254+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.101] \nResolved: \nPeriod end: 2026-11-22T22:54:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:54:52.364540+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.102] \nResolved: \nPeriod end: 2026-11-22T22:55:52.635Z",
+        "headers": {
+          "Content-Length": "175",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:55:52.324396+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.102] \nResolved: \nPeriod end: 2026-11-22T22:55:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:55:52.365428+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: \nResolved: [009,192.0.2.250] \nPeriod end: 2026-11-22T22:56:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:56:52.356812+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.103] \nResolved: \nPeriod end: 2026-11-22T22:57:52.635Z",
+        "headers": {
+          "Content-Length": "175",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:57:52.315902+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: [009,192.0.2.103] \nResolved: \nPeriod end: 2026-11-22T22:57:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:57:52.360584+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: \nResolved: [009,192.0.2.103] \nPeriod end: 2026-11-22T22:58:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:58:52.359004+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: \nResolved: [009,192.0.2.101] \nPeriod end: 2026-11-22T22:59:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T22:59:52.347714+00:00"
+      },
+      {
+        "body": "Monitor [wcp-test] p5 notify NEW+COMPLETED (wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip)\nNew: \nResolved: [009,192.0.2.102] \nPeriod end: 2026-11-22T23:02:52.726Z",
+        "headers": {
+          "Content-Length": "185",
+          "Content-Type": "text/plain; charset=utf-8",
+          "User-Agent": "Apache-HttpClient/5.6 (Java/25.0.2)"
+        },
+        "method": "POST",
+        "path_ok": true,
+        "received": "2026-11-22T23:02:52.341397+00:00"
+      }
+    ],
+    "unattributed_bodies": []
+  },
+  "plan": {
+    "cases": {
+      "continued": "192.0.2.102",
+      "normal": "192.0.2.101",
+      "probe": "192.0.2.250",
+      "single_run": "192.0.2.103"
+    },
+    "channel": "notifications.channel_id or a temporary channel from tests\\validation\\security\\notifications_webhook_channel.json",
+    "expected_notifications": {
+      "new": {
+        "continued": {
+          "COMPLETED": 0,
+          "NEW": 1
+        },
+        "normal": {
+          "COMPLETED": 0,
+          "NEW": 1
+        },
+        "probe": {
+          "COMPLETED": 0,
+          "NEW": 1
+        },
+        "single_run": {
+          "COMPLETED": 0,
+          "NEW": 1
+        }
+      },
+      "new_completed": {
+        "continued": {
+          "COMPLETED": 1,
+          "NEW": 1
+        },
+        "normal": {
+          "COMPLETED": 1,
+          "NEW": 1
+        },
+        "probe": {
+          "COMPLETED": 1,
+          "NEW": 1
+        },
+        "single_run": {
+          "COMPLETED": 1,
+          "NEW": 1
+        }
+      }
+    },
+    "index": "wcp-test-p5",
+    "monitor_copies": {
+      "new": {
+        "name": "[wcp-test] p5 notify NEW",
+        "notify_on": [
+          "NEW"
+        ]
+      },
+      "new_completed": {
+        "name": "[wcp-test] p5 notify NEW+COMPLETED",
+        "notify_on": [
+          "NEW",
+          "COMPLETED"
+        ]
+      }
+    },
+    "single_run_case": "burst of 8 (7 s span), last event 260 s before it becomes searchable, made searchable 10 s before a run: next run counts it (277 s <= 300 s lookback), the following does not (337 s)"
+  },
+  "started": "2026-11-22T22:51:51.654Z",
+  "status": "PASS",
+  "test": "p5",
+  "timings_s": {
+    "delivery": [
+      {
+        "case": "probe",
+        "copy": "new",
+        "delay_s": -0.38,
+        "kind": "NEW"
+      },
+      {
+        "case": "probe",
+        "copy": "new_completed",
+        "delay_s": -0.38,
+        "kind": "NEW"
+      },
+      {
+        "case": "normal",
+        "copy": "new",
+        "delay_s": -0.36,
+        "kind": "NEW"
+      },
+      {
+        "case": "normal",
+        "copy": "new_completed",
+        "delay_s": -0.37,
+        "kind": "NEW"
+      },
+      {
+        "case": "continued",
+        "copy": "new",
+        "delay_s": -0.32,
+        "kind": "NEW"
+      },
+      {
+        "case": "continued",
+        "copy": "new_completed",
+        "delay_s": -0.37,
+        "kind": "NEW"
+      },
+      {
+        "case": "single_run",
+        "copy": "new",
+        "delay_s": -0.33,
+        "kind": "NEW"
+      },
+      {
+        "case": "single_run",
+        "copy": "new_completed",
+        "delay_s": -0.37,
+        "kind": "NEW"
+      }
+    ]
+  },
+  "title": "P5: notification delivery incl. single-run alerts"
+}

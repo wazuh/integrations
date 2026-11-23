@@ -1,0 +1,80 @@
+{
+  "checks": [
+    {
+      "check": "001|198.51.100.141: 9 counted events searchable",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "wcp_windows_failed_logon_burst 001|198.51.100.141: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "9 x 4625 for Administrator in 45 s (threshold 10 in 2m)",
+  "expected": {
+    "wcp_windows_failed_logon_burst": {
+      "001|198.51.100.141": null
+    }
+  },
+  "finished": "2026-11-21T09:10:31.817Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:11.0000000Z'/><EventRecordID>100001</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>51914</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:16.0000000Z'/><EventRecordID>100002</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>51451</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:21.0000000Z'/><EventRecordID>100003</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>56488</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:26.0000000Z'/><EventRecordID>100004</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>50797</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:31.0000000Z'/><EventRecordID>100005</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>52161</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:36.0000000Z'/><EventRecordID>100006</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>49592</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:41.0000000Z'/><EventRecordID>100007</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>49192</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:46.0000000Z'/><EventRecordID>100008</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>58279</Data></EventData></Event>"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Security-Auditing' Guid='{54849625-5478-4994-a5ba-3e3b0328c30d}'/><EventID>4625</EventID><Version>0</Version><Level>0</Level><Task>12544</Task><Opcode>0</Opcode><Keywords>0x8010000000000000</Keywords><TimeCreated SystemTime='2026-11-21T09:05:51.0000000Z'/><EventRecordID>100009</EventRecordID><Correlation ActivityID='{b864d168-0b7b-0000-89d1-64b87b0bd201}'/><Execution ProcessID='752' ThreadID='4068'/><Channel>Security</Channel><Computer>WCP-WIN-LAB1</Computer><Security/></System><EventData><Data Name='SubjectUserSid'>S-1-0-0</Data><Data Name='SubjectUserName'>-</Data><Data Name='SubjectDomainName'>-</Data><Data Name='SubjectLogonId'>0x0</Data><Data Name='TargetUserSid'>S-1-0-0</Data><Data Name='TargetUserName'>Administrator</Data><Data Name='TargetDomainName'>.</Data><Data Name='Status'>0xc000006d</Data><Data Name='FailureReason'>%%2313</Data><Data Name='SubStatus'>0xc0000064</Data><Data Name='LogonType'>3</Data><Data Name='LogonProcessName'>NtLmSsp </Data><Data Name='AuthenticationPackageName'>NTLM</Data><Data Name='WorkstationName'>6hgtmVlrrFuWtO65</Data><Data Name='TransmittedServices'>-</Data><Data Name='LmPackageName'>-</Data><Data Name='KeyLength'>0</Data><Data Name='ProcessId'>0x0</Data><Data Name='ProcessName'>-</Data><Data Name='IpAddress'>198.51.100.141</Data><Data Name='IpPort'>55745</Data></EventData></Event>"
+    }
+  ],
+  "inputs_total_lines": 9,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_windows_failed_logon_burst": {
+        "001|198.51.100.141": []
+      }
+    },
+    "counted_events": {
+      "001|198.51.100.141": 9
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.197Z",
+  "scenario": "windows__win_burst_below",
+  "started": "2026-11-21T09:06:03.197Z",
+  "timings_s": {
+    "searchable_after_replay": {
+      "001|198.51.100.141": 26.9
+    }
+  },
+  "verdict": "PASS"
+}

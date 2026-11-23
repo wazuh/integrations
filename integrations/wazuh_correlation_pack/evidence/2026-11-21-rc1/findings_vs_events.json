@@ -1,0 +1,37 @@
+{
+  "layer": "observation (findings vs events)",
+  "note": "findings written by the stock Security Analytics detectors for the same activity; counted after the detectors caught up",
+  "cases": [
+    {
+      "case": "live probe 07:50 (2 attempts, 10.231.40.14 -> agent 001)",
+      "events_total": 7,
+      "events_authentication_failure": 5,
+      "events_counted_by_pack": 2,
+      "findings_total": 5,
+      "findings_by_rule_id": {
+        "4df109ef-774d-5c2e-a116-8f6c353898ad": 4,
+        "2572f702-7c71-5bb3-aede-a144501cf333": 1
+      }
+    },
+    {
+      "case": "live burst 08:57 (9 attempts, 10.231.40.118 -> agent 001)",
+      "events_total": 18,
+      "events_authentication_failure": 15,
+      "events_counted_by_pack": 9,
+      "findings_total": 15,
+      "findings_by_rule_id": {
+        "4df109ef-774d-5c2e-a116-8f6c353898ad": 15
+      }
+    },
+    {
+      "case": "replay bf_lines_vs_attempts (5 invalid-user attempts, 25 lines)",
+      "events_total": 10,
+      "events_authentication_failure": 5,
+      "events_counted_by_pack": 5,
+      "findings_total": 5,
+      "findings_by_rule_id": {
+        "4df109ef-774d-5c2e-a116-8f6c353898ad": 5
+      }
+    }
+  ]
+}

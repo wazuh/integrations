@@ -1,0 +1,552 @@
+{
+  "checks": [
+    {
+      "check": "all 20 real events indexed",
+      "detail": 20,
+      "pass": true
+    },
+    {
+      "check": "decoded by stock windows integration",
+      "detail": [
+        "windows"
+      ],
+      "pass": true
+    },
+    {
+      "check": "event.code == '4625' and event.dataset == 'security' (base rule selection)",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "source.ip from IpAddress",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "user.target.name == TargetUserName",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "error.code == SubStatus",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "event.start == TimeCreated (event time)",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "event.action == authentication-failure, event.outcome == failure",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "LogonType is not exposed in any recorded WCS field (no RDP-specific selection possible)",
+      "detail": [],
+      "pass": true
+    }
+  ],
+  "expected": {},
+  "finished": "2026-11-21T09:06:50.343Z",
+  "inputs": {
+    "file": "samples/windows/4625_smb_bruteforce.sanitized.xml.log",
+    "lines": 20,
+    "replayed_at": "2026-11-21T09:06:23.084Z",
+    "source_ip_rewritten_to": "203.0.113.156"
+  },
+  "layer": "pipeline-replay (decoding only)",
+  "observed": {
+    "decoded_events": [
+      {
+        "error.code": "0xc0000064",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad user account Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.4778789Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc0000064",
+        "raw_TargetUserName": "JcDfcZTc",
+        "raw_TimeCreated": "2016-09-19T16:50:06.4778789Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "JcDfcZTc",
+        "user.target.name": "JcDfcZTc",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.5131296Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.5131296Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.5888736Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.5888736Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.6378385Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.6378385Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.6808394Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.6808394Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.7254331Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.7254331Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.7738391Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.7738391Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.8168436Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.8168436Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.8698247Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.8698247Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.9096754Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.9096754Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:06.9771206Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:06.9771206Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.0087375Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.0087375Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.0527447Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.0527447Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.0917133Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.0917133Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.1368460Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.1368460Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.1699425Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.1699425Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.2171138Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.2171138Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.2628627Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.2628627Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.2978023Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.2978023Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      },
+      {
+        "error.code": "0xc000006a",
+        "event.action": "authentication-failure",
+        "event.code": "4625",
+        "event.dataset": "security",
+        "event.outcome": "failure",
+        "event.reason": "User logon with misspelled or bad password Status=0xc000006d SubjectLogonId=0x0",
+        "event.start": "2016-09-19T16:50:07.3438120Z",
+        "host.name": "WCP-WIN-SAMPLE",
+        "raw_LogonType": "3",
+        "raw_SubStatus": "0xc000006a",
+        "raw_TargetUserName": "Administrator",
+        "raw_TimeCreated": "2016-09-19T16:50:07.3438120Z",
+        "source.ip": "203.0.113.156",
+        "user.name": "Administrator",
+        "user.target.name": "Administrator",
+        "wazuh.agent.id": "001",
+        "wazuh.integration.decoders": [
+          "decoder/core-wazuh-message/0",
+          "decoder/windows-event/0",
+          "decoder/windows-security/0"
+        ],
+        "wazuh.integration.name": "windows"
+      }
+    ],
+    "indexed": 20,
+    "logon_type_values_in_raw": [
+      "3"
+    ]
+  },
+  "scenario": "windows_real_sample_decoding",
+  "started": "2026-11-21T09:06:23.083Z",
+  "timings_s": {},
+  "verdict": "PASS"
+}

@@ -1,0 +1,286 @@
+{
+  "purpose": "read-only audit of the local deployment manifests after the RC2 run of 2026-11-22 (RC1 not contacted). Paths relative to the workstation's ~/.config/wazuh_correlation_pack.",
+  "audited_at": "2026-11-22T20:57:15Z",
+  "manifests": [
+    {
+      "file": "state/lab-<rc1-address>.manifest.json",
+      "role": "<rc1-reference-target>",
+      "sha256": "eba220213686bb79e45cecbaba970267247be16fb61da3eba9b9f8490df4cc3a",
+      "size": 383061,
+      "mtime_utc": "2026-11-21T09:04:13Z",
+      "cluster_uuid_recorded": null,
+      "current": {
+        "4db1accb-03e6-49a1-8b56-d788753a3252": {
+          "monitor_id": "zJhZ_aEB4cT_k7OXVttp",
+          "content_hash": "d31fc5d758665c2e"
+        },
+        "bfedca0e-4d5f-4c67-908a-029cb98a95ed": {
+          "monitor_id": "yZhZ_aEB4cT_k7OXVttI",
+          "content_hash": "172cc43b9dfcc25c"
+        },
+        "c0489d1c-c23c-4458-b16f-a521d8d1ec35": {
+          "monitor_id": "z5hZ_aEB4cT_k7OXVtuj",
+          "content_hash": "409a902d80326aad"
+        },
+        "e7a75f10-f719-4ba8-9553-46597596c888": {
+          "monitor_id": "xphZ_aEB4cT_k7OXVtsM",
+          "content_hash": "007c0a436059d016"
+        }
+      },
+      "history": [
+        {
+          "at": "2026-11-21T08:39:54Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "15hD_aEB4cT_k7OXFm4t",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "1JhD_aEB4cT_k7OXFW7h",
+              "007c0a436059d016"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-21T08:41:39Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "15hD_aEB4cT_k7OXFm4t",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "1JhD_aEB4cT_k7OXFW7h",
+              "007c0a436059d016"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-21T08:52:35Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "15hD_aEB4cT_k7OXFm4t",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "1JhD_aEB4cT_k7OXFW7h",
+              "007c0a436059d016"
+            ],
+            [
+              "p5hO_aEB4cT_k7OXs9eI",
+              "d31fc5d758665c2e"
+            ],
+            [
+              "qphO_aEB4cT_k7OXs9e1",
+              "409a902d80326aad"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-21T09:04:10Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "15hD_aEB4cT_k7OXFm4t",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "1JhD_aEB4cT_k7OXFW7h",
+              "007c0a436059d016"
+            ],
+            [
+              "p5hO_aEB4cT_k7OXs9eI",
+              "d31fc5d758665c2e"
+            ],
+            [
+              "qphO_aEB4cT_k7OXs9e1",
+              "409a902d80326aad"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-21T09:04:10Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "15hD_aEB4cT_k7OXFm4t",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "1JhD_aEB4cT_k7OXFW7h",
+              "007c0a436059d016"
+            ],
+            [
+              "p5hO_aEB4cT_k7OXs9eI",
+              "d31fc5d758665c2e"
+            ],
+            [
+              "qphO_aEB4cT_k7OXs9e1",
+              "8f985a5d7e8d83df"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-21T09:04:11Z",
+          "action": "rollback",
+          "monitors": [
+            [
+              "15hD_aEB4cT_k7OXFm4t",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "1JhD_aEB4cT_k7OXFW7h",
+              "007c0a436059d016"
+            ],
+            [
+              "p5hO_aEB4cT_k7OXs9eI",
+              "d31fc5d758665c2e"
+            ],
+            [
+              "qphO_aEB4cT_k7OXs9e1",
+              "409a902d80326aad"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-21T09:04:12Z",
+          "action": "remove",
+          "monitors": []
+        },
+        {
+          "at": "2026-11-21T09:04:12Z",
+          "action": "remove",
+          "monitors": []
+        },
+        {
+          "at": "2026-11-21T09:04:12Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "xphZ_aEB4cT_k7OXVtsM",
+              "007c0a436059d016"
+            ],
+            [
+              "yZhZ_aEB4cT_k7OXVttI",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "z5hZ_aEB4cT_k7OXVtuj",
+              "409a902d80326aad"
+            ],
+            [
+              "zJhZ_aEB4cT_k7OXVttp",
+              "d31fc5d758665c2e"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-21T09:04:13Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "xphZ_aEB4cT_k7OXVtsM",
+              "007c0a436059d016"
+            ],
+            [
+              "yZhZ_aEB4cT_k7OXVttI",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "z5hZ_aEB4cT_k7OXVtuj",
+              "409a902d80326aad"
+            ],
+            [
+              "zJhZ_aEB4cT_k7OXVttp",
+              "d31fc5d758665c2e"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "file": "rc2/state/rc2-lab-10.10.0.130.manifest.json",
+      "role": "rc2-lab target",
+      "sha256": "fb7355f8d1fc7ee9ebc9e17a0060b45245fb9c861d942893cbb0d16304f93c7a",
+      "size": 146580,
+      "mtime_utc": "2026-11-22T19:14:58Z",
+      "cluster_uuid_recorded": null,
+      "current": {
+        "4db1accb-03e6-49a1-8b56-d788753a3252": {
+          "monitor_id": "InWuBKIByQfosLFu3SPs",
+          "content_hash": "d31fc5d758665c2e"
+        },
+        "bfedca0e-4d5f-4c67-908a-029cb98a95ed": {
+          "monitor_id": "H3WuBKIByQfosLFu3SOi",
+          "content_hash": "172cc43b9dfcc25c"
+        },
+        "c0489d1c-c23c-4458-b16f-a521d8d1ec35": {
+          "monitor_id": "JXWuBKIByQfosLFu3iMq",
+          "content_hash": "0603b54f3c657714"
+        },
+        "e7a75f10-f719-4ba8-9553-46597596c888": {
+          "monitor_id": "HHWuBKIByQfosLFu3SN0",
+          "content_hash": "007c0a436059d016"
+        }
+      },
+      "history": [
+        {
+          "at": "2026-11-22T19:03:55Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "g3WkBKIByQfosLFuwSEC",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "gHWkBKIByQfosLFuwCG9",
+              "007c0a436059d016"
+            ],
+            [
+              "hnWkBKIByQfosLFuwSE0",
+              "d31fc5d758665c2e"
+            ],
+            [
+              "iXWkBKIByQfosLFuwSHg",
+              "0603b54f3c657714"
+            ]
+          ]
+        },
+        {
+          "at": "2026-11-22T19:07:21Z",
+          "action": "remove",
+          "monitors": []
+        },
+        {
+          "at": "2026-11-22T19:14:58Z",
+          "action": "apply",
+          "monitors": [
+            [
+              "H3WuBKIByQfosLFu3SOi",
+              "172cc43b9dfcc25c"
+            ],
+            [
+              "HHWuBKIByQfosLFu3SN0",
+              "007c0a436059d016"
+            ],
+            [
+              "InWuBKIByQfosLFu3SPs",
+              "d31fc5d758665c2e"
+            ],
+            [
+              "JXWuBKIByQfosLFu3iMq",
+              "0603b54f3c657714"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "findings": [
+    "RC1 reference manifest last written 2026-11-21T09:04:13Z (its own final lifecycle step); no entry after that date; current = 4 monitors incl. the RC1 reference Windows spray hash 409a902d80326aad; all 4 monitor ids appear in evidence/2026-11-21-rc1/deploy_lifecycle.json. Not overwritten or modified by the RC2 work.",
+    "RC2 manifest: complete history - apply 2026-11-22T19:03:55Z (written while misplaced in the default state directory because of the WCP_STATE_DIR defect; moved unchanged to the RC2 state directory), remove 19:07:21Z and apply 19:14:58Z (RC2 state directory); current ids = the 4 pack monitors on the RC2 cluster.",
+    "Neither manifest records a cluster identity (both written before the cluster_uuid binding existed). Commands that change resources now refuse them until --bind-manifest is given; nothing was migrated."
+  ]
+}

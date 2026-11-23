@@ -1,0 +1,21 @@
+{
+  "description": "wazuh_correlation_pack: deploy, inspect and run the pack's Alerting monitors (wcp preflight, plan, apply, status, execute, remove, rollback). Monitors run with this role's index permissions.",
+  "cluster_permissions": [
+    "cluster:monitor/main",
+    "cluster:monitor/state",
+    "cluster:monitor/nodes/info",
+    "cluster:admin/opendistro/alerting/monitor/get",
+    "cluster:admin/opendistro/alerting/monitor/search",
+    "cluster:admin/opendistro/alerting/monitor/write",
+    "cluster:admin/opendistro/alerting/monitor/delete",
+    "cluster:admin/opendistro/alerting/monitor/execute",
+    "cluster:admin/opendistro/alerting/alerts/get"
+  ],
+  "index_permissions": [
+    {
+      "index_patterns": ["wazuh-events-v5-system-activity*"],
+      "allowed_actions": ["read", "indices:admin/mappings/fields/get"]
+    }
+  ],
+  "tenant_permissions": []
+}

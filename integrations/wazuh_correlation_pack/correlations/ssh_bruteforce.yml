@@ -1,0 +1,26 @@
+title: SSH brute force - repeated failed password attempts from one source on one endpoint
+id: e7a75f10-f719-4ba8-9553-46597596c888
+name: wcp_ssh_bruteforce
+status: experimental
+description: |
+  8 or more failed SSH password attempts (not log lines) from the same source IP against the
+  same Wazuh agent within any 2-minute event-time window. Attempts against different agents
+  or from different source IPs are counted separately and raise separate alerts.
+  Counterpart of the 4.x frequency rules 5712/5720/5763 (frequency/timeframe/same_source_ip),
+  which Wazuh 5.0 cannot express in a detection rule.
+author: wazuh_correlation_pack contributors
+date: 2026-11-21
+taxonomy: wcs
+correlation:
+  type: event_count
+  rules:
+    - wcp_ssh_failed_password_attempt
+  group-by:
+    - wazuh.agent.id
+    - source.ip
+  timespan: 2m
+  condition:
+    gte: 8
+falsepositives:
+  - Misconfigured automation retrying with a stale password
+level: high

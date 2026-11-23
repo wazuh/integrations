@@ -1,0 +1,82 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.234: 3 counted events searchable",
+      "detail": 3,
+      "pass": true
+    },
+    {
+      "check": "002|203.0.113.234: 3 counted events searchable",
+      "detail": 3,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.234: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 002|203.0.113.234: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "6 distinct users from one source, 3 on each endpoint",
+  "expected": {
+    "wcp_ssh_password_spray": {
+      "001|203.0.113.234": null,
+      "002|203.0.113.234": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.483Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:01 wcp-ep1 sshd[30216]: Failed password for invalid user wcpt-u01 from 203.0.113.234 port 54219 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:11 wcp-ep1 sshd[52610]: Failed password for invalid user wcpt-u02 from 203.0.113.234 port 56597 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:21 wcp-ep1 sshd[49819]: Failed password for invalid user wcpt-u03 from 203.0.113.234 port 33714 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep2",
+      "line": "Nov 21 09:05:06 wcp-ep2 sshd[31278]: Failed password for invalid user wcpt-u04 from 203.0.113.234 port 59690 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep2",
+      "line": "Nov 21 09:05:16 wcp-ep2 sshd[7479]: Failed password for invalid user wcpt-u05 from 203.0.113.234 port 49818 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep2",
+      "line": "Nov 21 09:05:26 wcp-ep2 sshd[44819]: Failed password for invalid user wcpt-u06 from 203.0.113.234 port 48465 ssh2"
+    }
+  ],
+  "inputs_total_lines": 6,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.234": [],
+        "002|203.0.113.234": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.234": 3,
+      "002|203.0.113.234": 3
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__spray_split_endpoints",
+  "started": "2026-11-21T09:06:03.526Z",
+  "timings_s": {
+    "searchable_after_replay": {
+      "001|203.0.113.234": 28.0,
+      "002|203.0.113.234": 28.1
+    }
+  },
+  "verdict": "PASS"
+}

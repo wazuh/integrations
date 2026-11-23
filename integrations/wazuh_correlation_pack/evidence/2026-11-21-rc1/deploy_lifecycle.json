@@ -1,0 +1,379 @@
+{
+  "checks": [
+    {
+      "check": "re-run install (idempotent): rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "re-run install (idempotent): 0 changes",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "re-run install (idempotent): 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "re-run install (idempotent): 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "plan after install: rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "plan after install: plan reports 0 changes",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "plan after install: 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "plan after install: 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "update one setting: rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "update one setting: exactly 1 update",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "update one setting: 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "update one setting: 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "update changed exactly one pack monitor",
+      "detail": [
+        "qphO_aEB4cT_k7OXs9e1"
+      ],
+      "pass": true
+    },
+    {
+      "check": "plan after update (with override): rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "plan after update (with override): 0 changes",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "plan after update (with override): 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "plan after update (with override): 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "rollback to previous deployment: rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "rollback to previous deployment: rollback lists 1 update",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "rollback to previous deployment: 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "rollback to previous deployment: 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "plan after rollback (shipped profile): rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "plan after rollback (shipped profile): 0 changes",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "plan after rollback (shipped profile): 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "plan after rollback (shipped profile): 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "remove dry run: rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "remove dry run: lists 4 pack monitors, deletes nothing",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "remove dry run: 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "remove dry run: 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "remove: rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "remove: removed",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "remove: 0 pack monitor(s) exist",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "remove: 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "remove again (nothing left): rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "remove again (nothing left): 0 pack monitors",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "remove again (nothing left): 0 pack monitor(s) exist",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "remove again (nothing left): 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "reinstall: rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "reinstall: 4 creates",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "reinstall: 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "reinstall: 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "re-run reinstall (idempotent): rc=0",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "re-run reinstall (idempotent): 0 changes",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "re-run reinstall (idempotent): 4 pack monitor(s) exist",
+      "detail": 4,
+      "pass": true
+    },
+    {
+      "check": "re-run reinstall (idempotent): 22 non-pack document(s) unchanged",
+      "detail": null,
+      "pass": true
+    }
+  ],
+  "expected": {},
+  "finished": "2026-11-21T09:04:13.083Z",
+  "inputs": [],
+  "layer": "deployment (real cluster)",
+  "observed": {
+    "foreign_document_kinds": [
+      "workflow/composite"
+    ],
+    "foreign_documents_after": 22,
+    "foreign_documents_before": 22,
+    "monitors_changed_by_update": [
+      "qphO_aEB4cT_k7OXs9e1"
+    ],
+    "pack_monitors_before": [
+      "15hD_aEB4cT_k7OXFm4t",
+      "1JhD_aEB4cT_k7OXFW7h",
+      "p5hO_aEB4cT_k7OXs9eI",
+      "qphO_aEB4cT_k7OXs9e1"
+    ],
+    "steps": [
+      {
+        "command": "wcp apply",
+        "output": "pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9201 (0 unrelated monitor(s) left untouched)\n  noop    [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (up to date)\n  noop    [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (up to date)\n  noop    [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (up to date)\n  noop    [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (up to date)\napplied: 0 change(s), 4 unchanged; manifest C:\\Users\\user\\.config\\wazuh_correlation_pack\\state\\lab-10.10.0.131.manifest.json",
+        "pack_monitors": [
+          "15hD_aEB4cT_k7OXFm4t",
+          "1JhD_aEB4cT_k7OXFW7h",
+          "p5hO_aEB4cT_k7OXs9eI",
+          "qphO_aEB4cT_k7OXs9e1"
+        ],
+        "rc": 0,
+        "step": "re-run install (idempotent)"
+      },
+      {
+        "command": "wcp plan",
+        "output": "pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9201 (0 unrelated monitor(s) left untouched)\n  noop    [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (up to date)\n  noop    [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (up to date)\n  noop    [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (up to date)\n  noop    [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (up to date)\nplan: 0 change(s); run 'apply' to execute",
+        "pack_monitors": [
+          "15hD_aEB4cT_k7OXFm4t",
+          "1JhD_aEB4cT_k7OXFW7h",
+          "p5hO_aEB4cT_k7OXs9eI",
+          "qphO_aEB4cT_k7OXs9e1"
+        ],
+        "rc": 0,
+        "step": "plan after install"
+      },
+      {
+        "command": "wcp --override C:\\Users\\USER~1\\AppData\\Local\\Temp\\tmpcdt1veb9.yml apply",
+        "output": "pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9201 (0 unrelated monitor(s) left untouched)\n  noop    [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (up to date)\n  noop    [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (up to date)\n  noop    [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (up to date)\n  update  [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (content 409a902d80326aad -> 8f985a5d7e8d83df)\napplied: 1 change(s), 3 unchanged; manifest C:\\Users\\user\\.config\\wazuh_correlation_pack\\state\\lab-10.10.0.131.manifest.json\n  update [wcp] Windows password spraying - one source failing against many accounts on one endpoint -> qphO_aEB4cT_k7OXs9e1",
+        "pack_monitors": [
+          "15hD_aEB4cT_k7OXFm4t",
+          "1JhD_aEB4cT_k7OXFW7h",
+          "p5hO_aEB4cT_k7OXs9eI",
+          "qphO_aEB4cT_k7OXs9e1"
+        ],
+        "rc": 0,
+        "step": "update one setting"
+      },
+      {
+        "command": "wcp --override C:\\Users\\USER~1\\AppData\\Local\\Temp\\tmpcdt1veb9.yml plan",
+        "output": "pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9201 (0 unrelated monitor(s) left untouched)\n  noop    [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (up to date)\n  noop    [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (up to date)\n  noop    [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (up to date)\n  noop    [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (up to date)\nplan: 0 change(s); run 'apply' to execute",
+        "pack_monitors": [
+          "15hD_aEB4cT_k7OXFm4t",
+          "1JhD_aEB4cT_k7OXFW7h",
+          "p5hO_aEB4cT_k7OXs9eI",
+          "qphO_aEB4cT_k7OXs9e1"
+        ],
+        "rc": 0,
+        "step": "plan after update (with override)"
+      },
+      {
+        "command": "wcp rollback --yes",
+        "output": "rollback to pack version 0.1.0:\n  update  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (rollback to 0.1.0)\n  update  [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (rollback to 0.1.0)\n  update  [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (rollback to 0.1.0)\n  update  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (rollback to 0.1.0)",
+        "pack_monitors": [
+          "15hD_aEB4cT_k7OXFm4t",
+          "1JhD_aEB4cT_k7OXFW7h",
+          "p5hO_aEB4cT_k7OXs9eI",
+          "qphO_aEB4cT_k7OXs9e1"
+        ],
+        "rc": 0,
+        "step": "rollback to previous deployment"
+      },
+      {
+        "command": "wcp plan",
+        "output": "pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9201 (0 unrelated monitor(s) left untouched)\n  noop    [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (up to date)\n  noop    [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (up to date)\n  noop    [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (up to date)\n  noop    [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (up to date)\nplan: 0 change(s); run 'apply' to execute",
+        "pack_monitors": [
+          "15hD_aEB4cT_k7OXFm4t",
+          "1JhD_aEB4cT_k7OXFW7h",
+          "p5hO_aEB4cT_k7OXs9eI",
+          "qphO_aEB4cT_k7OXs9e1"
+        ],
+        "rc": 0,
+        "step": "plan after rollback (shipped profile)"
+      },
+      {
+        "command": "wcp remove",
+        "output": "remove: 4 pack monitor(s); 0 unrelated monitor(s) untouched\n  delete  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (remove)\n  delete  [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (remove)\n  delete  [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (remove)\n  delete  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (remove)\ndry run; add --yes to delete",
+        "pack_monitors": [
+          "15hD_aEB4cT_k7OXFm4t",
+          "1JhD_aEB4cT_k7OXFW7h",
+          "p5hO_aEB4cT_k7OXs9eI",
+          "qphO_aEB4cT_k7OXs9e1"
+        ],
+        "rc": 0,
+        "step": "remove dry run"
+      },
+      {
+        "command": "wcp remove --yes",
+        "output": "remove: 4 pack monitor(s); 0 unrelated monitor(s) untouched\n  delete  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint p5hO_aEB4cT_k7OXs9eI  (remove)\n  delete  [wcp] SSH password spraying - one source failing against many accounts on one endpoint 15hD_aEB4cT_k7OXFm4t  (remove)\n  delete  [wcp] Windows password spraying - one source failing against many accounts on one endpoint qphO_aEB4cT_k7OXs9e1  (remove)\n  delete  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint 1JhD_aEB4cT_k7OXFW7h  (remove)\nremoved; manifest C:\\Users\\user\\.config\\wazuh_correlation_pack\\state\\lab-10.10.0.131.manifest.json",
+        "pack_monitors": [],
+        "rc": 0,
+        "step": "remove"
+      },
+      {
+        "command": "wcp remove --yes",
+        "output": "remove: 0 pack monitor(s); 0 unrelated monitor(s) untouched\nremoved; manifest C:\\Users\\user\\.config\\wazuh_correlation_pack\\state\\lab-10.10.0.131.manifest.json",
+        "pack_monitors": [],
+        "rc": 0,
+        "step": "remove again (nothing left)"
+      },
+      {
+        "command": "wcp apply",
+        "output": "pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9201 (0 unrelated monitor(s) left untouched)\n  create  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint -  (not deployed)\n  create  [wcp] SSH password spraying - one source failing against many accounts on one endpoint -  (not deployed)\n  create  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint -  (not deployed)\n  create  [wcp] Windows password spraying - one source failing against many accounts on one endpoint -  (not deployed)\napplied: 4 change(s), 0 unchanged; manifest C:\\Users\\user\\.config\\wazuh_correlation_pack\\state\\lab-10.10.0.131.manifest.json\n  create [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint -> xphZ_aEB4cT_k7OXVtsM\n  create [wcp] SSH password spraying - one source failing against many accounts on one endpoint -> yZhZ_aEB4cT_k7OXVttI\n  create [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint -> zJhZ_aEB4cT_k7OXVttp\n  create [wcp] Windows password spraying - one source failing against many accounts on one endpoint -> z5hZ_aEB4cT_k7OXVtuj",
+        "pack_monitors": [
+          "xphZ_aEB4cT_k7OXVtsM",
+          "yZhZ_aEB4cT_k7OXVttI",
+          "z5hZ_aEB4cT_k7OXVtuj",
+          "zJhZ_aEB4cT_k7OXVttp"
+        ],
+        "rc": 0,
+        "step": "reinstall"
+      },
+      {
+        "command": "wcp apply",
+        "output": "pack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9201 (0 unrelated monitor(s) left untouched)\n  noop    [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint xphZ_aEB4cT_k7OXVtsM  (up to date)\n  noop    [wcp] SSH password spraying - one source failing against many accounts on one endpoint yZhZ_aEB4cT_k7OXVttI  (up to date)\n  noop    [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint zJhZ_aEB4cT_k7OXVttp  (up to date)\n  noop    [wcp] Windows password spraying - one source failing against many accounts on one endpoint z5hZ_aEB4cT_k7OXVtuj  (up to date)\napplied: 0 change(s), 4 unchanged; manifest C:\\Users\\user\\.config\\wazuh_correlation_pack\\state\\lab-10.10.0.131.manifest.json",
+        "pack_monitors": [
+          "xphZ_aEB4cT_k7OXVtsM",
+          "yZhZ_aEB4cT_k7OXVttI",
+          "z5hZ_aEB4cT_k7OXVtuj",
+          "zJhZ_aEB4cT_k7OXVttp"
+        ],
+        "rc": 0,
+        "step": "re-run reinstall (idempotent)"
+      }
+    ]
+  },
+  "scenario": "deploy_lifecycle",
+  "started": "2026-11-21T09:04:10.236Z",
+  "timings_s": {},
+  "verdict": "PASS"
+}

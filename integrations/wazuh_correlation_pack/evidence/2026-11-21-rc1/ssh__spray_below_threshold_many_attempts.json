@@ -1,0 +1,136 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.233: 12 counted events searchable",
+      "detail": 12,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.233: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.233: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.233: score 12",
+      "detail": 12,
+      "pass": true
+    }
+  ],
+  "description": "4 distinct users, 3 failures each (12 attempts)",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.233": 12
+    },
+    "wcp_ssh_password_spray": {
+      "001|203.0.113.233": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.483Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:01 wcp-ep1 sshd[16828]: Failed password for invalid user wcpt-u01 from 203.0.113.233 port 39826 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:05 wcp-ep1 sshd[37665]: Failed password for invalid user wcpt-u02 from 203.0.113.233 port 38839 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:09 wcp-ep1 sshd[10701]: Failed password for invalid user wcpt-u03 from 203.0.113.233 port 38156 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:13 wcp-ep1 sshd[52298]: Failed password for invalid user wcpt-u04 from 203.0.113.233 port 59965 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:17 wcp-ep1 sshd[59757]: Failed password for invalid user wcpt-u01 from 203.0.113.233 port 39861 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:21 wcp-ep1 sshd[52748]: Failed password for invalid user wcpt-u02 from 203.0.113.233 port 33910 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:25 wcp-ep1 sshd[55037]: Failed password for invalid user wcpt-u03 from 203.0.113.233 port 41124 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:29 wcp-ep1 sshd[34488]: Failed password for invalid user wcpt-u04 from 203.0.113.233 port 47707 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:33 wcp-ep1 sshd[57191]: Failed password for invalid user wcpt-u01 from 203.0.113.233 port 59486 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:37 wcp-ep1 sshd[45945]: Failed password for invalid user wcpt-u02 from 203.0.113.233 port 35401 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:41 wcp-ep1 sshd[56127]: Failed password for invalid user wcpt-u03 from 203.0.113.233 port 42741 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:45 wcp-ep1 sshd[5258]: Failed password for invalid user wcpt-u04 from 203.0.113.233 port 38939 ssh2"
+    }
+  ],
+  "inputs_total_lines": 12,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.233": [
+          {
+            "acknowledged_time": null,
+            "bucket_keys": [
+              "001",
+              "203.0.113.233"
+            ],
+            "detail": {
+              "distinct_values_sample": [],
+              "duplicates_skipped": 0,
+              "events_in_lookback": 12,
+              "overflow_dropped": 0,
+              "score": 12,
+              "window_end": 1795251945000,
+              "window_start": 1795251901000
+            },
+            "doc_count": 12,
+            "end_time": null,
+            "id": "Lphc_aEB4cT_k7OXFd5F",
+            "last_notification_time": "2026-11-21T09:07:12.824Z",
+            "severity": "2",
+            "start_time": "2026-11-21T09:07:12.824Z",
+            "state": "ACTIVE",
+            "trigger_name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip"
+          }
+        ]
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.233": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.233": 12
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__spray_below_threshold_many_attempts",
+  "started": "2026-11-21T09:06:03.526Z",
+  "timings_s": {
+    "alert_seen_after_replay": {
+      "wcp_ssh_bruteforce 001|203.0.113.233": 78.8
+    },
+    "searchable_after_replay": {
+      "001|203.0.113.233": 28.0
+    }
+  },
+  "verdict": "PASS"
+}
