@@ -1,0 +1,415 @@
+{
+  "checks": [
+    {
+      "check": "precondition: no ACTIVE brute-force alert for ['001', '10.231.40.118']",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "precondition: no attempts from this source in the last 300 s",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "one counted event per attempt (Failed password events == 9)",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "event.action=authentication-failure over-counts attempts (documented)",
+      "detail": 15,
+      "pass": true
+    },
+    {
+      "check": "scheduler created an ACTIVE brute-force alert for ['001', '10.231.40.118']",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "alert score == 9 attempts",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "no spray alert for 3 distinct users (< 5)",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "repeated runs keep one alert for the group (no duplicates)",
+      "detail": [
+        "ephT_aEB4cT_k7OXkNqW"
+      ],
+      "pass": true
+    },
+    {
+      "check": "alert resolved after activity left the 300 s lookback",
+      "detail": [
+        [
+          275.7,
+          "ACTIVE"
+        ],
+        [
+          320.9,
+          "ABSENT"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "check": "dry run after resolution: group no longer triggers",
+      "detail": [],
+      "pass": true
+    },
+    {
+      "check": "second episode creates a NEW alert with a different id",
+      "detail": null,
+      "pass": true
+    }
+  ],
+  "expected": {
+    "bruteforce_alert": "ACTIVE for bucket ['001', '10.231.40.118'] (9 >= 8 in 2m)",
+    "dedup": "same alert id across >= 3 scheduled runs while activity is inside the lookback",
+    "failed_password_events": 9,
+    "new_episode": "a second burst after resolution creates a NEW alert with a different id",
+    "resolution": "alert leaves ACTIVE once the qualifying window leaves the 300 s lookback (COMPLETED, then deleted: alert history is disabled by default on 5.0.0-rc1)",
+    "spray_alert": "none (3 distinct users < 5)"
+  },
+  "finished": "2026-11-21T09:03:55.524Z",
+  "inputs": [
+    {
+      "attempts_per_connection": 3,
+      "dst": {
+        "agent": "001",
+        "container": "wcp-ep1",
+        "ip": "10.231.40.14"
+      },
+      "end": "2026-11-21T08:57:36.302Z",
+      "expected_attempts": 9,
+      "kind": "live sshd",
+      "src": {
+        "agent": "002",
+        "container": "wcp-ep2",
+        "ip": "10.231.40.118"
+      },
+      "start": "2026-11-21T08:57:08.112Z",
+      "users": [
+        "wcpt-alice",
+        "wcpt-bob",
+        "wcpt-carol"
+      ]
+    },
+    {
+      "end": "2026-11-21T09:03:20.055Z",
+      "expected_attempts": 9,
+      "kind": "live sshd (episode 2)",
+      "start": "2026-11-21T09:02:57.285Z"
+    }
+  ],
+  "layer": "pipeline-live",
+  "observed": {
+    "active_alerts_over_3_runs": [
+      [
+        [
+          "ephT_aEB4cT_k7OXkNqW",
+          1795251474582,
+          "ACTIVE"
+        ]
+      ],
+      [
+        [
+          "ephT_aEB4cT_k7OXkNqW",
+          1795251474582,
+          "ACTIVE"
+        ]
+      ],
+      [
+        [
+          "ephT_aEB4cT_k7OXkNqW",
+          1795251474582,
+          "ACTIVE"
+        ]
+      ]
+    ],
+    "alert_state_after_last_attempt_s": [
+      [
+        275.7,
+        "ACTIVE"
+      ],
+      [
+        320.9,
+        "ABSENT"
+      ]
+    ],
+    "all_events_for_source": [
+      {
+        "@timestamp": "2026-11-21T08:57:10.049Z",
+        "event": {
+          "action": "authentication-failure",
+          "start": "2026-11-21T08:57:09.000Z"
+        },
+        "message": "pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-alice",
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:20.093Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:11.000Z"
+        },
+        "message": "Failed password for wcpt-alice from 10.231.40.118 port 60238 ssh2",
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:20.093Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:15.000Z"
+        },
+        "message": "Failed password for wcpt-alice from 10.231.40.118 port 60238 ssh2",
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:20.093Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:17.000Z"
+        },
+        "message": "Failed password for wcpt-alice from 10.231.40.118 port 60238 ssh2",
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:20.094Z",
+        "event": {
+          "action": "connection-closed",
+          "start": "2026-11-21T08:57:17.000Z"
+        },
+        "message": "Connection closed by authenticating user wcpt-alice 10.231.40.118 port 60238 [preauth]",
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:20.094Z",
+        "event": {
+          "action": "authentication-failure",
+          "start": "2026-11-21T08:57:17.000Z"
+        },
+        "message": "PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-alice",
+        "user": {
+          "name": "wcpt-alice"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:20.094Z",
+        "event": {
+          "action": "authentication-failure",
+          "start": "2026-11-21T08:57:18.000Z"
+        },
+        "message": "pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-bob",
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:30.137Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:20.000Z"
+        },
+        "message": "Failed password for wcpt-bob from 10.231.40.118 port 60240 ssh2",
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:30.137Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:23.000Z"
+        },
+        "message": "Failed password for wcpt-bob from 10.231.40.118 port 60240 ssh2",
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:30.137Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:26.000Z"
+        },
+        "message": "Failed password for wcpt-bob from 10.231.40.118 port 60240 ssh2",
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:30.138Z",
+        "event": {
+          "action": "authentication-failure",
+          "start": "2026-11-21T08:57:28.000Z"
+        },
+        "message": "pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-carol",
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:30.138Z",
+        "event": {
+          "action": "connection-closed",
+          "start": "2026-11-21T08:57:28.000Z"
+        },
+        "message": "Connection closed by authenticating user wcpt-bob 10.231.40.118 port 60240 [preauth]",
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:30.138Z",
+        "event": {
+          "action": "authentication-failure",
+          "start": "2026-11-21T08:57:28.000Z"
+        },
+        "message": "PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-bob",
+        "user": {
+          "name": "wcpt-bob"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:40.184Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:30.000Z"
+        },
+        "message": "Failed password for wcpt-carol from 10.231.40.118 port 42638 ssh2",
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:40.184Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:33.000Z"
+        },
+        "message": "Failed password for wcpt-carol from 10.231.40.118 port 42638 ssh2",
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:40.184Z",
+        "event": {
+          "action": "authentication-failure",
+          "reason": "Failed password",
+          "start": "2026-11-21T08:57:36.000Z"
+        },
+        "message": "Failed password for wcpt-carol from 10.231.40.118 port 42638 ssh2",
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:40.184Z",
+        "event": {
+          "action": "connection-closed",
+          "start": "2026-11-21T08:57:36.000Z"
+        },
+        "message": "Connection closed by authenticating user wcpt-carol 10.231.40.118 port 42638 [preauth]",
+        "user": {
+          "name": "wcpt-carol"
+        }
+      },
+      {
+        "@timestamp": "2026-11-21T08:57:40.185Z",
+        "event": {
+          "action": "authentication-failure",
+          "start": "2026-11-21T08:57:36.000Z"
+        },
+        "message": "PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.231.40.118  user=wcpt-carol",
+        "user": {
+          "name": "wcpt-carol"
+        }
+      }
+    ],
+    "authentication_failure_events": 15,
+    "bruteforce_alert": {
+      "acknowledged_time": null,
+      "bucket_keys": [
+        "001",
+        "10.231.40.118"
+      ],
+      "detail": {
+        "distinct_values_sample": [],
+        "duplicates_skipped": 0,
+        "events_in_lookback": 9,
+        "overflow_dropped": 0,
+        "score": 9,
+        "window_end": 1795251456000,
+        "window_start": 1795251431000
+      },
+      "doc_count": 9,
+      "end_time": null,
+      "id": "ephT_aEB4cT_k7OXkNqW",
+      "last_notification_time": "2026-11-21T08:57:54.582Z",
+      "severity": "2",
+      "start_time": "2026-11-21T08:57:54.582Z",
+      "state": "ACTIVE",
+      "trigger_name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip"
+    },
+    "dry_run_after_resolution_triggering_groups": [],
+    "episode2_alert": {
+      "acknowledged_time": null,
+      "bucket_keys": [
+        "001",
+        "10.231.40.118"
+      ],
+      "detail": {
+        "distinct_values_sample": [],
+        "duplicates_skipped": 0,
+        "events_in_lookback": 9,
+        "overflow_dropped": 0,
+        "score": 9,
+        "window_end": 1795251799000,
+        "window_start": 1795251781000
+      },
+      "doc_count": 9,
+      "end_time": null,
+      "id": "WZhZ_aEB4cT_k7OXDtvQ",
+      "last_notification_time": "2026-11-21T09:03:54.576Z",
+      "severity": "2",
+      "start_time": "2026-11-21T09:03:54.576Z",
+      "state": "ACTIVE",
+      "trigger_name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip"
+    },
+    "failed_password_events": 9,
+    "spray_alerts": []
+  },
+  "scenario": "ssh_live_burst_and_lifecycle",
+  "started": "2026-11-21T08:52:21.657Z",
+  "timings_s": {
+    "alert_active_after_last_attempt": 19.6,
+    "alert_resolved_after_last_attempt": 320.9,
+    "episode2_alert_active_after_last_attempt": 35.5,
+    "events_searchable_after_last_attempt": 14.5
+  },
+  "verdict": "PASS"
+}

@@ -1,0 +1,109 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.221: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.221: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.221: score 8",
+      "detail": 8,
+      "pass": true
+    }
+  ],
+  "description": "the same 4 records delivered twice (identical content, no event identity)",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.221": 8
+    }
+  },
+  "finished": "2026-11-21T09:11:33.480Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50000 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50001 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50002 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50003 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50000 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50001 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50002 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.221 port 50003 ssh2"
+    }
+  ],
+  "inputs_total_lines": 8,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.221": [
+          {
+            "acknowledged_time": null,
+            "bucket_keys": [
+              "001",
+              "203.0.113.221"
+            ],
+            "detail": {
+              "distinct_values_sample": [],
+              "duplicates_skipped": 0,
+              "events_in_lookback": 8,
+              "overflow_dropped": 0,
+              "score": 8,
+              "window_end": 1795251931000,
+              "window_start": 1795251931000
+            },
+            "doc_count": 8,
+            "end_time": null,
+            "id": "K5hc_aEB4cT_k7OXFd5F",
+            "last_notification_time": "2026-11-21T09:07:12.824Z",
+            "severity": "2",
+            "start_time": "2026-11-21T09:07:12.824Z",
+            "state": "ACTIVE",
+            "trigger_name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip"
+          }
+        ]
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.221": 8
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__bf_duplicate_delivery",
+  "started": "2026-11-21T09:06:03.526Z",
+  "timings_s": {
+    "alert_seen_after_replay": {
+      "wcp_ssh_bruteforce 001|203.0.113.221": 78.8
+    },
+    "searchable_after_replay": {
+      "001|203.0.113.221": 27.7
+    }
+  },
+  "verdict": "PASS"
+}

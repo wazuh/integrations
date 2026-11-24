@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+# The repository root .gitignore ignores "test*" (and, on case-insensitive file systems,
+# TESTING.md). This pack ships its tests and test documentation.
+!test*

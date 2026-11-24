@@ -1,0 +1,1353 @@
+{
+  "checks": [
+    {
+      "check": "wcp_ssh_bruteforce deployed with the candidate content hash",
+      "detail": "007c0a436059d016",
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray deployed with the candidate content hash",
+      "detail": "172cc43b9dfcc25c",
+      "pass": true
+    },
+    {
+      "check": "bf_below_threshold 001|203.0.113.11: 7 counted events searchable",
+      "detail": 7,
+      "pass": true
+    },
+    {
+      "check": "bf_exactly_threshold 001|203.0.113.12: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_above_threshold 001|203.0.113.13: 12 counted events searchable",
+      "detail": 12,
+      "pass": true
+    },
+    {
+      "check": "bf_span_equals_window 001|203.0.113.14: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_span_inside_window 001|203.0.113.15: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_split_beyond_window 001|203.0.113.16: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_different_sources 001|203.0.113.17: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "bf_different_sources 001|203.0.113.18: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "bf_lines_vs_attempts 001|203.0.113.20: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "bf_lines_vs_attempts 001|203.0.113.20: 15 events normalized as authentication-failure (vs 5 counted attempts)",
+      "detail": 15,
+      "pass": true
+    },
+    {
+      "check": "bf_duplicate_delivery 001|203.0.113.21: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_late_within_lateness 001|203.0.113.22: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_late_beyond_lookback 001|203.0.113.23: 8 counted events searchable",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "spray_one_user_repeated 001|203.0.113.31: 10 counted events searchable",
+      "detail": 10,
+      "pass": true
+    },
+    {
+      "check": "spray_exactly_threshold 001|203.0.113.32: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "spray_below_threshold_many_attempts 001|203.0.113.33: 12 counted events searchable",
+      "detail": 12,
+      "pass": true
+    },
+    {
+      "check": "spray_beyond_window 001|203.0.113.35: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "spray_exact_distinct_300 001|203.0.113.36: 300 counted events searchable",
+      "detail": 300,
+      "pass": true
+    },
+    {
+      "check": "bf_below_threshold wcp_ssh_bruteforce 001|203.0.113.11: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "bf_exactly_threshold wcp_ssh_bruteforce 001|203.0.113.12: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "bf_exactly_threshold wcp_ssh_bruteforce 001|203.0.113.12: score 8 at alert creation",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_above_threshold wcp_ssh_bruteforce 001|203.0.113.13: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "bf_above_threshold wcp_ssh_bruteforce 001|203.0.113.13: score 12 at alert creation",
+      "detail": 12,
+      "pass": true
+    },
+    {
+      "check": "bf_span_equals_window wcp_ssh_bruteforce 001|203.0.113.14: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "bf_span_inside_window wcp_ssh_bruteforce 001|203.0.113.15: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "bf_span_inside_window wcp_ssh_bruteforce 001|203.0.113.15: score 8 at alert creation",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_split_beyond_window wcp_ssh_bruteforce 001|203.0.113.16: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "bf_different_sources wcp_ssh_bruteforce 001|203.0.113.17: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "bf_different_sources wcp_ssh_bruteforce 001|203.0.113.18: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "bf_lines_vs_attempts wcp_ssh_bruteforce 001|203.0.113.20: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "bf_duplicate_delivery wcp_ssh_bruteforce 001|203.0.113.21: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "bf_duplicate_delivery wcp_ssh_bruteforce 001|203.0.113.21: score 8 at alert creation",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_late_within_lateness wcp_ssh_bruteforce 001|203.0.113.22: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "bf_late_within_lateness wcp_ssh_bruteforce 001|203.0.113.22: score 8 at alert creation",
+      "detail": 8,
+      "pass": true
+    },
+    {
+      "check": "bf_late_beyond_lookback wcp_ssh_bruteforce 001|203.0.113.23: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "spray_one_user_repeated wcp_ssh_bruteforce 001|203.0.113.31: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "spray_one_user_repeated wcp_ssh_bruteforce 001|203.0.113.31: score 10 at alert creation",
+      "detail": 10,
+      "pass": true
+    },
+    {
+      "check": "spray_one_user_repeated wcp_ssh_password_spray 001|203.0.113.31: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "spray_exactly_threshold wcp_ssh_password_spray 001|203.0.113.32: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "spray_exactly_threshold wcp_ssh_password_spray 001|203.0.113.32: score 5 at alert creation",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "spray_exactly_threshold wcp_ssh_bruteforce 001|203.0.113.32: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "spray_below_threshold_many_attempts wcp_ssh_password_spray 001|203.0.113.33: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "spray_below_threshold_many_attempts wcp_ssh_bruteforce 001|203.0.113.33: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "spray_below_threshold_many_attempts wcp_ssh_bruteforce 001|203.0.113.33: score 12 at alert creation",
+      "detail": 12,
+      "pass": true
+    },
+    {
+      "check": "spray_beyond_window wcp_ssh_password_spray 001|203.0.113.35: no alert in 240 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "spray_exact_distinct_300 wcp_ssh_password_spray 001|203.0.113.36: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "spray_exact_distinct_300 wcp_ssh_password_spray 001|203.0.113.36: score 300 at alert creation",
+      "detail": 300,
+      "pass": true
+    },
+    {
+      "check": "spray_exact_distinct_300 wcp_ssh_bruteforce 001|203.0.113.36: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "spray_exact_distinct_300 wcp_ssh_bruteforce 001|203.0.113.36: score 300 at alert creation",
+      "detail": 300,
+      "pass": true
+    }
+  ],
+  "cleanup": {},
+  "deferred": [
+    {
+      "description": "5 attempts from one source on each of two endpoints",
+      "reason": "needs a second monitored Linux endpoint (two agents)",
+      "scenario": "bf_different_endpoints"
+    },
+    {
+      "description": "6 distinct users from one source, 3 on each endpoint",
+      "reason": "needs a second monitored Linux endpoint (two agents)",
+      "scenario": "spray_split_endpoints"
+    }
+  ],
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 1,
+      "machines": [
+        {
+          "aliases": [
+            "linux_replay"
+          ],
+          "fingerprint": "acd9762bb99da1df",
+          "label": "linux-1",
+          "locked": false
+        }
+      ]
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {},
+  "finished": "2026-11-22T22:14:10.566Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "d090875ac4b109112ccb2486794472f9c0d78d01",
+    "head": "484e099e2b3d18143db7d6c52159ed0941764bf8",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [
+    {
+      "description": "7 attempts in 60 s (threshold 8 in 2m)",
+      "first_lines": [
+        "Nov 22 22:08:29 lab-linux-1 sshd[57646]: Failed password for wcpt-alice from 203.0.113.11 port 59029 ssh2",
+        "Nov 22 22:08:39 lab-linux-1 sshd[24036]: Failed password for wcpt-alice from 203.0.113.11 port 43019 ssh2",
+        "Nov 22 22:08:49 lab-linux-1 sshd[50327]: Failed password for wcpt-alice from 203.0.113.11 port 43090 ssh2"
+      ],
+      "lines": 7,
+      "scenario": "bf_below_threshold"
+    },
+    {
+      "description": "8 attempts in 70 s",
+      "first_lines": [
+        "Nov 22 22:08:19 lab-linux-1 sshd[29901]: Failed password for wcpt-alice from 203.0.113.12 port 52227 ssh2",
+        "Nov 22 22:08:29 lab-linux-1 sshd[31639]: Failed password for wcpt-alice from 203.0.113.12 port 47137 ssh2",
+        "Nov 22 22:08:39 lab-linux-1 sshd[53728]: Failed password for wcpt-alice from 203.0.113.12 port 43147 ssh2"
+      ],
+      "lines": 8,
+      "scenario": "bf_exactly_threshold"
+    },
+    {
+      "description": "12 attempts in 55 s",
+      "first_lines": [
+        "Nov 22 22:08:39 lab-linux-1 sshd[8968]: Failed password for wcpt-bob from 203.0.113.13 port 59718 ssh2",
+        "Nov 22 22:08:44 lab-linux-1 sshd[16402]: Failed password for wcpt-bob from 203.0.113.13 port 40662 ssh2",
+        "Nov 22 22:08:49 lab-linux-1 sshd[54111]: Failed password for wcpt-bob from 203.0.113.13 port 43987 ssh2"
+      ],
+      "lines": 12,
+      "scenario": "bf_above_threshold"
+    },
+    {
+      "description": "8 attempts whose first and last are exactly 120 s apart (half-open window: max 7)",
+      "first_lines": [
+        "Nov 22 22:07:29 lab-linux-1 sshd[48117]: Failed password for wcpt-alice from 203.0.113.14 port 39856 ssh2",
+        "Nov 22 22:07:49 lab-linux-1 sshd[17079]: Failed password for wcpt-alice from 203.0.113.14 port 56596 ssh2",
+        "Nov 22 22:08:09 lab-linux-1 sshd[24285]: Failed password for wcpt-alice from 203.0.113.14 port 52351 ssh2"
+      ],
+      "lines": 8,
+      "scenario": "bf_span_equals_window"
+    },
+    {
+      "description": "8 attempts spanning 119 s",
+      "first_lines": [
+        "Nov 22 22:07:29 lab-linux-1 sshd[26834]: Failed password for wcpt-alice from 203.0.113.15 port 55029 ssh2",
+        "Nov 22 22:07:49 lab-linux-1 sshd[26890]: Failed password for wcpt-alice from 203.0.113.15 port 45631 ssh2",
+        "Nov 22 22:08:09 lab-linux-1 sshd[15340]: Failed password for wcpt-alice from 203.0.113.15 port 56677 ssh2"
+      ],
+      "lines": 8,
+      "scenario": "bf_span_inside_window"
+    },
+    {
+      "description": "4 attempts, then 4 more 150 s later (lookback holds all 8, the window does not)",
+      "first_lines": [
+        "Nov 22 22:06:19 lab-linux-1 sshd[29769]: Failed password for wcpt-alice from 203.0.113.16 port 50073 ssh2",
+        "Nov 22 22:06:20 lab-linux-1 sshd[26844]: Failed password for wcpt-alice from 203.0.113.16 port 49613 ssh2",
+        "Nov 22 22:06:21 lab-linux-1 sshd[15282]: Failed password for wcpt-alice from 203.0.113.16 port 35603 ssh2"
+      ],
+      "lines": 8,
+      "scenario": "bf_split_beyond_window"
+    },
+    {
+      "description": "5 attempts from each of two sources on one endpoint",
+      "first_lines": [
+        "Nov 22 22:08:59 lab-linux-1 sshd[59152]: Failed password for wcpt-alice from 203.0.113.17 port 58370 ssh2",
+        "Nov 22 22:09:02 lab-linux-1 sshd[14175]: Failed password for wcpt-alice from 203.0.113.17 port 55772 ssh2",
+        "Nov 22 22:09:05 lab-linux-1 sshd[51142]: Failed password for wcpt-alice from 203.0.113.17 port 54660 ssh2"
+      ],
+      "lines": 10,
+      "scenario": "bf_different_sources"
+    },
+    {
+      "description": "5 invalid-user attempts = 25 sshd lines (15 normalized as authentication-failure)",
+      "first_lines": [
+        "Nov 22 22:08:49 lab-linux-1 sshd[53748]: Invalid user wcpt-nouser0 from 203.0.113.20 port 41435",
+        "Nov 22 22:08:49 lab-linux-1 sshd[53748]: pam_unix(sshd:auth): check pass; user unknown",
+        "Nov 22 22:08:49 lab-linux-1 sshd[53748]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.20"
+      ],
+      "lines": 25,
+      "scenario": "bf_lines_vs_attempts"
+    },
+    {
+      "description": "the same 4 records delivered twice (identical content, no event identity)",
+      "first_lines": [
+        "Nov 22 22:09:09 lab-linux-1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.21 port 50000 ssh2",
+        "Nov 22 22:09:09 lab-linux-1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.21 port 50001 ssh2",
+        "Nov 22 22:09:09 lab-linux-1 sshd[4242]: Failed password for wcpt-alice from 203.0.113.21 port 50002 ssh2"
+      ],
+      "lines": 8,
+      "scenario": "bf_duplicate_delivery"
+    },
+    {
+      "description": "8 attempts stamped 120-113 s before delivery (delay = allowed lateness)",
+      "first_lines": [
+        "Nov 22 22:07:39 lab-linux-1 sshd[34686]: Failed password for wcpt-alice from 203.0.113.22 port 43343 ssh2",
+        "Nov 22 22:07:40 lab-linux-1 sshd[50494]: Failed password for wcpt-alice from 203.0.113.22 port 34737 ssh2",
+        "Nov 22 22:07:41 lab-linux-1 sshd[46152]: Failed password for wcpt-alice from 203.0.113.22 port 45682 ssh2"
+      ],
+      "lines": 8,
+      "scenario": "bf_late_within_lateness"
+    },
+    {
+      "description": "8 attempts stamped 400 s before delivery (older than the 300 s lookback)",
+      "first_lines": [
+        "Nov 22 22:02:59 lab-linux-1 sshd[31348]: Failed password for wcpt-alice from 203.0.113.23 port 39105 ssh2",
+        "Nov 22 22:03:00 lab-linux-1 sshd[2799]: Failed password for wcpt-alice from 203.0.113.23 port 50181 ssh2",
+        "Nov 22 22:03:01 lab-linux-1 sshd[23104]: Failed password for wcpt-alice from 203.0.113.23 port 38048 ssh2"
+      ],
+      "lines": 8,
+      "scenario": "bf_late_beyond_lookback"
+    },
+    {
+      "description": "10 failures for one user: brute force yes, spray no",
+      "first_lines": [
+        "Nov 22 22:08:39 lab-linux-1 sshd[42977]: Failed password for wcpt-alice from 203.0.113.31 port 56558 ssh2",
+        "Nov 22 22:08:44 lab-linux-1 sshd[39073]: Failed password for wcpt-alice from 203.0.113.31 port 53842 ssh2",
+        "Nov 22 22:08:49 lab-linux-1 sshd[43896]: Failed password for wcpt-alice from 203.0.113.31 port 34972 ssh2"
+      ],
+      "lines": 10,
+      "scenario": "spray_one_user_repeated"
+    },
+    {
+      "description": "5 distinct users, one failure each (threshold 5 in 10m)",
+      "first_lines": [
+        "Nov 22 22:08:39 lab-linux-1 sshd[42247]: Failed password for invalid user wcpt-u01 from 203.0.113.32 port 52468 ssh2",
+        "Nov 22 22:08:49 lab-linux-1 sshd[36540]: Failed password for invalid user wcpt-u02 from 203.0.113.32 port 44082 ssh2",
+        "Nov 22 22:08:59 lab-linux-1 sshd[7972]: Failed password for invalid user wcpt-u03 from 203.0.113.32 port 43382 ssh2"
+      ],
+      "lines": 5,
+      "scenario": "spray_exactly_threshold"
+    },
+    {
+      "description": "4 distinct users, 3 failures each (12 attempts)",
+      "first_lines": [
+        "Nov 22 22:08:39 lab-linux-1 sshd[35649]: Failed password for invalid user wcpt-u01 from 203.0.113.33 port 60798 ssh2",
+        "Nov 22 22:08:43 lab-linux-1 sshd[25785]: Failed password for invalid user wcpt-u02 from 203.0.113.33 port 55476 ssh2",
+        "Nov 22 22:08:47 lab-linux-1 sshd[58332]: Failed password for invalid user wcpt-u03 from 203.0.113.33 port 52231 ssh2"
+      ],
+      "lines": 12,
+      "scenario": "spray_below_threshold_many_attempts"
+    },
+    {
+      "description": "5 distinct users over 660 s (every 10-minute window holds at most 4)",
+      "first_lines": [
+        "Nov 22 21:58:39 lab-linux-1 sshd[22580]: Failed password for invalid user wcpt-u01 from 203.0.113.35 port 36893 ssh2",
+        "Nov 22 22:01:24 lab-linux-1 sshd[19946]: Failed password for invalid user wcpt-u02 from 203.0.113.35 port 52657 ssh2",
+        "Nov 22 22:04:09 lab-linux-1 sshd[54250]: Failed password for invalid user wcpt-u03 from 203.0.113.35 port 57795 ssh2"
+      ],
+      "lines": 5,
+      "scenario": "spray_beyond_window"
+    },
+    {
+      "description": "300 distinct users in 100 s (exact distinct count, no HLL estimate)",
+      "first_lines": [
+        "Nov 22 22:07:59 lab-linux-1 sshd[24173]: Failed password for invalid user wcpt-u01 from 203.0.113.36 port 51527 ssh2",
+        "Nov 22 22:07:59 lab-linux-1 sshd[15732]: Failed password for invalid user wcpt-u02 from 203.0.113.36 port 57807 ssh2",
+        "Nov 22 22:07:59 lab-linux-1 sshd[19397]: Failed password for invalid user wcpt-u03 from 203.0.113.36 port 59594 ssh2"
+      ],
+      "lines": 300,
+      "scenario": "spray_exact_distinct_300"
+    }
+  ],
+  "observations": [
+    {
+      "observation": "DEFERRED bf_different_endpoints",
+      "value": "needs a second monitored Linux endpoint (two agents)"
+    },
+    {
+      "observation": "DEFERRED spray_split_endpoints",
+      "value": "needs a second monitored Linux endpoint (two agents)"
+    },
+    {
+      "observation": "spray_exact_distinct_300 wcp_ssh_bruteforce 001|203.0.113.36: score refreshed by later runs (latest snapshot 2026-11-22T22:14:05.229Z)",
+      "value": 183
+    }
+  ],
+  "observed": {
+    "alignment": {
+      "grid_spread_s": 0.056,
+      "next_runs": [
+        "2026-11-22T22:09:37.021Z",
+        "2026-11-22T22:09:37.077Z"
+      ],
+      "replay_after": "2026-11-22T22:09:39.077Z"
+    },
+    "bf_above_threshold": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.13": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.13"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "sRlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 12,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "sRlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.13"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.13"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "sRlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 12,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:14:05.229Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "bf_below_threshold": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.11": []
+      }
+    },
+    "bf_different_sources": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.17": [],
+        "001|203.0.113.18": []
+      }
+    },
+    "bf_duplicate_delivery": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.21": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.21"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "sxlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "sxlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.21"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.21"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "sxlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:14:05.229Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "bf_exactly_threshold": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.12": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.12"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "sBlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "sBlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.12"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.12"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "sBlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:13:34.889Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ],
+              [
+                "2026-11-22T22:13:39.948Z",
+                "ABSENT"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "bf_late_beyond_lookback": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.23": []
+      }
+    },
+    "bf_late_within_lateness": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.22": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.22"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "tBlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "tBlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.22"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.22"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "tBlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:13:34.889Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ],
+              [
+                "2026-11-22T22:13:39.948Z",
+                "ABSENT"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "bf_lines_vs_attempts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.20": []
+      }
+    },
+    "bf_span_equals_window": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.14": []
+      }
+    },
+    "bf_span_inside_window": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.15": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.15"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "shlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "shlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.15"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.15"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "shlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 8,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:12:34.187Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ],
+              [
+                "2026-11-22T22:12:39.242Z",
+                "ABSENT"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "bf_split_beyond_window": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.16": []
+      }
+    },
+    "fully_searchable_after_replay_s": {
+      "bf_above_threshold 001|203.0.113.13": 26.2,
+      "bf_below_threshold 001|203.0.113.11": 26.1,
+      "bf_different_sources 001|203.0.113.17": 26.5,
+      "bf_different_sources 001|203.0.113.18": 26.6,
+      "bf_duplicate_delivery 001|203.0.113.21": 26.7,
+      "bf_exactly_threshold 001|203.0.113.12": 26.1,
+      "bf_late_beyond_lookback 001|203.0.113.23": 26.8,
+      "bf_late_within_lateness 001|203.0.113.22": 26.8,
+      "bf_lines_vs_attempts 001|203.0.113.20": 26.6,
+      "bf_span_equals_window 001|203.0.113.14": 26.3,
+      "bf_span_inside_window 001|203.0.113.15": 26.3,
+      "bf_split_beyond_window 001|203.0.113.16": 26.4,
+      "spray_below_threshold_many_attempts 001|203.0.113.33": 27.1,
+      "spray_beyond_window 001|203.0.113.35": 27.1,
+      "spray_exact_distinct_300 001|203.0.113.36": 27.2,
+      "spray_exactly_threshold 001|203.0.113.32": 27.0,
+      "spray_one_user_repeated 001|203.0.113.31": 26.9
+    },
+    "replayed": {
+      "at": "2026-11-22T22:09:39.409Z",
+      "lines": 442
+    },
+    "spray_below_threshold_many_attempts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.33": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.33"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "thlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 12,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "thlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.33"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.33"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "thlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 12,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:14:05.229Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ]
+            ]
+          }
+        ]
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.33": []
+      }
+    },
+    "spray_beyond_window": {
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.35": []
+      }
+    },
+    "spray_exact_distinct_300": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.36": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.36"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "txlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 300,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "txlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.36"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.36"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "txlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 183,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:14:05.229Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ]
+            ]
+          }
+        ]
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.36": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.36"
+              ],
+              "distinct_values_sample": [
+                "wcpt-u107",
+                "wcpt-u108",
+                "wcpt-u109",
+                "wcpt-u110",
+                "wcpt-u111",
+                "wcpt-u112",
+                "wcpt-u113",
+                "wcpt-u114",
+                "wcpt-u228",
+                "wcpt-u229",
+                "wcpt-u230",
+                "wcpt-u231",
+                "wcpt-u232",
+                "wcpt-u233",
+                "wcpt-u234",
+                "wcpt-u235",
+                "wcpt-u51",
+                "wcpt-u52",
+                "wcpt-u53",
+                "wcpt-u54",
+                "wcpt-u55",
+                "wcpt-u56",
+                "wcpt-u57",
+                "wcpt-u58",
+                "wcpt-u59"
+              ],
+              "end_time": null,
+              "error_message": null,
+              "id": "uxlPBaIB8xfpA6fnqzu1",
+              "last_notification_time": "2026-11-22T22:10:37.092Z",
+              "score": 300,
+              "start_time": "2026-11-22T22:10:37.092Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.073Z",
+            "id": "uxlPBaIB8xfpA6fnqzu1",
+            "keys": [
+              "001",
+              "203.0.113.36"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.36"
+              ],
+              "distinct_values_sample": [
+                "wcpt-u107",
+                "wcpt-u108",
+                "wcpt-u109",
+                "wcpt-u110",
+                "wcpt-u111",
+                "wcpt-u112",
+                "wcpt-u113",
+                "wcpt-u114",
+                "wcpt-u228",
+                "wcpt-u229",
+                "wcpt-u230",
+                "wcpt-u231",
+                "wcpt-u232",
+                "wcpt-u233",
+                "wcpt-u234",
+                "wcpt-u235",
+                "wcpt-u51",
+                "wcpt-u52",
+                "wcpt-u53",
+                "wcpt-u54",
+                "wcpt-u55",
+                "wcpt-u56",
+                "wcpt-u57",
+                "wcpt-u58",
+                "wcpt-u59"
+              ],
+              "end_time": null,
+              "error_message": null,
+              "id": "uxlPBaIB8xfpA6fnqzu1",
+              "last_notification_time": "2026-11-22T22:10:37.092Z",
+              "score": 300,
+              "start_time": "2026-11-22T22:10:37.092Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:14:05.259Z",
+            "start_ms": 1795385437092,
+            "start_time": "2026-11-22T22:10:37.092Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.073Z",
+                "ACTIVE"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "spray_exactly_threshold": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.32": []
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.32": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.32"
+              ],
+              "distinct_values_sample": [
+                "wcpt-u01",
+                "wcpt-u02",
+                "wcpt-u03",
+                "wcpt-u04",
+                "wcpt-u05"
+              ],
+              "end_time": null,
+              "error_message": null,
+              "id": "uhlPBaIB8xfpA6fnqzu1",
+              "last_notification_time": "2026-11-22T22:10:37.092Z",
+              "score": 5,
+              "start_time": "2026-11-22T22:10:37.092Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.073Z",
+            "id": "uhlPBaIB8xfpA6fnqzu1",
+            "keys": [
+              "001",
+              "203.0.113.32"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.32"
+              ],
+              "distinct_values_sample": [
+                "wcpt-u01",
+                "wcpt-u02",
+                "wcpt-u03",
+                "wcpt-u04",
+                "wcpt-u05"
+              ],
+              "end_time": null,
+              "error_message": null,
+              "id": "uhlPBaIB8xfpA6fnqzu1",
+              "last_notification_time": "2026-11-22T22:10:37.092Z",
+              "score": 5,
+              "start_time": "2026-11-22T22:10:37.092Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:14:05.259Z",
+            "start_ms": 1795385437092,
+            "start_time": "2026-11-22T22:10:37.092Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.073Z",
+                "ACTIVE"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "spray_one_user_repeated": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.31": [
+          {
+            "first": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.31"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "tRlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 10,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "first_seen": "2026-11-22T22:10:38.060Z",
+            "id": "tRlPBaIB8xfpA6fnqztw",
+            "keys": [
+              "001",
+              "203.0.113.31"
+            ],
+            "last": {
+              "action_execution_results": [],
+              "bucket_keys": [
+                "001",
+                "203.0.113.31"
+              ],
+              "distinct_values_sample": [],
+              "end_time": null,
+              "error_message": null,
+              "id": "tRlPBaIB8xfpA6fnqztw",
+              "last_notification_time": "2026-11-22T22:10:37.040Z",
+              "score": 10,
+              "start_time": "2026-11-22T22:10:37.040Z",
+              "state": "ACTIVE"
+            },
+            "last_seen": "2026-11-22T22:14:05.229Z",
+            "start_ms": 1795385437040,
+            "start_time": "2026-11-22T22:10:37.040Z",
+            "states": [
+              [
+                "2026-11-22T22:10:38.060Z",
+                "ACTIVE"
+              ]
+            ]
+          }
+        ]
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.31": []
+      }
+    }
+  },
+  "plan": {
+    "batch": "ssh",
+    "deferred": [
+      {
+        "description": "5 attempts from one source on each of two endpoints",
+        "reason": "needs a second monitored Linux endpoint (two agents)",
+        "scenario": "bf_different_endpoints"
+      },
+      {
+        "description": "6 distinct users from one source, 3 on each endpoint",
+        "reason": "needs a second monitored Linux endpoint (two agents)",
+        "scenario": "spray_split_endpoints"
+      }
+    ],
+    "scenarios": [
+      {
+        "description": "7 attempts in 60 s (threshold 8 in 2m)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.11": null
+          }
+        },
+        "lines": 7,
+        "name": "bf_below_threshold"
+      },
+      {
+        "description": "8 attempts in 70 s",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.12": 8
+          }
+        },
+        "lines": 8,
+        "name": "bf_exactly_threshold"
+      },
+      {
+        "description": "12 attempts in 55 s",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.13": 12
+          }
+        },
+        "lines": 12,
+        "name": "bf_above_threshold"
+      },
+      {
+        "description": "8 attempts whose first and last are exactly 120 s apart (half-open window: max 7)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.14": null
+          }
+        },
+        "lines": 8,
+        "name": "bf_span_equals_window"
+      },
+      {
+        "description": "8 attempts spanning 119 s",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.15": 8
+          }
+        },
+        "lines": 8,
+        "name": "bf_span_inside_window"
+      },
+      {
+        "description": "4 attempts, then 4 more 150 s later (lookback holds all 8, the window does not)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.16": null
+          }
+        },
+        "lines": 8,
+        "name": "bf_split_beyond_window"
+      },
+      {
+        "description": "5 attempts from each of two sources on one endpoint",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.17": null,
+            "001|203.0.113.18": null
+          }
+        },
+        "lines": 10,
+        "name": "bf_different_sources"
+      },
+      {
+        "description": "5 invalid-user attempts = 25 sshd lines (15 normalized as authentication-failure)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.20": null
+          }
+        },
+        "lines": 25,
+        "name": "bf_lines_vs_attempts"
+      },
+      {
+        "description": "the same 4 records delivered twice (identical content, no event identity)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.21": 8
+          }
+        },
+        "lines": 8,
+        "name": "bf_duplicate_delivery"
+      },
+      {
+        "description": "8 attempts stamped 120-113 s before delivery (delay = allowed lateness)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.22": 8
+          }
+        },
+        "lines": 8,
+        "name": "bf_late_within_lateness"
+      },
+      {
+        "description": "8 attempts stamped 400 s before delivery (older than the 300 s lookback)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.23": null
+          }
+        },
+        "lines": 8,
+        "name": "bf_late_beyond_lookback"
+      },
+      {
+        "description": "10 failures for one user: brute force yes, spray no",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.31": 10
+          },
+          "wcp_ssh_password_spray": {
+            "001|203.0.113.31": null
+          }
+        },
+        "lines": 10,
+        "name": "spray_one_user_repeated"
+      },
+      {
+        "description": "5 distinct users, one failure each (threshold 5 in 10m)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.32": null
+          },
+          "wcp_ssh_password_spray": {
+            "001|203.0.113.32": 5
+          }
+        },
+        "lines": 5,
+        "name": "spray_exactly_threshold"
+      },
+      {
+        "description": "4 distinct users, 3 failures each (12 attempts)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.33": 12
+          },
+          "wcp_ssh_password_spray": {
+            "001|203.0.113.33": null
+          }
+        },
+        "lines": 12,
+        "name": "spray_below_threshold_many_attempts"
+      },
+      {
+        "description": "5 distinct users over 660 s (every 10-minute window holds at most 4)",
+        "expect": {
+          "wcp_ssh_password_spray": {
+            "001|203.0.113.35": null
+          }
+        },
+        "lines": 5,
+        "name": "spray_beyond_window"
+      },
+      {
+        "description": "300 distinct users in 100 s (exact distinct count, no HLL estimate)",
+        "expect": {
+          "wcp_ssh_bruteforce": {
+            "001|203.0.113.36": 300
+          },
+          "wcp_ssh_password_spray": {
+            "001|203.0.113.36": 300
+          }
+        },
+        "lines": 300,
+        "name": "spray_exact_distinct_300"
+      }
+    ],
+    "source": "tests/e2e/test_replay.py (scenario definitions, unchanged)"
+  },
+  "started": "2026-11-22T22:08:42.439Z",
+  "status": "PASS",
+  "test": "replay_ssh",
+  "timings_s": {},
+  "title": "Replay batch ssh (port of RC1 tests 7/8)"
+}

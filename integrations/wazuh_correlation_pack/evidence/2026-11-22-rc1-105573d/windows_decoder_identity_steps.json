@@ -1,0 +1,256 @@
+{
+  "source": "stock decoders on the 5.0.0-rc1 test server, /var/wazuh-manager/data/ruleset/cmsync_standard_118b/decoders (read-only)",
+  "sha256": {
+    "decoder_windows-event_0.json": "0ba13a77cf23bd46c2a6dafe343e725a2cae2f8972396e9c827cbdc033831154",
+    "decoder_windows-security_0.json": "1adccaf44691df1abd0b08b1d5064516f06c5fcbcd309ffedd7100283940bb98"
+  },
+  "identity_steps": {
+    "decoder/windows-event/0": [
+      {
+        "step": 2,
+        "check": null,
+        "map": [
+          {
+            "host.name": "$_windows.System.Computer.#text"
+          },
+          {
+            "user.name": "$_windows.EventData.User"
+          },
+          {
+            "user.domain": "$_windows.EventData.SubjectDomainName"
+          },
+          {
+            "user.id": "$_windows.EventData.SubjectUserSid"
+          },
+          {
+            "user.target.name": "$_windows.EventData.TargetUserName"
+          },
+          {
+            "user.target.id": "$_windows.EventData.TargetUserSid"
+          }
+        ]
+      },
+      {
+        "step": 5,
+        "check": "string_equal($_windows.System.Channel.#text, 'System') AND string_equal($_windows.System.Provider.@Name, 'Service Control Manager')",
+        "map": [
+          {
+            "user.name": "$_windows.EventData.AccountName"
+          }
+        ]
+      }
+    ],
+    "decoder/windows-security/0": [
+      {
+        "step": 4,
+        "check": "$event.code == '4778' OR $event.code == '4779'",
+        "map": [
+          {
+            "user.name": "$_windows.EventData.AccountName"
+          },
+          {
+            "user.domain": "$_windows.EventData.AccountDomain"
+          }
+        ]
+      },
+      {
+        "step": 5,
+        "check": "string_not_equal($_windows.EventData.SubjectUserName, -)",
+        "map": [
+          {
+            "user.name": "$_windows.EventData.SubjectUserName"
+          }
+        ]
+      },
+      {
+        "step": 7,
+        "check": "array_contains($_ev_target_user_1, $event.code) AND exists($user.id) AND string_not_equal($user.id, 'S-1-0-0')",
+        "map": [
+          {
+            "user.target.id": "$_windows.EventData.TargetUserSid"
+          },
+          {
+            "user.target.id": "$_windows.EventData.TargetSid"
+          }
+        ]
+      },
+      {
+        "step": 8,
+        "check": "array_contains($_ev_target_user_1, $event.code) AND (not_exists($user.id) OR string_equal($user.id, 'S-1-0-0'))",
+        "map": [
+          {
+            "user.id": "$_windows.EventData.TargetUserSid"
+          },
+          {
+            "user.id": "$_windows.EventData.TargetSid"
+          }
+        ]
+      },
+      {
+        "step": 9,
+        "check": "array_contains($_ev_target_user_1, $event.code) AND exists($user.name) AND string_not_equal($_windows.EventData.TargetUserName, -)",
+        "map": [
+          {
+            "user.target.name": "$_windows.EventData.TargetUserName"
+          }
+        ]
+      },
+      {
+        "step": 10,
+        "check": "array_contains($_ev_target_user_1, $event.code) AND not_exists($user.name) AND string_not_equal($_windows.EventData.TargetUserName, -)",
+        "map": [
+          {
+            "user.name": "$_windows.EventData.TargetUserName"
+          }
+        ]
+      },
+      {
+        "step": 12,
+        "check": "array_contains($_ev_target_user_1, $event.code) AND exists($user.domain) AND string_not_equal($user.domain, -)",
+        "map": [
+          {
+            "user.target.domain": "$_windows.EventData.TargetDomainName"
+          }
+        ]
+      },
+      {
+        "step": 13,
+        "check": "array_contains($_ev_target_user_1, $event.code) AND (not_exists($user.domain) OR string_equal($user.domain, -))",
+        "map": [
+          {
+            "user.domain": "$_windows.EventData.TargetDomainName"
+          }
+        ]
+      },
+      {
+        "step": 15,
+        "check": "array_contains($_ev_member_name, $event.code) AND exists($_windows.EventData.MemberName) AND string_not_equal($_windows.EventData.MemberName, -)",
+        "map": [
+          {
+            "user.target.name": "$_member_name_parts.0"
+          },
+          {
+            "user.target.domain": "$_member_domain_raw"
+          }
+        ]
+      },
+      {
+        "step": 16,
+        "check": "array_contains($_ev_member_name, $event.code) AND string_equal($_windows.EventData.MemberName, -)",
+        "map": [
+          {
+            "user.target.name": "delete()"
+          }
+        ]
+      },
+      {
+        "step": 17,
+        "check": "array_contains($_ev_member_name, $event.code) AND string_not_equal($_windows.EventData.MemberSid, -)",
+        "map": [
+          {
+            "user.target.id": "$_windows.EventData.MemberSid"
+          }
+        ]
+      },
+      {
+        "step": 23,
+        "check": "array_contains($_ev_subject_user, $event.code)",
+        "map": [
+          {
+            "user.id": "$_windows.EventData.SubjectUserSid"
+          },
+          {
+            "user.name": "$_windows.EventData.SubjectUserName"
+          },
+          {
+            "user.domain": "$_windows.EventData.SubjectDomainName"
+          }
+        ]
+      },
+      {
+        "step": 25,
+        "check": "array_contains($_ev_target_user_2, $event.code)",
+        "map": [
+          {
+            "user.target.id": "$_windows.EventData.TargetSid"
+          }
+        ]
+      },
+      {
+        "step": 26,
+        "check": "array_contains($_ev_target_user_2, $event.code) AND string_not_equal($_windows.EventData.TargetUserName, -)",
+        "map": [
+          {
+            "user.target.name": "$_windows.EventData.TargetUserName"
+          }
+        ]
+      },
+      {
+        "step": 27,
+        "check": "array_contains($_ev_target_user_2, $event.code) AND string_not_equal($_windows.EventData.TargetDomainName, -)",
+        "map": [
+          {
+            "user.target.domain": "$_windows.EventData.TargetDomainName"
+          }
+        ]
+      },
+      {
+        "step": 31,
+        "check": "$event.code == '1102'",
+        "map": [
+          {
+            "user.id": "$_windows.UserData.LogFileCleared.SubjectUserSid.#text"
+          },
+          {
+            "user.name": "$_windows.UserData.LogFileCleared.SubjectUserName.#text"
+          },
+          {
+            "user.domain": "$_windows.UserData.LogFileCleared.SubjectDomainName.#text"
+          }
+        ]
+      },
+      {
+        "step": 32,
+        "check": "$event.code == '1102' AND not_exists($user.name)",
+        "map": [
+          {
+            "user.name": "$_windows.EventData.SubjectUserName"
+          }
+        ]
+      },
+      {
+        "step": 47,
+        "check": "$event.code == '4717' OR $event.code == '4718'",
+        "map": [
+          {
+            "user.target.id": "$_windows.EventData.TargetSid"
+          }
+        ]
+      },
+      {
+        "step": 59,
+        "check": "string_not_equal($_windows.EventData.OldTargetUserName, -)",
+        "map": [
+          {
+            "user.target.name": "$_windows.EventData.OldTargetUserName"
+          }
+        ]
+      }
+    ]
+  },
+  "note": "windows-security step checks reference $_ev_target_user_1 = kvdb windows_event_type_to_eventid_list.target_user_1, which contains 4625.",
+  "kvdb_windows_event_type_to_eventid_list": {
+    "sha256": "d89075f98398726fc69abdf8f008fd60a624a654c4cd122a55cbb07de782e087",
+    "contains_4625": {
+      "auth_fields": true,
+      "target_user_1": true,
+      "subject_user": false,
+      "target_user_2": false,
+      "member_name": false,
+      "related_user_1": false,
+      "related_user_2": false,
+      "kerberos_status": false
+    }
+  },
+  "applicable_to_4625": "windows-event step 2 (user.domain=SubjectDomainName, user.id=SubjectUserSid, user.target.name=TargetUserName, user.target.id=TargetUserSid, host.name=Computer); windows-security step 5 (user.name=SubjectUserName unless '-'), 7/8 (ids), 9/10 (names), 12 (user.target.domain=TargetDomainName when user.domain present and not '-'), 13 (user.domain=TargetDomainName otherwise). Steps 23 and 25-27 do not apply (4625 not in subject_user / target_user_2)."
+}

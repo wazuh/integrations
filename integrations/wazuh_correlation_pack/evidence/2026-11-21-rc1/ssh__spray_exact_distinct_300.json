@@ -1,0 +1,305 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.236: 300 counted events searchable",
+      "detail": 300,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.236: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_password_spray 001|203.0.113.236: score 300",
+      "detail": 300,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.236: exactly one scheduler alert",
+      "detail": 1,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.236: score 300",
+      "detail": 300,
+      "pass": true
+    }
+  ],
+  "description": "300 distinct users in 100 s (exact distinct count, no HLL estimate)",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.236": 300
+    },
+    "wcp_ssh_password_spray": {
+      "001|203.0.113.236": 300
+    }
+  },
+  "finished": "2026-11-21T09:11:33.485Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:21 wcp-ep1 sshd[38827]: Failed password for invalid user wcpt-u01 from 203.0.113.236 port 39988 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:21 wcp-ep1 sshd[53670]: Failed password for invalid user wcpt-u02 from 203.0.113.236 port 46463 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:21 wcp-ep1 sshd[11346]: Failed password for invalid user wcpt-u03 from 203.0.113.236 port 39615 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:22 wcp-ep1 sshd[35166]: Failed password for invalid user wcpt-u04 from 203.0.113.236 port 40861 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:22 wcp-ep1 sshd[41549]: Failed password for invalid user wcpt-u05 from 203.0.113.236 port 48319 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:22 wcp-ep1 sshd[20261]: Failed password for invalid user wcpt-u06 from 203.0.113.236 port 34145 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:23 wcp-ep1 sshd[41422]: Failed password for invalid user wcpt-u07 from 203.0.113.236 port 49635 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:23 wcp-ep1 sshd[17736]: Failed password for invalid user wcpt-u08 from 203.0.113.236 port 57859 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:23 wcp-ep1 sshd[46076]: Failed password for invalid user wcpt-u09 from 203.0.113.236 port 54200 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:24 wcp-ep1 sshd[37359]: Failed password for invalid user wcpt-u10 from 203.0.113.236 port 39619 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:24 wcp-ep1 sshd[22129]: Failed password for invalid user wcpt-u11 from 203.0.113.236 port 50822 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:24 wcp-ep1 sshd[57220]: Failed password for invalid user wcpt-u12 from 203.0.113.236 port 39647 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:25 wcp-ep1 sshd[46744]: Failed password for invalid user wcpt-u13 from 203.0.113.236 port 34662 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:25 wcp-ep1 sshd[48235]: Failed password for invalid user wcpt-u14 from 203.0.113.236 port 37140 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:25 wcp-ep1 sshd[42888]: Failed password for invalid user wcpt-u15 from 203.0.113.236 port 36059 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:26 wcp-ep1 sshd[32238]: Failed password for invalid user wcpt-u16 from 203.0.113.236 port 35751 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:26 wcp-ep1 sshd[22944]: Failed password for invalid user wcpt-u17 from 203.0.113.236 port 54501 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:26 wcp-ep1 sshd[48373]: Failed password for invalid user wcpt-u18 from 203.0.113.236 port 46074 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:27 wcp-ep1 sshd[6245]: Failed password for invalid user wcpt-u19 from 203.0.113.236 port 45760 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:27 wcp-ep1 sshd[5194]: Failed password for invalid user wcpt-u20 from 203.0.113.236 port 43721 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:27 wcp-ep1 sshd[19144]: Failed password for invalid user wcpt-u21 from 203.0.113.236 port 37680 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:28 wcp-ep1 sshd[20119]: Failed password for invalid user wcpt-u22 from 203.0.113.236 port 45997 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:28 wcp-ep1 sshd[13464]: Failed password for invalid user wcpt-u23 from 203.0.113.236 port 34771 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:28 wcp-ep1 sshd[27189]: Failed password for invalid user wcpt-u24 from 203.0.113.236 port 49457 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:29 wcp-ep1 sshd[17724]: Failed password for invalid user wcpt-u25 from 203.0.113.236 port 50228 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:29 wcp-ep1 sshd[28069]: Failed password for invalid user wcpt-u26 from 203.0.113.236 port 42444 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:29 wcp-ep1 sshd[35477]: Failed password for invalid user wcpt-u27 from 203.0.113.236 port 56998 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:30 wcp-ep1 sshd[35870]: Failed password for invalid user wcpt-u28 from 203.0.113.236 port 58849 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:30 wcp-ep1 sshd[23150]: Failed password for invalid user wcpt-u29 from 203.0.113.236 port 49650 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:30 wcp-ep1 sshd[4143]: Failed password for invalid user wcpt-u30 from 203.0.113.236 port 43330 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:31 wcp-ep1 sshd[40256]: Failed password for invalid user wcpt-u31 from 203.0.113.236 port 53617 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:31 wcp-ep1 sshd[3604]: Failed password for invalid user wcpt-u32 from 203.0.113.236 port 58564 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:31 wcp-ep1 sshd[7784]: Failed password for invalid user wcpt-u33 from 203.0.113.236 port 47507 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:32 wcp-ep1 sshd[56060]: Failed password for invalid user wcpt-u34 from 203.0.113.236 port 47025 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:32 wcp-ep1 sshd[39533]: Failed password for invalid user wcpt-u35 from 203.0.113.236 port 35330 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:32 wcp-ep1 sshd[21006]: Failed password for invalid user wcpt-u36 from 203.0.113.236 port 38690 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:33 wcp-ep1 sshd[42065]: Failed password for invalid user wcpt-u37 from 203.0.113.236 port 36988 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:33 wcp-ep1 sshd[26820]: Failed password for invalid user wcpt-u38 from 203.0.113.236 port 52987 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:33 wcp-ep1 sshd[38897]: Failed password for invalid user wcpt-u39 from 203.0.113.236 port 34283 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:04:34 wcp-ep1 sshd[25840]: Failed password for invalid user wcpt-u40 from 203.0.113.236 port 33353 ssh2"
+    }
+  ],
+  "inputs_total_lines": 300,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.236": [
+          {
+            "acknowledged_time": null,
+            "bucket_keys": [
+              "001",
+              "203.0.113.236"
+            ],
+            "detail": {
+              "distinct_values_sample": [],
+              "duplicates_skipped": 0,
+              "events_in_lookback": 300,
+              "overflow_dropped": 0,
+              "score": 300,
+              "window_end": 1795251960000,
+              "window_start": 1795251861000
+            },
+            "doc_count": 300,
+            "end_time": null,
+            "id": "L5hc_aEB4cT_k7OXFd5F",
+            "last_notification_time": "2026-11-21T09:07:12.824Z",
+            "severity": "2",
+            "start_time": "2026-11-21T09:07:12.824Z",
+            "state": "ACTIVE",
+            "trigger_name": "wcp_ssh_bruteforce: events >= 8 in 2m per wazuh.agent.id + source.ip"
+          }
+        ]
+      },
+      "wcp_ssh_password_spray": {
+        "001|203.0.113.236": [
+          {
+            "acknowledged_time": null,
+            "bucket_keys": [
+              "001",
+              "203.0.113.236"
+            ],
+            "detail": {
+              "distinct_values_sample": [
+                "wcpt-u107",
+                "wcpt-u108",
+                "wcpt-u109",
+                "wcpt-u110",
+                "wcpt-u111",
+                "wcpt-u112",
+                "wcpt-u113",
+                "wcpt-u114",
+                "wcpt-u228",
+                "wcpt-u229",
+                "wcpt-u230",
+                "wcpt-u231",
+                "wcpt-u232",
+                "wcpt-u233",
+                "wcpt-u234",
+                "wcpt-u235",
+                "wcpt-u51",
+                "wcpt-u52",
+                "wcpt-u53",
+                "wcpt-u54",
+                "wcpt-u55",
+                "wcpt-u56",
+                "wcpt-u57",
+                "wcpt-u58",
+                "wcpt-u59"
+              ],
+              "duplicates_skipped": 0,
+              "events_in_lookback": 300,
+              "overflow_dropped": 0,
+              "score": 300,
+              "window_end": 1795251960000,
+              "window_start": 1795251861000
+            },
+            "doc_count": 300,
+            "end_time": null,
+            "id": "M5hc_aEB4cT_k7OXFd5x",
+            "last_notification_time": "2026-11-21T09:07:12.880Z",
+            "severity": "2",
+            "start_time": "2026-11-21T09:07:12.880Z",
+            "state": "ACTIVE",
+            "trigger_name": "wcp_ssh_password_spray: distinct user.name >= 5 in 10m per wazuh.agent.id + source.ip"
+          }
+        ]
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.236": 300
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__spray_exact_distinct_300",
+  "started": "2026-11-21T09:06:03.527Z",
+  "timings_s": {
+    "alert_seen_after_replay": {
+      "wcp_ssh_bruteforce 001|203.0.113.236": 78.8,
+      "wcp_ssh_password_spray 001|203.0.113.236": 78.8
+    },
+    "searchable_after_replay": {
+      "001|203.0.113.236": 28.2
+    }
+  },
+  "verdict": "PASS"
+}

@@ -1,0 +1,42 @@
+# wazuh_correlation_pack deployment profile.
+#
+# The Sigma files in rules/ and correlations/ define WHAT is correlated.
+# This file defines HOW the Alerting backend runs it. Override any value in a
+# local file passed with --override (see docs/CONFIGURATION.md) instead of
+# editing this one.
+pack: wazuh_correlation_pack
+version: 0.1.0
+
+defaults:
+  # Normalized events written by the Wazuh 5.0.0-rc1 engine. The stock system-auth
+  # and windows integrations are in the system-activity category. On 5.0.0-rc1
+  # this is a data stream named exactly "wazuh-events-v5-system-activity"
+  # (a "...-system-activity-*" pattern matches nothing).
+  indices: ["wazuh-events-v5-system-activity"]
+  # Event-time field used for windowing. event.start is the time written in the
+  # log record (syslog header / Windows TimeCreated). @timestamp is the time the
+  # manager processed the event (seconds later, minutes during an outage).
+  timestamp_field: "event.start"
+  # Alerting schedule. Minimum 1m.
+  interval: 1m
+  # How late (ingest time - event time) an event may arrive and still count.
+  # Widens the range the monitor reads (lookback), never the correlation window.
+  allowed_lateness: 2m
+  # Composite page size; Alerting pages through all groups.
+  composite_size: 500
+  # Per group and lookback; above this the oldest events are ignored (see docs).
+  max_events_per_group: 100000
+  # Optional per-event identity field for duplicate suppression (null = off).
+  event_identity_field: null
+  enabled: true
+  # Notification actions (none by default: alerts appear in Alerting > Alerts).
+  # Example:
+  #   actions:
+  #     - name: notify-soc
+  #       channel_id: <Notifications channel config id>
+  #       notify_on: [NEW]          # NEW, COMPLETED; DEDUPED re-notifies every run
+  actions: []
+  # Group-level context shown in the alert (terms sub-aggregations, max 5 values).
+  context_fields: ["wazuh.agent.name"]
+
+correlations: {}

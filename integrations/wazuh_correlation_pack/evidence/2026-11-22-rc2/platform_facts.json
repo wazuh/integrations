@@ -1,0 +1,77 @@
+{
+  "collected_at": "2026-11-22T18:52:38.585873+00:00",
+  "data_streams": [
+    "wazuh-events-raw-v5",
+    "wazuh-events-v5-access-management",
+    "wazuh-events-v5-applications",
+    "wazuh-events-v5-cloud-services",
+    "wazuh-events-v5-network-activity",
+    "wazuh-events-v5-other",
+    "wazuh-events-v5-security",
+    "wazuh-events-v5-system-activity",
+    "wazuh-events-v5-unclassified",
+    "wazuh-findings-v5-access-management",
+    "wazuh-findings-v5-applications",
+    "wazuh-findings-v5-cloud-services",
+    "wazuh-findings-v5-network-activity",
+    "wazuh-findings-v5-other",
+    "wazuh-findings-v5-security",
+    "wazuh-findings-v5-system-activity",
+    "wazuh-findings-v5-unclassified"
+  ],
+  "field_types": {
+    "@timestamp": "date_nanos",
+    "event.code": "keyword",
+    "event.dataset": "keyword",
+    "event.reason": "keyword",
+    "event.start": "date",
+    "host.name": "keyword",
+    "process.name": "keyword",
+    "source.ip": "ip",
+    "user.domain": "keyword",
+    "user.id": "keyword",
+    "user.name": "keyword",
+    "user.target.domain": "keyword",
+    "user.target.id": "keyword",
+    "user.target.name": "keyword",
+    "wazuh.agent.id": "keyword",
+    "wazuh.agent.name": "keyword",
+    "wazuh.event.id": "keyword"
+  },
+  "indexer": {
+    "build_hash": "dbe3dd9db3b05bf142d14407d2edf5d38ce8b59b",
+    "distribution": "opensearch",
+    "number": "3.6.0"
+  },
+  "read_only": true,
+  "settings": {
+    "indices.breaker.request.limit": "60%",
+    "indices.breaker.total.limit": "80%",
+    "plugins.alerting.alert_history_enabled": "false",
+    "plugins.alerting.index_timeout": "60s",
+    "plugins.alerting.input_timeout": "30s",
+    "plugins.alerting.monitor.max_monitors": "10",
+    "plugins.alerting.monitor.max_triggers": "10",
+    "plugins.alerting.request_timeout": "10s",
+    "plugins.jobscheduler.jitter_limit": "0.6",
+    "plugins.jobscheduler.sweeper.period": "5m",
+    "script.max_compilations_rate": "use-context",
+    "search.cancel_after_time_interval": "-1",
+    "search.default_search_timeout": "-1",
+    "search.max_buckets": "65535"
+  },
+  "settings_explicit": {
+    "cluster.default_number_of_replicas": "0"
+  },
+  "windows_4625_identity_shapes": [
+    {
+      "doc_count": 1,
+      "host_name": "WCP-WIN-RC2",
+      "user_domain": "WORKGROUP",
+      "user_id": "S-1-0-0",
+      "user_name_equals_target": "true",
+      "user_target_domain": null,
+      "user_target_id": "S-1-0-0"
+    }
+  ]
+}

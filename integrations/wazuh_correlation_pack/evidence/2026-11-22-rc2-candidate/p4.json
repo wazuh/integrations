@@ -1,0 +1,445 @@
+{
+  "checks": [
+    {
+      "check": "restricted user: preflight",
+      "detail": "rc=0",
+      "pass": true
+    },
+    {
+      "check": "restricted user: plan: 4 creates",
+      "detail": "rc=0",
+      "pass": true
+    },
+    {
+      "check": "restricted user: apply: 4 created",
+      "detail": "rc=0",
+      "pass": true
+    },
+    {
+      "check": "restricted user: status: 4 in sync",
+      "detail": "rc=0",
+      "pass": true
+    },
+    {
+      "check": "restricted user: execute (dry run)",
+      "detail": "rc=0",
+      "pass": true
+    },
+    {
+      "check": "installed monitors carry the frozen content hashes",
+      "detail": {
+        "wcp_ssh_bruteforce": "007c0a436059d016",
+        "wcp_ssh_password_spray": "172cc43b9dfcc25c",
+        "wcp_windows_failed_logon_burst": "d31fc5d758665c2e",
+        "wcp_windows_password_spray": "4564e84945edcf3a"
+      },
+      "pass": true
+    },
+    {
+      "check": "each stored monitor records the restricted user (config index, read on the server)",
+      "detail": {
+        "wcp_ssh_bruteforce": [
+          "wcp_p4_deployer",
+          [
+            "wcp_p4_deployer",
+            "wazuh_ai_assistant"
+          ]
+        ],
+        "wcp_ssh_password_spray": [
+          "wcp_p4_deployer",
+          [
+            "wcp_p4_deployer",
+            "wazuh_ai_assistant"
+          ]
+        ],
+        "wcp_windows_failed_logon_burst": [
+          "wcp_p4_deployer",
+          [
+            "wcp_p4_deployer",
+            "wazuh_ai_assistant"
+          ]
+        ],
+        "wcp_windows_password_spray": [
+          "wcp_p4_deployer",
+          [
+            "wcp_p4_deployer",
+            "wazuh_ai_assistant"
+          ]
+        ]
+      },
+      "pass": true
+    },
+    {
+      "check": "negative: security API read refused (403)",
+      "detail": 403,
+      "pass": true
+    },
+    {
+      "check": "negative: search on an index outside the role refused (403)",
+      "detail": 403,
+      "pass": true
+    },
+    {
+      "check": "9 replayed events searchable with event.start = replay time (replay endpoint clock in UTC)",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "scheduled run of the restricted user's monitor raised an ACTIVE alert",
+      "detail": null,
+      "pass": true
+    },
+    {
+      "check": "alert score 9",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "second burst indexed (9 events, read as admin)",
+      "detail": 9,
+      "pass": true
+    },
+    {
+      "check": "no ACTIVE alert for the burst replayed after the removal (observed until 2026-11-22T21:23:35.918Z)",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "cleanup: no pack monitor, user, role or index left",
+      "detail": {
+        "index": "deleted",
+        "pack_monitors_left": [],
+        "role": "deleted",
+        "state_dir_removed": true,
+        "user": "deleted",
+        "wcp_remove_as_admin": {
+          "output": "state: <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json (environment)\nremove: 4 pack monitor(s); 0 unrelated monitor(s) untouched\n  delete  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint YRkgBaIB8xfpA6fniyd_  (remove)\n  delete  [wcp] SSH password spraying - one source failing against many accounts on one endpoint XhkgBaIB8xfpA6fniyc8  (remove)\n  delete  [wcp] Windows password spraying - one source failing against many accounts on one endpoint ZBkgBaIB8xfpA6fniyfZ  (remove)\n  delete  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint WxkgBaIB8xfpA6fniycG  (remove)\nremoved; manifest <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json",
+          "rc": 0
+        }
+      },
+      "pass": true
+    }
+  ],
+  "cleanup": {
+    "index": "deleted",
+    "pack_monitors_left": [],
+    "role": "deleted",
+    "state_dir_removed": true,
+    "user": "deleted",
+    "wcp_remove_as_admin": {
+      "output": "state: <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json (environment)\nremove: 4 pack monitor(s); 0 unrelated monitor(s) untouched\n  delete  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint YRkgBaIB8xfpA6fniyd_  (remove)\n  delete  [wcp] SSH password spraying - one source failing against many accounts on one endpoint XhkgBaIB8xfpA6fniyc8  (remove)\n  delete  [wcp] Windows password spraying - one source failing against many accounts on one endpoint ZBkgBaIB8xfpA6fniyfZ  (remove)\n  delete  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint WxkgBaIB8xfpA6fniycG  (remove)\nremoved; manifest <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json",
+      "rc": 0
+    }
+  },
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 2,
+      "machines": [
+        {
+          "aliases": [
+            "linux_replay"
+          ],
+          "fingerprint": "acd9762bb99da1df",
+          "label": "linux-1",
+          "locked": false
+        },
+        {
+          "aliases": [
+            "server"
+          ],
+          "fingerprint": "0f0847c998dfc100",
+          "label": "server",
+          "locked": false
+        }
+      ]
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {},
+  "finished": "2026-11-22T21:26:24.257Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "d090875ac4b109112ccb2486794472f9c0d78d01",
+    "head": "57ce170d21e532213035fce51a2cfa1855b5570b",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [],
+  "observations": [
+    {
+      "observation": "monitor user returned by GET monitor (REST API)",
+      "value": {
+        "wcp_ssh_bruteforce": null,
+        "wcp_ssh_password_spray": null,
+        "wcp_windows_failed_logon_burst": null,
+        "wcp_windows_password_spray": null
+      }
+    },
+    {
+      "observation": "ERROR alerts after the index permission was removed (recorded, not a pass criterion)",
+      "value": {
+        "count": 0,
+        "messages": []
+      }
+    },
+    {
+      "observation": "dry-run _execute as the restricted user after the removal",
+      "value": {
+        "http": 200,
+        "input_error": "no permissions for [indices:data/read/search] and associated roles [wcp_p4_deployer, wazuh_ai_assistant]",
+        "trigger_bucket_counts": {
+          "WhkgBaIB8xfpA6fniif9": 0
+        }
+      }
+    },
+    {
+      "observation": "first alert after the removal, observed until its burst left the lookback + 2 runs (2026-11-22T21:26:21.000Z)",
+      "value": {
+        "last": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "001",
+            "192.0.2.210"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "txkhBaIB8xfpA6fndSdy",
+          "last_notification_time": "2026-11-22T21:20:08.562Z",
+          "score": 9,
+          "start_time": "2026-11-22T21:20:08.562Z",
+          "state": "ACTIVE"
+        },
+        "states": [
+          [
+            "2026-11-22T21:20:09.623Z",
+            "ACTIVE"
+          ]
+        ]
+      }
+    }
+  ],
+  "observed": {
+    "alerts_after_removal": [
+      {
+        "first_seen": "2026-11-22T21:20:09.623Z",
+        "id": "txkhBaIB8xfpA6fndSdy",
+        "keys": [
+          "001",
+          "192.0.2.210"
+        ],
+        "last": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "001",
+            "192.0.2.210"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "txkhBaIB8xfpA6fndSdy",
+          "last_notification_time": "2026-11-22T21:20:08.562Z",
+          "score": 9,
+          "start_time": "2026-11-22T21:20:08.562Z",
+          "state": "ACTIVE"
+        },
+        "last_seen": "2026-11-22T21:26:21.850Z",
+        "start_ms": 1795382408562,
+        "start_time": "2026-11-22T21:20:08.562Z",
+        "states": [
+          [
+            "2026-11-22T21:20:09.623Z",
+            "ACTIVE"
+          ]
+        ]
+      }
+    ],
+    "filter_by_backend_roles": "false",
+    "index_permission_removed_at": "2026-11-22T21:20:14.712Z",
+    "installed_content_hashes": {
+      "wcp_ssh_bruteforce": "007c0a436059d016",
+      "wcp_ssh_password_spray": "172cc43b9dfcc25c",
+      "wcp_windows_failed_logon_burst": "d31fc5d758665c2e",
+      "wcp_windows_password_spray": "4564e84945edcf3a"
+    },
+    "monitor_capacity_before": {
+      "max_monitors": 10,
+      "monitor_documents": 0,
+      "to_create": 4
+    },
+    "monitor_users_stored": {
+      "wcp_ssh_bruteforce": {
+        "backend_roles": [],
+        "custom_attribute_names": [],
+        "name": "wcp_p4_deployer",
+        "roles": [
+          "wcp_p4_deployer",
+          "wazuh_ai_assistant"
+        ],
+        "user_requested_tenant": null,
+        "user_requested_tenant_access": null
+      },
+      "wcp_ssh_password_spray": {
+        "backend_roles": [],
+        "custom_attribute_names": [],
+        "name": "wcp_p4_deployer",
+        "roles": [
+          "wcp_p4_deployer",
+          "wazuh_ai_assistant"
+        ],
+        "user_requested_tenant": null,
+        "user_requested_tenant_access": null
+      },
+      "wcp_windows_failed_logon_burst": {
+        "backend_roles": [],
+        "custom_attribute_names": [],
+        "name": "wcp_p4_deployer",
+        "roles": [
+          "wcp_p4_deployer",
+          "wazuh_ai_assistant"
+        ],
+        "user_requested_tenant": null,
+        "user_requested_tenant_access": null
+      },
+      "wcp_windows_password_spray": {
+        "backend_roles": [],
+        "custom_attribute_names": [],
+        "name": "wcp_p4_deployer",
+        "roles": [
+          "wcp_p4_deployer",
+          "wazuh_ai_assistant"
+        ],
+        "user_requested_tenant": null,
+        "user_requested_tenant_access": null
+      }
+    },
+    "restricted_cli": [
+      {
+        "output": "[ok] indexer reachable: opensearch 3.6.0\n[ok] alerting plugin: wazuh-indexer-alerting\n[warn] plugins.alerting.alert_history_enabled is false: resolved (COMPLETED) alerts are deleted and disappear from Alerting > Alerts; enable it to keep alert history\n[ok] alerting monitor search permitted\n[ok] wcp_ssh_bruteforce: 58 matching event(s) in the last 7 days\n[ok] wcp_ssh_password_spray: 58 matching event(s) in the last 7 days\n[ok] wcp_windows_failed_logon_burst: 90 matching event(s) in the last 7 days\n[ok] wcp_windows_password_spray: 90 matching event(s) in the last 7 days",
+        "rc": 0,
+        "step": "preflight"
+      },
+      {
+        "output": "state: <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json (environment)\npack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9202 (0 unrelated monitor(s) left untouched)\n  create  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint -  (not deployed)\n  create  [wcp] SSH password spraying - one source failing against many accounts on one endpoint -  (not deployed)\n  create  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint -  (not deployed)\n  create  [wcp] Windows password spraying - one source failing against many accounts on one endpoint -  (not deployed)\nplan: 4 change(s); run 'apply' to execute",
+        "rc": 0,
+        "step": "plan: 4 creates"
+      },
+      {
+        "output": "state: <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json (environment)\npack wazuh_correlation_pack 0.1.0 -> 127.0.0.1:9202 (0 unrelated monitor(s) left untouched)\n  create  [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint -  (not deployed)\n  create  [wcp] SSH password spraying - one source failing against many accounts on one endpoint -  (not deployed)\n  create  [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint -  (not deployed)\n  create  [wcp] Windows password spraying - one source failing against many accounts on one endpoint -  (not deployed)\napplied: 4 change(s), 0 unchanged; manifest <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json\n  create [wcp] SSH brute force - repeated failed password attempts from one source on one endpoint -> WxkgBaIB8xfpA6fniycG\n  create [wcp] SSH password spraying - one source failing against many accounts on one endpoint -> XhkgBaIB8xfpA6fniyc8\n  create [wcp] Windows failed logon burst - repeated 4625 from one source on one endpoint -> YRkgBaIB8xfpA6fniyd_\n  create [wcp] Windows password spraying - one source failing against many accounts on one endpoint -> ZBkgBaIB8xfpA6fniyfZ",
+        "rc": 0,
+        "step": "apply: 4 created"
+      },
+      {
+        "output": "state: <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json (environment)\nwcp_ssh_bruteforce                   id=WxkgBaIB8xfpA6fniycG enabled=True version=0.1.0 in_sync=True active=0 total=0\nwcp_ssh_password_spray               id=XhkgBaIB8xfpA6fniyc8 enabled=True version=0.1.0 in_sync=True active=0 total=0\nwcp_windows_failed_logon_burst       id=YRkgBaIB8xfpA6fniyd_ enabled=True version=0.1.0 in_sync=True active=0 total=0\nwcp_windows_password_spray           id=ZBkgBaIB8xfpA6fniyfZ enabled=True version=0.1.0 in_sync=True active=0 total=0\n(0 unrelated monitor(s) not managed by the pack)",
+        "rc": 0,
+        "step": "status: 4 in sync"
+      },
+      {
+        "output": "state: <workstation-tmp>\\wcp-p4-state-pqp6qgvp\\p4.manifest.json (environment)\nwcp_ssh_bruteforce: 0 triggering bucket(s) [57 ms]\nwcp_ssh_password_spray: 0 triggering bucket(s) [74 ms]\nwcp_windows_failed_logon_burst: 0 triggering bucket(s) [61 ms]\nwcp_windows_password_spray: 0 triggering bucket(s) [80 ms]",
+        "rc": 0,
+        "step": "execute (dry run)"
+      }
+    ],
+    "scheduled_alert": {
+      "first_seen": "2026-11-22T21:20:09.623Z",
+      "id": "txkhBaIB8xfpA6fndSdy",
+      "keys": [
+        "001",
+        "192.0.2.210"
+      ],
+      "last": {
+        "action_execution_results": [],
+        "bucket_keys": [
+          "001",
+          "192.0.2.210"
+        ],
+        "distinct_values_sample": [],
+        "end_time": null,
+        "error_message": null,
+        "id": "txkhBaIB8xfpA6fndSdy",
+        "last_notification_time": "2026-11-22T21:20:08.562Z",
+        "score": 9,
+        "start_time": "2026-11-22T21:20:08.562Z",
+        "state": "ACTIVE"
+      },
+      "last_seen": "2026-11-22T21:26:21.850Z",
+      "start_ms": 1795382408562,
+      "start_time": "2026-11-22T21:20:08.562Z",
+      "states": [
+        [
+          "2026-11-22T21:20:09.623Z",
+          "ACTIVE"
+        ]
+      ]
+    }
+  },
+  "plan": {
+    "after_permission_removal": {
+      "expected": "no ACTIVE alert for this burst",
+      "recorded": [
+        "ERROR alerts and messages (not assumed)",
+        "dry-run _execute as the restricted user"
+      ],
+      "source_ip": "192.0.2.211"
+    },
+    "negative_tests": [
+      "GET _plugins/_security/api/internalusers -> 403",
+      "POST wcp-test-p4-noaccess/_search -> 403"
+    ],
+    "restricted_cli_steps": [
+      "preflight",
+      "plan",
+      "apply",
+      "status",
+      "execute"
+    ],
+    "role": {
+      "cluster_permissions": [
+        "cluster:monitor/main",
+        "cluster:monitor/state",
+        "cluster:monitor/nodes/info",
+        "cluster:admin/opendistro/alerting/monitor/get",
+        "cluster:admin/opendistro/alerting/monitor/search",
+        "cluster:admin/opendistro/alerting/monitor/write",
+        "cluster:admin/opendistro/alerting/monitor/delete",
+        "cluster:admin/opendistro/alerting/monitor/execute",
+        "cluster:admin/opendistro/alerting/alerts/get"
+      ],
+      "description": "[wcp-test] P4 temporary copy of wcp_deployer",
+      "index_permissions": [
+        {
+          "allowed_actions": [
+            "read",
+            "indices:admin/mappings/fields/get"
+          ],
+          "index_patterns": [
+            "wazuh-events-v5-system-activity*"
+          ]
+        }
+      ],
+      "tenant_permissions": []
+    },
+    "role_name": "wcp_p4_deployer",
+    "scheduled_burst": {
+      "expected": "ACTIVE brute-force alert, score 9",
+      "lines": 9,
+      "source_ip": "192.0.2.210"
+    },
+    "temporary_resources": [
+      "role wcp_p4_deployer",
+      "internal user wcp_p4_deployer",
+      "index wcp-test-p4-noaccess",
+      "4 pack monitors (installed by the restricted user, removed at the end)"
+    ],
+    "user": "wcp_p4_deployer"
+  },
+  "started": "2026-11-22T21:19:02.907Z",
+  "status": "PASS",
+  "test": "p4",
+  "timings_s": {
+    "observed_after_second_burst_visible": 191
+  },
+  "title": "P4: least-privilege installation and scheduled execution"
+}

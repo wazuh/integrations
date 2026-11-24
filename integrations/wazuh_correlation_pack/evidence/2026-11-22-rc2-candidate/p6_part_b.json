@@ -1,0 +1,285 @@
+{
+  "checks": [
+    {
+      "check": "cluster back after the restart",
+      "detail": "2026-11-22T23:18:56.483Z",
+      "pass": true
+    },
+    {
+      "check": "a scheduled run happened after the restart (monitor still enabled)",
+      "detail": "2026-11-22T23:19:42.124Z",
+      "pass": true
+    },
+    {
+      "check": "gap counted iff the run at M happened (kept alerted at M)",
+      "detail": {
+        "gap_alerted": null,
+        "run_at_M": false
+      },
+      "pass": true
+    },
+    {
+      "check": "kept counted at the first observed run after it became searchable iff that run is inside its lookback",
+      "detail": {
+        "first_run_after_visible": "2026-11-22T23:19:42.124Z",
+        "kept_alerted": "2026-11-22T23:19:42.124Z"
+      },
+      "pass": true
+    },
+    {
+      "check": "cleanup: temporary monitor and index deleted",
+      "detail": {
+        "index": "deleted",
+        "monitor": "deleted"
+      },
+      "pass": true
+    }
+  ],
+  "cleanup": {
+    "index": "deleted",
+    "monitor": "deleted"
+  },
+  "environment": {
+    "cluster_uuid_matches_config": true,
+    "distribution": "opensearch",
+    "endpoint_machines": {
+      "distinct_machines": 1,
+      "machines": [
+        {
+          "aliases": [
+            "server"
+          ],
+          "fingerprint": "0f0847c998dfc100",
+          "label": "server",
+          "locked": false
+        }
+      ]
+    },
+    "indexer": "3.6.0",
+    "lab": "rc2-lab-2026-11"
+  },
+  "expected": {},
+  "finished": "2026-11-22T23:21:27.801Z",
+  "harness": {
+    "detection_files_differ_from_frozen": false,
+    "frozen_detection_commit": "d090875ac4b109112ccb2486794472f9c0d78d01",
+    "head": "484e099e2b3d18143db7d6c52159ed0941764bf8",
+    "uncommitted_changes_in_pack": true
+  },
+  "inputs": [
+    {
+      "case": "probe",
+      "first_event": "2026-11-22T23:15:34.555Z",
+      "last_event": "2026-11-22T23:15:41.555Z",
+      "visible": "2026-11-22T23:15:43.517Z"
+    },
+    {
+      "case": "continuing",
+      "first_event": "2026-11-22T23:16:44.747Z",
+      "last_event": "2026-11-22T23:16:51.747Z",
+      "visible": "2026-11-22T23:16:53.563Z"
+    },
+    {
+      "case": "gap",
+      "first_event": "2026-11-22T23:14:12.835Z",
+      "last_event": "2026-11-22T23:14:19.835Z",
+      "visible": "2026-11-22T23:18:28.712Z"
+    },
+    {
+      "case": "kept",
+      "first_event": "2026-11-22T23:18:24.771Z",
+      "last_event": "2026-11-22T23:18:31.771Z",
+      "visible": "2026-11-22T23:18:33.724Z"
+    },
+    {
+      "case": "probe2",
+      "first_event": "2026-11-22T23:18:48.483Z",
+      "last_event": "2026-11-22T23:18:55.483Z",
+      "visible": "2026-11-22T23:18:56.958Z"
+    }
+  ],
+  "observations": [
+    {
+      "observation": "continuing alert(s) before the restart",
+      "value": {
+        "4BmNBaIB8xfpA6fnFloL": "ACTIVE"
+      }
+    },
+    {
+      "observation": "first run after restart: offset from the old grid (s)",
+      "value": 0.11
+    },
+    {
+      "observation": "first run after restart: seconds after the cluster was back",
+      "value": 45.64
+    },
+    {
+      "observation": "detection gap from the missed run(s)",
+      "value": "gap NOT counted; kept counted"
+    },
+    {
+      "observation": "probe after restart alerted",
+      "value": "2026-11-22T23:19:42.124Z"
+    },
+    {
+      "observation": "continuing group: alerts across the restart (id, start, states)",
+      "value": [
+        [
+          "4BmNBaIB8xfpA6fnFloL",
+          "2026-11-22T23:17:42.011Z",
+          [
+            [
+              "2026-11-22T23:17:41.715Z",
+              "ACTIVE"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "observation": "continuing group: NEW alerts started after the restart while one was ACTIVE before it",
+      "value": 0
+    }
+  ],
+  "observed": {
+    "continuing_alerts": [
+      {
+        "first": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "009",
+            "192.0.2.121"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "4BmNBaIB8xfpA6fnFloL",
+          "last_notification_time": "2026-11-22T23:17:42.011Z",
+          "score": 14,
+          "start_time": "2026-11-22T23:17:42.011Z",
+          "state": "ACTIVE"
+        },
+        "first_seen": "2026-11-22T23:17:41.715Z",
+        "id": "4BmNBaIB8xfpA6fnFloL",
+        "keys": [
+          "009",
+          "192.0.2.121"
+        ],
+        "last": {
+          "action_execution_results": [],
+          "bucket_keys": [
+            "009",
+            "192.0.2.121"
+          ],
+          "distinct_values_sample": [],
+          "end_time": null,
+          "error_message": null,
+          "id": "4BmNBaIB8xfpA6fnFloL",
+          "last_notification_time": "2026-11-22T23:17:42.011Z",
+          "score": 20,
+          "start_time": "2026-11-22T23:17:42.011Z",
+          "state": "ACTIVE"
+        },
+        "last_seen": "2026-11-22T23:21:25.924Z",
+        "start_ms": 1795389462011,
+        "start_time": "2026-11-22T23:17:42.011Z",
+        "states": [
+          [
+            "2026-11-22T23:17:41.715Z",
+            "ACTIVE"
+          ]
+        ]
+      }
+    ],
+    "first_run_after_restart": "2026-11-22T23:19:42.124Z",
+    "gap": {
+      "alerted": null,
+      "first_event": "2026-11-22T23:14:12.835Z",
+      "lookback_end": "2026-11-22T23:19:12.835Z",
+      "visible": "2026-11-22T23:18:28.712Z"
+    },
+    "kept": {
+      "alerted": "2026-11-22T23:19:42.124Z",
+      "first_event": "2026-11-22T23:18:24.771Z",
+      "lookback_end": "2026-11-22T23:23:24.771Z",
+      "visible": "2026-11-22T23:18:33.724Z"
+    },
+    "missed_grid_slots": [
+      "2026-11-22T23:18:42.010Z"
+    ],
+    "monitor_capacity_before": {
+      "max_monitors": 10,
+      "monitor_documents": 4,
+      "to_create": 1
+    },
+    "observed_run_instants": [
+      "2026-11-22T23:16:42.010Z",
+      "2026-11-22T23:17:42.011Z",
+      "2026-11-22T23:19:42.124Z",
+      "2026-11-22T23:20:42.022Z"
+    ],
+    "probe_run": "2026-11-22T23:16:42.010Z",
+    "restart": {
+      "cluster_back": "2026-11-22T23:18:56.483Z",
+      "restart_command_returned": "2026-11-22T23:18:49.817Z",
+      "stop_requested": "2026-11-22T23:18:35.753Z"
+    },
+    "run_at_M_happened": false,
+    "run_expected_to_be_missed": "2026-11-22T23:18:42.010Z",
+    "server_available_mb_after": "3475",
+    "server_available_mb_before": "3126"
+  },
+  "plan": {
+    "expected": {
+      "gap": "counted iff the run at M happened",
+      "kept": "counted iff the first run after visibility has period end <= first event + 300 s",
+      "recorded": [
+        "first run after the restart",
+        "missed grid slots",
+        "grid anchor after restart",
+        "state of the ACTIVE continuing alert",
+        "duplicate NEW alerts"
+      ]
+    },
+    "index": "wcp-test-p6",
+    "interval_s": 60,
+    "lookback_s": 300,
+    "monitor": "[wcp-test] p6 scheduler recovery",
+    "part": "b",
+    "source_ips": {
+      "after": "192.0.2.124",
+      "continuing": "192.0.2.121",
+      "gap": "192.0.2.122",
+      "kept": "192.0.2.123",
+      "probe": "192.0.2.240",
+      "probe2": "192.0.2.241"
+    },
+    "timeline": [
+      [
+        "R+10",
+        "continuing burst + one event every 10 s until the restart and for 120 s after it"
+      ],
+      [
+        "M = R+120",
+        "the run the restart is expected to miss"
+      ],
+      [
+        "M-15",
+        "gap: visible, delay 248 s (first = M-270): only the run at M can count it (M+60 is 330 s after its first event)"
+      ],
+      [
+        "M-10",
+        "kept: visible, delay ~1 s"
+      ],
+      [
+        "M-8",
+        "restart the indexer service"
+      ]
+    ]
+  },
+  "started": "2026-11-22T23:15:41.234Z",
+  "status": "PASS",
+  "test": "p6",
+  "timings_s": {},
+  "title": "P6: missed scheduler runs and recovery"
+}

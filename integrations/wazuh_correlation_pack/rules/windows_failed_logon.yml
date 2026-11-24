@@ -1,0 +1,29 @@
+title: Windows account failed to log on (4625)
+id: 6d2ed6b8-15c2-4a96-9a3f-d5b3f6a5896d
+name: wcp_windows_failed_logon
+status: experimental
+description: |
+  Selects Security event 4625. Windows writes one 4625 per failed logon attempt on the
+  machine that processed the logon, so one selected event is one failed attempt.
+  All logon types are selected: the stock 5.0.0-rc1 decoders (decoder/windows-event/0,
+  decoder/windows-security/0) do not map LogonType of event 4625 to any WCS field, so this
+  rule can NOT distinguish RDP (LogonType 10, or 3 with NLA) from SMB/network or local logons.
+  Events without IpAddress ("-", e.g. local console logons) have no source.ip and are not
+  counted by correlations that group by source.ip.
+references:
+  - https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4625
+author: wazuh_correlation_pack contributors
+date: 2026-11-21
+taxonomy: wcs
+logsource:
+  product: windows
+  service: security
+  definition: Wazuh 5.0.0-rc1 stock integration windows (decoder/windows-security/0), data stream wazuh-events-v5-system-activity
+detection:
+  selection:
+    event.code: '4625'
+    event.dataset: security
+  condition: selection
+falsepositives:
+  - Users mistyping their password
+level: low

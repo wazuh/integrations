@@ -1,0 +1,98 @@
+{
+  "checks": [
+    {
+      "check": "001|203.0.113.217: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "001|203.0.113.218: 5 counted events searchable",
+      "detail": 5,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.217: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    },
+    {
+      "check": "wcp_ssh_bruteforce 001|203.0.113.218: no alert in 300 s of scheduled runs",
+      "detail": 0,
+      "pass": true
+    }
+  ],
+  "description": "5 attempts from each of two sources on one endpoint",
+  "expected": {
+    "wcp_ssh_bruteforce": {
+      "001|203.0.113.217": null,
+      "001|203.0.113.218": null
+    }
+  },
+  "finished": "2026-11-21T09:11:33.478Z",
+  "inputs": [
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:21 wcp-ep1 sshd[23997]: Failed password for wcpt-alice from 203.0.113.217 port 46278 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:24 wcp-ep1 sshd[41323]: Failed password for wcpt-alice from 203.0.113.217 port 38213 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:27 wcp-ep1 sshd[57052]: Failed password for wcpt-alice from 203.0.113.217 port 50224 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:30 wcp-ep1 sshd[12313]: Failed password for wcpt-alice from 203.0.113.217 port 43694 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:33 wcp-ep1 sshd[7368]: Failed password for wcpt-alice from 203.0.113.217 port 34674 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:22 wcp-ep1 sshd[42971]: Failed password for wcpt-alice from 203.0.113.218 port 44397 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:25 wcp-ep1 sshd[55186]: Failed password for wcpt-alice from 203.0.113.218 port 56201 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:28 wcp-ep1 sshd[13655]: Failed password for wcpt-alice from 203.0.113.218 port 56913 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:31 wcp-ep1 sshd[41653]: Failed password for wcpt-alice from 203.0.113.218 port 49929 ssh2"
+    },
+    {
+      "endpoint": "wcp-ep1",
+      "line": "Nov 21 09:05:34 wcp-ep1 sshd[51769]: Failed password for wcpt-alice from 203.0.113.218 port 48515 ssh2"
+    }
+  ],
+  "inputs_total_lines": 10,
+  "layer": "pipeline-replay",
+  "observed": {
+    "alerts": {
+      "wcp_ssh_bruteforce": {
+        "001|203.0.113.217": [],
+        "001|203.0.113.218": []
+      }
+    },
+    "counted_events": {
+      "001|203.0.113.217": 5,
+      "001|203.0.113.218": 5
+    }
+  },
+  "replayed_at": "2026-11-21T09:06:03.525Z",
+  "scenario": "ssh__bf_different_sources",
+  "started": "2026-11-21T09:06:03.526Z",
+  "timings_s": {
+    "searchable_after_replay": {
+      "001|203.0.113.217": 27.3,
+      "001|203.0.113.218": 27.4
+    }
+  },
+  "verdict": "PASS"
+}

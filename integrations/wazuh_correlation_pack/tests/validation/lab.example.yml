@@ -1,0 +1,72 @@
+# Lab configuration of the RC2 validation tests (tests/validation/, docs/VALIDATION_TESTS.md).
+#
+# Copy it OUTSIDE the repository (e.g. ~/.config/wazuh_correlation_pack/lab-rc2.yml) and point
+# WCP_LAB_CONFIG (or --lab-config) at it. It holds no credentials: indexer credentials come from
+# the wcp env file (WCP_ENV_FILE, wcp/client.py), SSH authentication from your SSH agent or keys.
+#
+# Live tests stay disabled unless: --live is given, enabled is true, the test is listed in
+# tests_enabled, and the indexer reports cluster.cluster_uuid. Clusters holding the RC1 reference
+# deployment are refused regardless.
+
+enabled: false
+lab_name: rc2-lab
+
+cluster:
+  # GET / on the RC2 lab indexer -> "cluster_uuid". Required; any other cluster is refused.
+  cluster_uuid: "<cluster_uuid of the RC2 lab cluster>"
+  version_note: "5.0.0-rc2"            # recorded only
+
+tests_enabled: []                      # any of: p1-p6, ssh_live, replay_ssh, replay_windows, win_sample_decoding
+
+allow:
+  create_resources: false              # p4 (role, user, index, installs the pack), p5, p6 (temporary monitors/index/channel)
+  restart_indexer: false               # p6 --part b only; dedicated lab server only
+
+# Accounts used to reach the lab hosts. Never used as test targets; replaced in saved captures.
+access_accounts: ["<ssh user on the Windows endpoint>"]
+test_account_prefix: "wcpt-"
+
+endpoints:
+  # Each entry is a role. One VM may serve several roles: give those entries the same 'machine'
+  # label (the harness checks the machine identity behind every alias, refuses mismatches, holds one
+  # lock per machine during a test, and counts distinct machines - never aliases - in the evidence).
+  # Below: the single-Linux-VM layout of the RC2 lab (linux_replay and linux_source on one VM).
+  linux_replay:                        # Linux test agent with the replay localfile (tests/lab/README.md)
+    machine: linux-1
+    agent_id: "<agent id>"
+    hostname: "<host name written in replayed sshd lines>"
+    exec: ["ssh", "-o", "BatchMode=yes", "<user>@<linux endpoint>"]
+    sudo: true                         # 'sudo -n' to append to the replay file
+    replay_file: /var/log/wcp-replay/replay.log
+    address: "<address of this endpoint's sshd, for ssh_live>"
+  linux_source:                        # source of SMB/RDP attempts against the Windows endpoint
+    machine: linux-1                   # same VM as linux_replay; use another label only for a second VM
+    ip: "<address the Windows endpoint sees for this host>"
+    exec: ["ssh", "-o", "BatchMode=yes", "<user>@<linux endpoint>"]
+    sudo: false
+  windows:                             # Windows Server 2019 with the 5.0.0-rc2 agent, OpenSSH server
+    machine: windows-1
+    agent_id: "<agent id>"
+    address: "<address reachable from linux_source (SMB 445, RDP 3389)>"
+    hostname: "<computer name>"
+    shell: powershell
+    exec: ["ssh", "-o", "BatchMode=yes", "<admin user>@<windows endpoint>"]
+  server:                              # p6 --part b only: the RC2 Wazuh server (never a test endpoint)
+    machine: server
+    exec: ["ssh", "-o", "BatchMode=yes", "<user>@<rc2 server>"]
+    sudo: true
+    indexer_service: wazuh-indexer
+
+ssh_live:                              # ssh_live_burst.py: the client is this workstation (not a monitored endpoint)
+  client_ip: "<this workstation's address as seen by linux_replay>"
+  # ssh_binary: ssh                    # OpenSSH >= 8.4 (SSH_ASKPASS_REQUIRE); default: Windows OpenSSH or 'ssh'
+
+notifications:                         # p5
+  channel_id: null                     # an existing webhook channel, or null to create a temporary one
+  listener_bind: "127.0.0.1:8765"      # where webhook_listener.py listens on this workstation
+  listener_token: "<random path token, e.g. python -c 'import secrets;print(secrets.token_hex(8))'>"
+  # URL as the indexer sees the receiver, e.g. through 'ssh -R 8765:127.0.0.1:8765 <rc2 server>':
+  webhook_url: "http://127.0.0.1:8765/wcp-p5/<listener_token>"
+
+sanitize:                              # extra replacements in saved captured events (real -> placeholder)
+  "<lab domain or computer name>": "WCP-LAB"

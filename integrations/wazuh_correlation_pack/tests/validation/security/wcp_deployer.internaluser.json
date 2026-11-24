@@ -1,0 +1,5 @@
+{
+  "password": "<set when creating the user; never stored in the repository>",
+  "opendistro_security_roles": ["wcp_deployer"],
+  "attributes": {"purpose": "wazuh_correlation_pack deployment"}
+}

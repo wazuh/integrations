@@ -1,0 +1,5 @@
+{
+  "description": "Map the deployment account (an internal user, or a backend role from LDAP/SAML) to wcp_deployer.",
+  "users": ["<deployment user>"],
+  "backend_roles": []
+}

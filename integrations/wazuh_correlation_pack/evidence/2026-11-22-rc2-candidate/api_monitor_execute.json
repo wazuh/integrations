@@ -1,0 +1,486 @@
+{
+  "layer": "query-api (indexed fixtures, _execute dry run)",
+  "run_at": "2026-11-22T21:08:09.407823+00:00",
+  "index": "wcp-test-fixtures",
+  "index_deleted": true,
+  "cases": [
+    {
+      "case": "below",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 7,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 53,
+      "query_took_ms": 7
+    },
+    {
+      "case": "exact",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.2": 8
+      },
+      "triggered": {
+        "001|192.0.2.2": 8
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 41,
+      "query_took_ms": 5
+    },
+    {
+      "case": "above",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 20,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.3": 20
+      },
+      "triggered": {
+        "001|192.0.2.3": 20
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 45,
+      "query_took_ms": 5
+    },
+    {
+      "case": "ms_edge_out",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 81,
+      "query_took_ms": 5
+    },
+    {
+      "case": "ms_edge_in",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.5": 8
+      },
+      "triggered": {
+        "001|192.0.2.5": 8
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 37,
+      "query_took_ms": 4
+    },
+    {
+      "case": "selection",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 27,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 84,
+      "query_took_ms": 6
+    },
+    {
+      "case": "no_source_ip",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 10,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 60,
+      "query_took_ms": 3
+    },
+    {
+      "case": "groups",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 22,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.7": 8
+      },
+      "triggered": {
+        "001|192.0.2.7": 8
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 39,
+      "query_took_ms": 4
+    },
+    {
+      "case": "identity_dedup_on",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {
+        "event_identity_field": "wazuh.event.id"
+      },
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 52,
+      "query_took_ms": 5
+    },
+    {
+      "case": "identity_dedup_off",
+      "correlation": "wcp_ssh_bruteforce",
+      "docs": 8,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.9": 8
+      },
+      "triggered": {
+        "001|192.0.2.9": 8
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 37,
+      "query_took_ms": 3
+    },
+    {
+      "case": "spray_exact",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.10": 5
+      },
+      "triggered": {
+        "001|192.0.2.10": 5
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 30,
+      "query_took_ms": 7
+    },
+    {
+      "case": "spray_repeat",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 40,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 88,
+      "query_took_ms": 6
+    },
+    {
+      "case": "spray_window",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 75,
+      "query_took_ms": 5
+    },
+    {
+      "case": "spray_large",
+      "correlation": "wcp_ssh_password_spray",
+      "docs": 5000,
+      "settings_override": {},
+      "expected_triggered": {
+        "001|192.0.2.13": 5000
+      },
+      "triggered": {
+        "001|192.0.2.13": 5000
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 151,
+      "query_took_ms": 129
+    },
+    {
+      "case": "win_burst",
+      "correlation": "wcp_windows_failed_logon_burst",
+      "docs": 10,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.20": 10
+      },
+      "triggered": {
+        "003|192.0.2.20": 10
+      },
+      "pass": true,
+      "identity_check": null,
+      "execute_ms": 41,
+      "query_took_ms": 3
+    },
+    {
+      "case": "win_spray",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 12,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.21": 6
+      },
+      "triggered": {
+        "003|192.0.2.21": 6
+      },
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\acct0",
+          "?\\acct1",
+          "?\\acct2",
+          "?\\acct3",
+          "?\\acct4",
+          "?\\acct5"
+        ],
+        "painless": {
+          "003|192.0.2.21": [
+            "?\\acct0",
+            "?\\acct1",
+            "?\\acct2",
+            "?\\acct3",
+            "?\\acct4",
+            "?\\acct5"
+          ]
+        }
+      },
+      "execute_ms": 35,
+      "query_took_ms": 17
+    },
+    {
+      "case": "win_id_observed_shape",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.30": 5
+      },
+      "triggered": {
+        "003|192.0.2.30": 5
+      },
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\user0",
+          "?\\user1",
+          "?\\user2",
+          "?\\user3",
+          "?\\user4"
+        ],
+        "painless": {
+          "003|192.0.2.30": [
+            "?\\user0",
+            "?\\user1",
+            "?\\user2",
+            "?\\user3",
+            "?\\user4"
+          ]
+        }
+      },
+      "execute_ms": 18,
+      "query_took_ms": 3
+    },
+    {
+      "case": "win_id_same_name_five_domains",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.31": 5
+      },
+      "triggered": {
+        "003|192.0.2.31": 5
+      },
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "adatum\\bob",
+          "contoso\\bob",
+          "fabrikam\\bob",
+          "northwind\\bob",
+          "tailspin\\bob"
+        ],
+        "painless": {
+          "003|192.0.2.31": [
+            "adatum\\bob",
+            "contoso\\bob",
+            "fabrikam\\bob",
+            "northwind\\bob",
+            "tailspin\\bob"
+          ]
+        }
+      },
+      "execute_ms": 19,
+      "query_took_ms": 3
+    },
+    {
+      "case": "win_id_case_and_local_computer",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\admin",
+          "contoso\\admin"
+        ],
+        "painless": {},
+        "painless_probe_threshold_1": {
+          "003|192.0.2.32": [
+            "?\\admin",
+            "contoso\\admin"
+          ]
+        }
+      },
+      "execute_ms": 89,
+      "query_took_ms": 4
+    },
+    {
+      "case": "win_id_missing_domain",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.33": 5
+      },
+      "triggered": {
+        "003|192.0.2.33": 5
+      },
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\alice",
+          "?\\bob",
+          "?\\carol",
+          "contoso\\alice",
+          "contoso\\bob"
+        ],
+        "painless": {
+          "003|192.0.2.33": [
+            "?\\alice",
+            "?\\bob",
+            "?\\carol",
+            "contoso\\alice",
+            "contoso\\bob"
+          ]
+        }
+      },
+      "execute_ms": 35,
+      "query_took_ms": 3
+    },
+    {
+      "case": "win_id_subject_not_used",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {
+        "003|192.0.2.34": 5
+      },
+      "triggered": {
+        "003|192.0.2.34": 5
+      },
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\u0",
+          "?\\u1",
+          "?\\u2",
+          "?\\u3",
+          "?\\u4"
+        ],
+        "painless": {
+          "003|192.0.2.34": [
+            "?\\u0",
+            "?\\u1",
+            "?\\u2",
+            "?\\u3",
+            "?\\u4"
+          ]
+        }
+      },
+      "execute_ms": 45,
+      "query_took_ms": 3
+    },
+    {
+      "case": "win_id_sid_mismatch",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 4,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\v0",
+          "?\\v1",
+          "?\\v2",
+          "?\\v3"
+        ],
+        "painless": {},
+        "painless_probe_threshold_1": {
+          "003|192.0.2.35": [
+            "?\\v0",
+            "?\\v1",
+            "?\\v2",
+            "?\\v3"
+          ]
+        }
+      },
+      "execute_ms": 57,
+      "query_took_ms": 4
+    },
+    {
+      "case": "win_id_ambiguous_subject_domain",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\bob"
+        ],
+        "painless": {},
+        "painless_probe_threshold_1": {
+          "003|192.0.2.36": [
+            "?\\bob"
+          ]
+        }
+      },
+      "execute_ms": 85,
+      "query_took_ms": 3
+    },
+    {
+      "case": "win_id_no_subject_same_name",
+      "correlation": "wcp_windows_password_spray",
+      "docs": 5,
+      "settings_override": {},
+      "expected_triggered": {},
+      "triggered": {},
+      "pass": true,
+      "identity_check": {
+        "python_reference": [
+          "?\\bob"
+        ],
+        "painless": {},
+        "painless_probe_threshold_1": {
+          "003|192.0.2.37": [
+            "?\\bob"
+          ]
+        }
+      },
+      "execute_ms": 85,
+      "query_took_ms": 3
+    }
+  ],
+  "verdict": "PASS"
+}
