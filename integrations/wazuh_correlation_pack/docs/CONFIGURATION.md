@@ -119,9 +119,15 @@ python -m wcp --override site.yml apply
 
 ### Notifications
 
-**Not tested**: no Notifications channel was configured during validation; the action body and
-execution policy below follow the OpenSearch Alerting API and are covered only by unit tests of
-the rendered monitor.
+**Tested on 5.0.0-rc2 with a webhook channel** (test P5, PASS 19/19,
+`evidence/2026-11-22-rc2-candidate/p5.json`): exactly one notification for a NEW alert, one for a
+COMPLETED alert when configured, none for DEDUPED runs, and a notification for an alert that existed
+for a single run. Other channel types were not tested.
+
+By default the Notifications plugin blocks webhooks to loopback, link-local, private (RFC 1918) and
+TEST-NET addresses (`opensearch.notifications.core.http.host_deny_list`). An administrator must
+change that list before a webhook to an internal receiver can work. The P5 lab change is recorded
+in `evidence/2026-11-22-rc2-candidate/lab_change_p5_notifications_deny_list.json`.
 
 Each action is sent per alert. `notify_on` selects the alert transitions that notify:
 
@@ -141,7 +147,7 @@ is configured by the pack.
   searchable. On the RC1 test server the normal delay was 14.5 s (live sshd) to ~28 s (replayed
   file lines); events produced while the indexer was down were delivered after the outage,
   minutes late. `allowed_lateness` is the delay that is guaranteed to be tolerated (assuming
-  on-time scheduler runs, see README "Timing"); somewhat later events can still be counted
+  on-time scheduler runs, see `ARCHITECTURE.md`, "Late events"); somewhat later events can still be counted
   depending on the scheduling phase, and events older than the lookback
   (`window + allowed_lateness + interval`) when they become searchable are never counted.
 * Keep the monitor search well inside `plugins.alerting.input_timeout` (30 s on 5.0.0-rc1): a run

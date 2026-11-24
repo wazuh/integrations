@@ -46,9 +46,9 @@ domain is counted as that account, so the count can be lower than the number of 
 Explicit target domains stay distinct, and distinct user names always count.
 
 This counting fixes one demonstrated over-count: a failed target seen through both decoded shapes
-(``contoso\bob`` and ``?\bob``) was counted as two accounts. It does not prevent other over-counts:
-the NetBIOS and DNS forms of one domain are two values, and a log record collected twice is counted
-twice.
+(``contoso\bob`` and ``?\bob``) was counted as two accounts. It does not prevent another over-count:
+the NetBIOS and DNS forms of one domain are two values. A log record collected twice carries the
+same account, so it does not increase this distinct-account count.
 """
 
 VIRTUAL_PREFIX = "wcp."

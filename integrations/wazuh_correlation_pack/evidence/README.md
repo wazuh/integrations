@@ -22,7 +22,9 @@ publication commit itself. That commit's own checks are offline: unit tests, har
 the clean-checkout check. Its record is
 [2026-11-23-publication/clean-checkout-f0edcc5/clean_checkout.json](2026-11-23-publication/clean-checkout-f0edcc5/clean_checkout.json)
 (PASS 18/18 on the snapshot commit f0edcc5). The check covers 68 unit tests and 48 harness self-tests, and checks
-that rendered monitors equal `expected/` and that documentation references resolve.
+that rendered monitors equal `expected/` and that documentation references resolve. A later
+publication commit changed only documentation and one docstring in `wcp/identity.py`. No checks or
+tests were rerun for it.
 
 ## Provenance of the contributed files
 
@@ -34,12 +36,12 @@ edits listed below. Git tree and blob ids were compared per path:
 |---|---|
 | `rules/`, `correlations/`, `pack.yml`, `requirements.txt`, `NOTICE` | 6ee2300 (last detection change), 8ce737c, 0d52aaf |
 | `wcp/` except `wcp/identity.py` | 6ee2300, 8ce737c, 0d52aaf |
-| `wcp/identity.py` | Code identical to 6ee2300, 8ce737c and 0d52aaf. Only the module docstring was corrected for publication, to describe the counting as conservative and to limit the over-counting fix to the demonstrated case. Blob `81ada41f8d28` (tested) became `3aa371d6e9cb` (published). The parsed code with docstrings removed is identical, and the rendered monitors are unchanged. |
+| `wcp/identity.py` | Code identical to 6ee2300, 8ce737c and 0d52aaf. Only the module docstring was corrected for publication: to describe the counting as conservative and to limit the over-counting fix to the demonstrated case (blob `81ada41f8d28` tested, `3aa371d6e9cb` in f0edcc5), and then to state that a record collected twice does not increase the distinct-account count (`29b9d9d35a36`, final documentation commit). The parsed code with docstrings removed is identical, and the rendered monitors are unchanged. |
 | `expected/` (rendered monitors and their content hashes) | 6ee2300, 8ce737c, 0d52aaf |
 | `samples/` | 6ee2300, 8ce737c, 0d52aaf |
 | `tests/` | 8ce737c (last harness change; ran P1 of the current run), 0d52aaf |
-| `docs/` | 0d52aaf (documentation only since 8ce737c) |
-| `README.md` | rewritten in plain English for publication from the 0d52aaf version; it adds the contributor names and keeps the same facts, results and limitations |
+| `docs/` | edited for publication from the 0d52aaf version (documentation only since 8ce737c): detailed explanations moved here from the README, and outdated status statements corrected |
+| `README.md` | rewritten and shortened for publication from the 0d52aaf version; it adds the contributor names, keeps the results and essential limitations, and links to `docs/` for the details |
 | `evidence/` | this sanitized selection of 0d52aaf |
 
 Rendered monitors (`python -m wcp render`) equal `expected/monitors/`:

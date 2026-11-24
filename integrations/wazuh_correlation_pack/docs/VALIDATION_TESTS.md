@@ -1,10 +1,8 @@
 # Validation tests P1-P6 (for the 5.0.0-rc2 run)
 
 **Status: run on 5.0.0-rc2 on 2026-11-22**: revision 38ad481 (`evidence/2026-11-22-rc2/README.md`) and candidate 5c1da90 with the fixes (`evidence/2026-11-22-rc2-candidate/README.md`); the Windows paths again on the current revision (`evidence/2026-11-23-rc2-mixed-realm/README.md`). These tests close the gaps the 5.0.0-rc1 evidence leaves
-open (`RC2_VALIDATION_PLAN.md`, "Priorities for the RC2 run"). None has run against a cluster:
-there is no RC2 environment yet, and several need a Windows endpoint, credentials or permission to
-create resources. Only their offline self-tests have run (see "Checked offline" below). Nothing here
-changes the compatibility statement, which stays **5.0.0-rc1 only**.
+open (`RC2_VALIDATION_PLAN.md`, "Priorities for the RC2 run"). The results per revision are in
+the Coverage table below and in `TESTING.md`, "Recorded results".
 
 Detection baseline: frozen revision `38ad481e2c522c5ba0d22423423d20702d8a946f` (detection
 behaviour of `105573d`, content hashes in `../evidence/2026-11-22-reproducibility/README.md`). The
