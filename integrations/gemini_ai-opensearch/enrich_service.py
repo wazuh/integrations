@@ -8,7 +8,7 @@ OS_USER = os.getenv("OS_USER", "admin")
 OS_PASS = os.getenv("OS_PASS", "admin")
 OS_VERIFY_SSL = os.getenv("OS_VERIFY_SSL", "false").lower() == "true"
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")  # required
 GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
