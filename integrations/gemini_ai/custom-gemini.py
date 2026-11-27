@@ -20,7 +20,7 @@ socket_addr = f'{pwd}/queue/sockets/queue'
 now = time.strftime("%a %b %d %H:%M:%S %Z %Y")
 
 # Gemini API config
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.8-flash"
 GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 # ---------- Helpers ----------

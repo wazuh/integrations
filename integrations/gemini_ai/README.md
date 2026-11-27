@@ -17,14 +17,14 @@
 | 4.12.0 | Wazuh Manager |
 
 ## Overview
-Integrate **Gemini AI** with **Wazuh** to enrich alerts. The integration leverages the **Gemini API** (`gemini-2.0-flash` model) to generate summaries and explanations for triggered alerts, which are then displayed directly on the **Wazuh Dashboard**.
+Integrate **Gemini AI** with **Wazuh** to enrich alerts. The integration leverages the **Gemini API** (`gemini-3.8-flash` model) to generate summaries and explanations for triggered alerts, which are then displayed directly on the **Wazuh Dashboard**.
 
 ---
 
 ## Requirements
 - **Gemini API Key** (from [Google AI Studio](https://aistudio.google.com/))  
 - **Wazuh Manager server access** (with integration and rules configuration rights)  
-- Model: **`gemini-2.0-flash`**
+- Model: **`gemini-3.8-flash`**
 
 ---
 
@@ -32,7 +32,7 @@ Integrate **Gemini AI** with **Wazuh** to enrich alerts. The integration leverag
 
 ### Step 1: Obtain a Gemini API Key
 1. Log in to [Google AI Studio](https://aistudio.google.com/).  
-2. Generate a new API key for the **Gemini 2.0 Flash** model.  
+2. Generate a new API key for the **Gemini 3.8 Flash** model.  
 3. Save the key securely, as it will be required in the integration configuration.  
 
 ---
@@ -58,7 +58,7 @@ Add the following <integration> block in /var/ossec/etc/ossec.conf:
 ```bash
 <integration>
   <name>custom-gemini.py</name>
-  <hook_url>https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent</hook_url>
+  <hook_url>https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent</hook_url>
   <api_key><your_api_key></api_key>
   <rule_id>554</rule_id>
   <alert_format>json</alert_format>

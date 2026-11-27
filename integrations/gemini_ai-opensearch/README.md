@@ -41,13 +41,13 @@ This process introduces a minor delay (approximately one minute) between the ini
 ## Requirements
 - **Gemini API Key** (from [Google AI Studio](https://aistudio.google.com/))  
 - **Wazuh Indexer CLI access and Dashboard Admin Access** (To create notification channel and Monitor)  
-- Model: **`gemini-2.0-flash`**
+- Model: **`gemini-3.8-flash`**
 
 ## Integration Steps
 
 ### Step 1: Obtain a Gemini API Key
 1. Log in to [Google AI Studio](https://aistudio.google.com/).  
-2. Generate a new API key for the **Gemini 2.0 Flash** model.  
+2. Generate a new API key for the **Gemini 3.8 Flash** model.  
 3. Save the key securely for later configuration.
 
 ### Step 2: Configure Notification Channel 
@@ -168,7 +168,7 @@ OS_USER="admin"
 OS_PASS="admin"
 OS_VERIFY_SSL="false"
 GEMINI_API_KEY="<YOUR_REAL_KEY>"
-GEMINI_MODEL="gemini-2.0-flash"
+GEMINI_MODEL="gemini-3.8-flash"
 ```
 Replace:
 - `OS_USER` and `OS_PASS` with your Wazuh Dashboard credentials
